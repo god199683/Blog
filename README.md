@@ -16,9 +16,9 @@
 1. Supabase SQL Editor에서 `supabase-schema.sql` 내용을 실행합니다.
 2. Supabase Project Settings > API에서 `anon public` key를 복사합니다.
 3. `config.js`의 `supabaseAnonKey`에 넣거나, 사이트 우측 상단의 `로컬 모드` 버튼에서 저장합니다.
-4. Authentication에서 작성자 계정을 만들고, 공개 회원가입은 꺼두는 것을 권장합니다.
+4. Authentication에서 가입 확인을 끄면 아이디/비밀번호 회원가입 직후 바로 로그인할 수 있습니다.
 
-`anon public` key는 브라우저에 공개되는 키입니다. 쓰기 권한은 RLS와 Supabase Auth 로그인으로 보호됩니다. 계정 소유자가 있는 공개 글만 홈에 표시되고, 비공개 글은 작성자 자신의 `내 블로그`에서만 관리됩니다.
+화면에서는 이메일 대신 아이디를 받지만, Supabase Auth 내부에는 `아이디@blog.local` 형태로 저장됩니다. `anon public` key는 브라우저에 공개되는 키입니다. 쓰기 권한은 RLS와 Supabase Auth 로그인으로 보호됩니다. 계정 소유자가 있는 공개 글만 홈에 표시되고, 비공개 글은 작성자 자신의 `내 블로그`에서만 관리됩니다.
 
 ## GitHub Pages 배포
 

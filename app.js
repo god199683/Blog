@@ -2,6 +2,7 @@ const CONFIG = window.BLOG_CONFIG || {};
 const SUPABASE_URL = CONFIG.supabaseUrl || "";
 const TABLE_NAME = CONFIG.tableName || "posts";
 const PROFILE_TABLE = "profiles";
+const AUTH_EMAIL_DOMAIN = CONFIG.authEmailDomain || "blog.local";
 const SUPABASE_KEY_STORAGE = "skyblog.supabaseAnonKey";
 const POSTS_STORAGE = "skyblog.posts.v2";
 const DRAFT_STORAGE = "skyblog.draft.v2";
@@ -166,7 +167,7 @@ async function ensureProfile() {
   }
 
   const user = state.session.user;
-  const fallbackName = user.email?.split("@")[0] || "작성자";
+  const fallbackName = getUserIdentifier(user) || "작성자";
   const defaults = {
     id: user.id,
     display_name: fallbackName,
@@ -798,7 +799,7 @@ async function saveProfile(event) {
   const profile = {
     id: state.session.user.id,
     blog_title: $("#profileBlogTitle").value.trim() || "나의 하늘색 블로그",
-    display_name: $("#profileDisplayName").value.trim() || state.session.user.email?.split("@")[0] || "작성자",
+    display_name: $("#profileDisplayName").value.trim() || getUserIdentifier(state.session.user) || "작성자",
     bio: $("#profileBio").value.trim() || "오늘의 생각을 차분히 기록합니다."
   };
 
@@ -850,8 +851,13 @@ async function signInWithPassword() {
     toast("Supabase 연결이 필요합니다.");
     return;
   }
-  const email = $("#authEmail").value.trim();
+  const identifier = normalizeIdentifier($("#authIdentifier").value);
   const password = $("#authPassword").value;
+  if (!identifier) {
+    toast("아이디를 입력하세요.");
+    return;
+  }
+  const email = identifierToEmail(identifier);
   const { error } = await state.supabase.auth.signInWithPassword({ email, password });
   if (error) {
     toast(error.message);
@@ -866,16 +872,17 @@ async function signUpWithPassword() {
     toast("Supabase 연결이 필요합니다.");
     return;
   }
-  const email = $("#authEmail").value.trim();
+  const identifier = normalizeIdentifier($("#authIdentifier").value);
   const password = $("#authPassword").value;
-  if (!email) {
-    toast("이메일을 입력하세요.");
+  if (!identifier) {
+    toast("아이디를 입력하세요.");
     return;
   }
   if (password.length < 6) {
     toast("비밀번호는 최소 6자 이상이어야 합니다.");
     return;
   }
+  const email = identifierToEmail(identifier);
   const { data, error } = await state.supabase.auth.signUp({ email, password });
   if (error) {
     toast(error.message);
@@ -885,7 +892,7 @@ async function signUpWithPassword() {
   if (data.session) {
     toast("회원가입이 완료되었습니다. 내 블로그를 준비했습니다.");
   } else {
-    toast("회원가입 메일을 보냈습니다. 이메일 확인 후 로그인하세요.");
+    toast("회원가입이 접수되었습니다. Supabase 가입 확인 설정이 켜져 있으면 로그인 전 비활성화가 필요합니다.");
   }
 }
 
@@ -901,13 +908,13 @@ async function signOut() {
 }
 
 function renderAuthDialog() {
-  const email = state.session?.user?.email || "";
+  const identifier = getUserIdentifier(state.session?.user);
   const loggedIn = Boolean(state.session);
   $("#authTitle").textContent = loggedIn ? "계정" : state.authMode === "signup" ? "회원가입" : "작성자 로그인";
-  $("#authState").textContent = loggedIn ? `${email} 로그인됨` : state.authMode === "signup" ? "새 계정을 만들고 내 블로그를 시작하세요." : "로그인하면 내 블로그를 관리할 수 있습니다.";
-  $("#authEmail").value = email;
+  $("#authState").textContent = loggedIn ? `${identifier} 로그인됨` : state.authMode === "signup" ? "아이디로 새 계정을 만들고 내 블로그를 시작하세요." : "아이디로 로그인하면 내 블로그를 관리할 수 있습니다.";
+  $("#authIdentifier").value = identifier;
   $("#authPassword").value = "";
-  $("#authEmail").closest(".field").hidden = loggedIn;
+  $("#authIdentifier").closest(".field").hidden = loggedIn;
   $("#authPassword").closest(".field").hidden = loggedIn;
   $("#authTabs").hidden = loggedIn;
   $("#authSubmitButton").hidden = loggedIn;
@@ -976,7 +983,28 @@ function getMyBlogBio() {
 }
 
 function getDisplayName() {
-  return state.profile?.display_name || state.session?.user?.email?.split("@")[0] || "작성자";
+  return state.profile?.display_name || getUserIdentifier(state.session?.user) || "작성자";
+}
+
+function normalizeIdentifier(value) {
+  return (value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+function identifierToEmail(identifier) {
+  return `${normalizeIdentifier(identifier)}@${AUTH_EMAIL_DOMAIN}`;
+}
+
+function emailToIdentifier(email) {
+  const value = email || "";
+  const suffix = `@${AUTH_EMAIL_DOMAIN}`;
+  return value.endsWith(suffix) ? value.slice(0, -suffix.length) : value.split("@")[0];
+}
+
+function getUserIdentifier(user) {
+  return emailToIdentifier(user?.email || "");
 }
 
 function getSupabaseKey() {
