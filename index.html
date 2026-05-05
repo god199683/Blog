@@ -76,13 +76,17 @@
         <div class="modal-head">
           <div>
             <p class="eyebrow">Writer</p>
-            <h2>작성자 로그인</h2>
+            <h2 id="authTitle">작성자 로그인</h2>
           </div>
           <button class="icon-button" type="button" data-close-dialog="authDialog" aria-label="닫기" title="닫기">
             <i data-lucide="x"></i>
           </button>
         </div>
         <p class="status-line" id="authState">로그인 필요</p>
+        <div class="auth-tabs" id="authTabs" role="tablist" aria-label="인증 방식">
+          <button class="nav-button is-active" type="button" data-auth-mode="login">로그인</button>
+          <button class="nav-button" type="button" data-auth-mode="signup">회원가입</button>
+        </div>
         <label class="field">
           <span>Email</span>
           <input id="authEmail" type="email" autocomplete="email" />
@@ -92,9 +96,8 @@
           <input id="authPassword" type="password" autocomplete="current-password" />
         </label>
         <div class="modal-actions">
-          <button class="ghost-button" type="button" id="magicLinkButton">매직 링크</button>
           <button class="outline-button" type="button" id="signOutButton" hidden>로그아웃</button>
-          <button class="primary-button" type="submit">로그인</button>
+          <button class="primary-button" type="submit" id="authSubmitButton">로그인</button>
         </div>
       </form>
     </dialog>

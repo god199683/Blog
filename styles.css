@@ -105,6 +105,7 @@ img {
 }
 
 .topnav,
+.auth-tabs,
 .top-actions,
 .modal-actions,
 .editor-actions,
@@ -120,6 +121,14 @@ img {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
+}
+
+.auth-tabs {
+  width: max-content;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
 }
 
 .top-actions {

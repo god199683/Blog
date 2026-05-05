@@ -17,6 +17,7 @@ const state = {
   view: "home",
   editingId: null,
   editorInitial: null,
+  authMode: "login",
   supabase: null,
   session: null,
   profile: null,
@@ -140,9 +141,15 @@ function bindGlobalControls() {
   });
 
   $("#authButton").addEventListener("click", openAuth);
-  $("#authForm").addEventListener("submit", signInWithPassword);
-  $("#magicLinkButton").addEventListener("click", sendMagicLink);
+  $("#authForm").addEventListener("submit", submitAuthForm);
   $("#signOutButton").addEventListener("click", signOut);
+
+  $$("[data-auth-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.authMode = button.dataset.authMode;
+      renderAuthDialog();
+    });
+  });
 }
 
 async function initSupabase(showSuccess = false) {
@@ -860,13 +867,27 @@ function openAuth() {
     toast("Supabase anon key를 먼저 저장하세요.");
     return;
   }
+  if (!state.session) {
+    state.authMode = "login";
+  }
   renderAuthDialog();
   $("#authDialog").showModal();
   updateIcons();
 }
 
-async function signInWithPassword(event) {
+async function submitAuthForm(event) {
   event.preventDefault();
+  if (state.session) {
+    return;
+  }
+  if (state.authMode === "signup") {
+    await signUpWithPassword();
+  } else {
+    await signInWithPassword();
+  }
+}
+
+async function signInWithPassword() {
   if (!state.supabase) {
     toast("Supabase 연결이 필요합니다.");
     return;
@@ -882,25 +903,32 @@ async function signInWithPassword(event) {
   toast("로그인했습니다. 내 블로그를 준비했습니다.");
 }
 
-async function sendMagicLink() {
+async function signUpWithPassword() {
   if (!state.supabase) {
     toast("Supabase 연결이 필요합니다.");
     return;
   }
   const email = $("#authEmail").value.trim();
+  const password = $("#authPassword").value;
   if (!email) {
     toast("이메일을 입력하세요.");
     return;
   }
-  const { error } = await state.supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.href.split("#")[0] }
-  });
+  if (password.length < 6) {
+    toast("비밀번호는 최소 6자 이상이어야 합니다.");
+    return;
+  }
+  const { data, error } = await state.supabase.auth.signUp({ email, password });
   if (error) {
     toast(error.message);
     return;
   }
-  toast("매직 링크를 보냈습니다.");
+  $("#authDialog").close();
+  if (data.session) {
+    toast("회원가입이 완료되었습니다. 내 블로그를 준비했습니다.");
+  } else {
+    toast("회원가입 메일을 보냈습니다. 이메일 확인 후 로그인하세요.");
+  }
 }
 
 async function signOut() {
@@ -916,10 +944,21 @@ async function signOut() {
 
 function renderAuthDialog() {
   const email = state.session?.user?.email || "";
-  $("#authState").textContent = email ? `${email} 로그인됨` : "로그인 필요";
+  const loggedIn = Boolean(state.session);
+  $("#authTitle").textContent = loggedIn ? "계정" : state.authMode === "signup" ? "회원가입" : "작성자 로그인";
+  $("#authState").textContent = loggedIn ? `${email} 로그인됨` : state.authMode === "signup" ? "새 계정을 만들고 내 블로그를 시작하세요." : "로그인하면 내 블로그를 관리할 수 있습니다.";
   $("#authEmail").value = email;
   $("#authPassword").value = "";
-  $("#signOutButton").hidden = !state.session;
+  $("#authEmail").closest(".field").hidden = loggedIn;
+  $("#authPassword").closest(".field").hidden = loggedIn;
+  $("#authTabs").hidden = loggedIn;
+  $("#authSubmitButton").hidden = loggedIn;
+  $("#signOutButton").hidden = !loggedIn;
+  $$("[data-auth-mode]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.authMode === state.authMode);
+  });
+  $("#authPassword").autocomplete = state.authMode === "signup" ? "new-password" : "current-password";
+  $("#authSubmitButton").textContent = state.authMode === "signup" ? "회원가입" : "로그인";
 }
 
 function updateConnectionStatus() {
