@@ -180,7 +180,8 @@ img {
   background: var(--sky-500);
 }
 
-.primary-button.wide {
+.primary-button.wide,
+.outline-button.wide {
   width: 100%;
 }
 

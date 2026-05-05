@@ -1,6 +1,6 @@
 # Sky Blog
 
-하늘색과 흰색을 기반으로 만든 정적 블로그입니다. GitHub Pages에 바로 배포할 수 있고, Supabase를 연결하면 글 목록과 발행 데이터를 `posts` 테이블에서 관리합니다.
+하늘색과 흰색을 기반으로 만든 정적 블로그입니다. GitHub Pages에 바로 배포할 수 있고, Supabase를 연결하면 홈은 공개 글이 모이는 공용 공간으로, 로그인한 사용자는 계정별 `내 블로그`를 따로 관리할 수 있습니다.
 
 ## 구성
 
@@ -8,7 +8,7 @@
 - `styles.css`: 하늘색/흰색 테마와 반응형 레이아웃
 - `app.js`: 글 목록, 상세 보기, 검색, 카테고리, 에디터, Supabase 연동
 - `config.js`: 블로그 이름과 Supabase URL/anon key 설정
-- `supabase-schema.sql`: Supabase 테이블과 RLS 정책
+- `supabase-schema.sql`: Supabase `posts`, `profiles` 테이블과 계정별 RLS 정책
 - `.github/workflows/pages.yml`: GitHub Pages 배포 워크플로
 
 ## Supabase 설정
@@ -18,7 +18,7 @@
 3. `config.js`의 `supabaseAnonKey`에 넣거나, 사이트 우측 상단의 `로컬 모드` 버튼에서 저장합니다.
 4. Authentication에서 작성자 계정을 만들고, 공개 회원가입은 꺼두는 것을 권장합니다.
 
-`anon public` key는 브라우저에 공개되는 키입니다. 쓰기 권한은 RLS와 Supabase Auth 로그인으로 보호됩니다.
+`anon public` key는 브라우저에 공개되는 키입니다. 쓰기 권한은 RLS와 Supabase Auth 로그인으로 보호됩니다. 공개 글은 홈에 표시되고, 비공개 글은 작성자 자신의 `내 블로그`에서만 관리됩니다.
 
 ## GitHub Pages 배포
 

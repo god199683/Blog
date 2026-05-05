@@ -1,12 +1,14 @@
 const CONFIG = window.BLOG_CONFIG || {};
 const SUPABASE_URL = CONFIG.supabaseUrl || "";
 const TABLE_NAME = CONFIG.tableName || "posts";
+const PROFILE_TABLE = "profiles";
 const SUPABASE_KEY_STORAGE = "skyblog.supabaseAnonKey";
-const POSTS_STORAGE = "skyblog.posts.v1";
-const DRAFT_STORAGE = "skyblog.draft.v1";
+const POSTS_STORAGE = "skyblog.posts.v2";
+const DRAFT_STORAGE = "skyblog.draft.v2";
 
 const app = document.querySelector("#app");
 const toastBox = document.querySelector("#toast");
+
 const state = {
   posts: [],
   selectedId: null,
@@ -17,45 +19,44 @@ const state = {
   editorInitial: null,
   supabase: null,
   session: null,
+  profile: null,
   loading: true
 };
 
 const seedPosts = [
   {
     id: "local-seed-1",
-    title: "하늘빛 블로그를 시작합니다",
-    slug: "welcome-sky-blog",
-    excerpt: "흰색 여백과 하늘색 포인트로 정리한 첫 글입니다.",
+    title: "모두의 하늘 블로그에 오신 것을 환영합니다",
+    slug: "welcome-public-sky-blog",
+    excerpt: "홈은 모든 사람이 읽을 수 있는 공개 글이 모이는 공간입니다.",
     category: "공지",
-    tags: ["시작", "블로그"],
+    tags: ["시작", "공용홈"],
     cover_url: "https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=1200&q=80",
     content: `
-      <p>이 블로그는 GitHub Pages에 바로 배포할 수 있는 정적 웹앱입니다. Supabase를 연결하면 공개 글을 불러오고, 로그인한 작성자는 에디터에서 새 글을 발행할 수 있습니다.</p>
-      <h2>깔끔한 기록 공간</h2>
-      <p>목록, 상세 보기, 검색, 카테고리, 태그, 커버 이미지, 리치 텍스트 편집 흐름을 한 화면 안에서 다룰 수 있게 구성했습니다.</p>
-      <figure>
-        <img src="https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=1200&q=80" alt="노트북이 놓인 밝은 책상" />
-        <figcaption>밝고 정돈된 글쓰기 화면을 기준으로 잡았습니다.</figcaption>
-      </figure>
+      <p>이 홈 화면은 특정 계정의 블로그가 아니라 공개된 글이 함께 모이는 공용 공간입니다.</p>
+      <p>로그인하면 상단에 <strong>내 블로그</strong> 메뉴가 나타나고, 그 안에서 내 블로그 이름과 글을 따로 관리할 수 있습니다.</p>
     `,
     published: true,
+    owner_id: null,
+    author_name: "Sky Blog",
     created_at: "2026-05-06T09:00:00+09:00",
     updated_at: "2026-05-06T09:00:00+09:00"
   },
   {
     id: "local-seed-2",
-    title: "네이버 블로그처럼 편하게 쓰기",
-    slug: "naver-like-editor",
-    excerpt: "툴바, 제목, 카테고리, 태그, 커버 URL, 미리보기를 한 번에 제공합니다.",
+    title: "로그인하면 나만의 블로그가 생깁니다",
+    slug: "account-blog-editor",
+    excerpt: "계정마다 별도의 블로그 이름, 소개, 글 목록을 가질 수 있습니다.",
     category: "에디터",
-    tags: ["글쓰기", "에디터", "Supabase"],
+    tags: ["내블로그", "Supabase"],
     cover_url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
     content: `
-      <p>글쓰기 화면에는 굵게, 기울임, 밑줄, 제목, 인용, 목록, 정렬, 링크, 이미지 삽입 버튼이 들어 있습니다. 본문은 자동으로 임시 저장되고, 오른쪽 미리보기에서 발행될 글의 느낌을 바로 확인할 수 있습니다.</p>
-      <blockquote>Supabase anon key를 연결하고 작성자 계정으로 로그인하면 글이 데이터베이스에 저장됩니다.</blockquote>
-      <p>키를 넣지 않은 상태에서는 브라우저 로컬 저장소에 저장되므로 디자인과 편집 경험을 먼저 확인하기 좋습니다.</p>
+      <p>글쓰기 화면에서 작성한 글은 로그인한 계정의 소유 글로 저장됩니다.</p>
+      <blockquote>공개 글은 홈에도 노출되고, 비공개 글은 내 블로그에서만 관리할 수 있습니다.</blockquote>
     `,
     published: true,
+    owner_id: null,
+    author_name: "Sky Blog",
     created_at: "2026-05-05T18:20:00+09:00",
     updated_at: "2026-05-05T18:20:00+09:00"
   }
@@ -78,23 +79,32 @@ function bindGlobalControls() {
   document.body.addEventListener("click", (event) => {
     const closeButton = event.target.closest("[data-close-dialog]");
     if (closeButton) {
-      const dialog = document.getElementById(closeButton.dataset.closeDialog);
-      dialog?.close();
+      document.getElementById(closeButton.dataset.closeDialog)?.close();
       return;
     }
 
     const nav = event.target.closest("[data-nav]");
-    if (nav) {
-      event.preventDefault();
-      if (nav.dataset.nav === "editor") {
-        openEditor();
-      } else {
-        state.view = nav.dataset.nav;
-        state.editingId = null;
-        state.editorInitial = null;
-        render();
-      }
+    if (!nav) {
+      return;
     }
+
+    event.preventDefault();
+    const nextView = nav.dataset.nav;
+    if (nextView === "editor") {
+      openEditor();
+      return;
+    }
+    if (nextView === "myblog" && !state.session) {
+      openAuth();
+      toast("로그인하면 내 블로그를 만들 수 있습니다.");
+      return;
+    }
+    state.view = nextView;
+    state.editingId = null;
+    state.editorInitial = null;
+    state.selectedId = null;
+    state.category = "전체";
+    render();
   });
 
   $("#syncButton").addEventListener("click", () => {
@@ -122,22 +132,14 @@ function bindGlobalControls() {
     $("#supabaseKey").value = "";
     state.supabase = null;
     state.session = null;
+    state.profile = null;
+    state.view = "home";
     $("#settingsDialog").close();
     await loadPosts();
     toast("Supabase 키를 지우고 로컬 모드로 전환했습니다.");
   });
 
-  $("#authButton").addEventListener("click", () => {
-    if (!state.supabase) {
-      $("#settingsDialog").showModal();
-      toast("Supabase anon key를 먼저 저장하세요.");
-      return;
-    }
-    renderAuthDialog();
-    $("#authDialog").showModal();
-    updateIcons();
-  });
-
+  $("#authButton").addEventListener("click", openAuth);
   $("#authForm").addEventListener("submit", signInWithPassword);
   $("#magicLinkButton").addEventListener("click", sendMagicLink);
   $("#signOutButton").addEventListener("click", signOut);
@@ -148,6 +150,7 @@ async function initSupabase(showSuccess = false) {
   if (!SUPABASE_URL || !anonKey) {
     state.supabase = null;
     state.session = null;
+    state.profile = null;
     updateConnectionStatus();
     return;
   }
@@ -155,22 +158,27 @@ async function initSupabase(showSuccess = false) {
   try {
     const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/+esm");
     state.supabase = createClient(SUPABASE_URL, anonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true
-      }
+      auth: { persistSession: true, autoRefreshToken: true }
     });
+
     const { data } = await state.supabase.auth.getSession();
     state.session = data.session;
-    state.supabase.auth.onAuthStateChange((_event, session) => {
+    if (state.session) {
+      await ensureProfile();
+    }
+
+    state.supabase.auth.onAuthStateChange(async (_event, session) => {
       state.session = session;
-      updateConnectionStatus();
-      if (state.view === "home") {
-        loadPosts();
-      } else {
-        render();
+      state.profile = null;
+      if (session) {
+        await ensureProfile();
+      } else if (state.view === "myblog" || state.view === "editor") {
+        state.view = "home";
       }
+      updateConnectionStatus();
+      await loadPosts();
     });
+
     updateConnectionStatus();
     if (showSuccess) {
       toast("Supabase 연결을 준비했습니다.");
@@ -178,9 +186,57 @@ async function initSupabase(showSuccess = false) {
   } catch (error) {
     state.supabase = null;
     state.session = null;
+    state.profile = null;
     updateConnectionStatus();
     toast(`Supabase SDK를 불러오지 못했습니다: ${error.message}`);
   }
+}
+
+async function ensureProfile() {
+  if (!state.supabase || !state.session) {
+    return null;
+  }
+
+  const user = state.session.user;
+  const fallbackName = user.email?.split("@")[0] || "작성자";
+  const defaults = {
+    id: user.id,
+    display_name: fallbackName,
+    blog_title: `${fallbackName}의 하늘색 블로그`,
+    bio: "오늘의 생각을 차분히 기록합니다."
+  };
+
+  const existing = await state.supabase
+    .from(PROFILE_TABLE)
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existing.error) {
+    toast(`프로필을 불러오지 못했습니다: ${existing.error.message}`);
+    state.profile = defaults;
+    return defaults;
+  }
+
+  if (existing.data) {
+    state.profile = existing.data;
+    return state.profile;
+  }
+
+  const created = await state.supabase
+    .from(PROFILE_TABLE)
+    .insert(defaults)
+    .select()
+    .single();
+
+  if (created.error) {
+    toast(`프로필을 만들지 못했습니다: ${created.error.message}`);
+    state.profile = defaults;
+    return defaults;
+  }
+
+  state.profile = created.data || defaults;
+  return state.profile;
 }
 
 async function loadPosts() {
@@ -189,15 +245,14 @@ async function loadPosts() {
 
   if (state.supabase) {
     try {
-      let query = state.supabase.from(TABLE_NAME).select("*").order("created_at", { ascending: false });
-      if (!state.session) {
-        query = query.eq("published", true);
-      }
-      const { data, error } = await query;
+      const { data, error } = await state.supabase
+        .from(TABLE_NAME)
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) {
         throw error;
       }
-      state.posts = normalizePosts(data);
+      state.posts = normalizePosts(data || []);
       cacheLocalPosts(state.posts);
     } catch (error) {
       state.posts = getLocalPosts();
@@ -211,7 +266,7 @@ async function loadPosts() {
     state.posts = clonePosts(seedPosts);
   }
 
-  state.selectedId = state.selectedId || state.posts[0]?.id || null;
+  state.selectedId = getVisiblePosts()[0]?.id || null;
   state.loading = false;
   render();
 }
@@ -222,43 +277,66 @@ function render() {
   if (state.view === "editor") {
     renderEditor();
   } else {
-    renderHome();
+    renderBlogList();
   }
   updateIcons();
 }
 
-function renderHome() {
-  const categories = getCategories();
-  const visiblePosts = getFilteredPosts();
-  const selected = visiblePosts.find((post) => post.id === state.selectedId) || visiblePosts[0] || state.posts[0];
+function renderBlogList() {
+  const isMine = state.view === "myblog";
+  const visiblePosts = getVisiblePosts();
+  const categories = getCategories(visiblePosts);
+  const selected = visiblePosts.find((post) => post.id === state.selectedId) || visiblePosts[0];
   if (selected) {
     state.selectedId = selected.id;
   }
 
+  const title = isMine ? getMyBlogTitle() : "모두의 하늘 블로그";
+  const description = isMine
+    ? getMyBlogBio()
+    : "공개로 발행된 글이 함께 모이는 공용 홈입니다.";
+  const countLabel = isMine ? "내 글" : "공개 글";
+
   app.innerHTML = `
     <section class="blog-grid">
       <aside class="profile-panel">
-        <div class="profile-visual"><i data-lucide="cloud-sun"></i></div>
-        <h1>${escapeHtml(CONFIG.blogTitle || "Sky Blog")}</h1>
-        <p>${escapeHtml(CONFIG.ownerName || "나의 기록")}의 하늘색 블로그</p>
-        <button class="primary-button wide" type="button" data-nav="editor">
-          <i data-lucide="square-pen"></i>
-          새 글 쓰기
-        </button>
+        <div class="profile-visual"><i data-lucide="${isMine ? "user-round" : "cloud-sun"}"></i></div>
+        <p class="eyebrow">${isMine ? "My Blog" : "Public Home"}</p>
+        <h1>${escapeHtml(title)}</h1>
+        <p>${escapeHtml(description)}</p>
+        ${
+          isMine
+            ? `
+              <button class="outline-button wide" type="button" id="editProfileButton">
+                <i data-lucide="settings"></i>
+                블로그 설정
+              </button>
+              <button class="primary-button wide" type="button" data-nav="editor">
+                <i data-lucide="square-pen"></i>
+                새 글 쓰기
+              </button>
+            `
+            : `
+              <button class="primary-button wide" type="button" data-nav="${state.session ? "myblog" : "editor"}">
+                <i data-lucide="${state.session ? "user-round" : "log-in"}"></i>
+                ${state.session ? "내 블로그로" : "로그인하고 시작"}
+              </button>
+            `
+        }
         <label class="search-field">
           <span class="sr-only">검색</span>
           <i data-lucide="search"></i>
           <input id="searchInput" type="search" value="${escapeAttr(state.query)}" placeholder="글 검색" />
         </label>
         <div class="category-list" aria-label="카테고리">
-          ${categories.map(renderCategory).join("")}
+          ${categories.map((category) => renderCategory(category, visiblePosts)).join("")}
         </div>
       </aside>
 
       <section class="feed-panel">
         <div class="section-head">
           <div>
-            <h2>최근 글</h2>
+            <h2>${countLabel}</h2>
             <p>${visiblePosts.length}개의 글</p>
           </div>
           <button class="icon-button" type="button" id="refreshButton" aria-label="새로고침" title="새로고침">
@@ -271,22 +349,24 @@ function renderHome() {
               ? `<div class="empty-state">불러오는 중...</div>`
               : visiblePosts.length
                 ? visiblePosts.map((post) => renderPostCard(post, selected?.id === post.id)).join("")
-                : `<div class="empty-state">표시할 글이 없습니다.</div>`
+                : `<div class="empty-state">${isMine ? "아직 내 글이 없습니다." : "공개 글이 없습니다."}</div>`
           }
         </div>
       </section>
 
       <article class="reader-panel">
-        ${selected ? renderReader(selected) : `<div class="empty-state">첫 글을 작성해보세요.</div>`}
+        ${selected ? renderReader(selected, isMine) : `<div class="empty-state">표시할 글이 없습니다.</div>`}
       </article>
     </section>
+
+    ${isMine ? renderProfileDialog() : ""}
   `;
 
-  bindHomeEvents();
+  bindListEvents();
 }
 
-function renderCategory(category) {
-  const count = category === "전체" ? state.posts.length : state.posts.filter((post) => (post.category || "기타") === category).length;
+function renderCategory(category, posts) {
+  const count = category === "전체" ? posts.length : posts.filter((post) => (post.category || "기타") === category).length;
   return `
     <button class="category-chip ${state.category === category ? "is-active" : ""}" type="button" data-category="${escapeAttr(category)}">
       <span>${escapeHtml(category)}</span>
@@ -298,7 +378,7 @@ function renderCategory(category) {
 function renderPostCard(post, isActive) {
   return `
     <article class="post-card ${isActive ? "is-active" : ""}" data-post-id="${escapeAttr(post.id)}" tabindex="0">
-      <div class="post-thumb">${renderCover(post, "thumb")}</div>
+      <div class="post-thumb">${renderCover(post)}</div>
       <div>
         <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)}</div>
         <h3>${escapeHtml(post.title)}</h3>
@@ -308,23 +388,32 @@ function renderPostCard(post, isActive) {
   `;
 }
 
-function renderReader(post) {
+function renderReader(post, isMine) {
+  const canEdit = state.session && post.owner_id === state.session.user.id;
   return `
-    <div class="reader-cover">${renderCover(post, "reader")}</div>
+    <div class="reader-cover">${renderCover(post)}</div>
     <div class="reader-body">
-      <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)}</div>
+      <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)} · ${escapeHtml(post.author_name || "공개 작성자")}</div>
       <h2 class="reader-title">${escapeHtml(post.title)}</h2>
       <div class="tag-list">${(post.tags || []).map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>
-      <div class="reader-toolbar">
-        <button class="outline-button" type="button" data-edit-id="${escapeAttr(post.id)}">
-          <i data-lucide="square-pen"></i>
-          수정
-        </button>
-        <button class="ghost-button" type="button" data-delete-id="${escapeAttr(post.id)}">
-          <i data-lucide="trash-2"></i>
-          삭제
-        </button>
-      </div>
+      ${
+        canEdit
+          ? `
+            <div class="reader-toolbar">
+              <button class="outline-button" type="button" data-edit-id="${escapeAttr(post.id)}">
+                <i data-lucide="square-pen"></i>
+                수정
+              </button>
+              <button class="ghost-button" type="button" data-delete-id="${escapeAttr(post.id)}">
+                <i data-lucide="trash-2"></i>
+                삭제
+              </button>
+            </div>
+          `
+          : isMine
+            ? `<p class="status-line">내 계정의 글만 수정할 수 있습니다.</p>`
+            : ""
+      }
       <div class="content">${sanitizeHtml(post.content)}</div>
     </div>
   `;
@@ -337,21 +426,61 @@ function renderCover(post) {
   return `<div class="cover-placeholder"><i data-lucide="image"></i></div>`;
 }
 
-function bindHomeEvents() {
+function renderProfileDialog() {
+  return `
+    <dialog class="modal" id="profileDialog">
+      <form id="profileForm" class="modal-body">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">My Blog</p>
+            <h2>블로그 설정</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-dialog="profileDialog" aria-label="닫기" title="닫기">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <label class="field">
+          <span>블로그 이름</span>
+          <input id="profileBlogTitle" value="${escapeAttr(getMyBlogTitle())}" />
+        </label>
+        <label class="field">
+          <span>작성자 이름</span>
+          <input id="profileDisplayName" value="${escapeAttr(getDisplayName())}" />
+        </label>
+        <label class="field">
+          <span>소개</span>
+          <input id="profileBio" value="${escapeAttr(getMyBlogBio())}" />
+        </label>
+        <div class="modal-actions">
+          <button class="primary-button" type="submit">저장</button>
+        </div>
+      </form>
+    </dialog>
+  `;
+}
+
+function bindListEvents() {
   $("#searchInput")?.addEventListener("input", (event) => {
     state.query = event.target.value;
-    renderHome();
-    updateIcons();
+    renderBlogList();
     $("#searchInput")?.focus();
+    updateIcons();
   });
 
   $("#refreshButton")?.addEventListener("click", loadPosts);
+
+  $("#editProfileButton")?.addEventListener("click", () => {
+    $("#profileDialog")?.showModal();
+    updateIcons();
+  });
+
+  $("#profileForm")?.addEventListener("submit", saveProfile);
 
   $$("[data-category]").forEach((button) => {
     button.addEventListener("click", () => {
       state.category = button.dataset.category;
       state.selectedId = null;
-      renderHome();
+      renderBlogList();
       updateIcons();
     });
   });
@@ -359,7 +488,7 @@ function bindHomeEvents() {
   $$("[data-post-id]").forEach((card) => {
     const select = () => {
       state.selectedId = card.dataset.postId;
-      renderHome();
+      renderBlogList();
       updateIcons();
     };
     card.addEventListener("click", select);
@@ -381,6 +510,12 @@ function bindHomeEvents() {
 }
 
 function openEditor(postId = null) {
+  if (!state.session && state.supabase) {
+    openAuth();
+    toast("로그인하면 계정별 블로그에 글을 쓸 수 있습니다.");
+    return;
+  }
+
   const post = postId ? state.posts.find((item) => item.id === postId) : getDraft() || createBlankPost();
   state.view = "editor";
   state.editingId = postId;
@@ -468,7 +603,7 @@ function renderEditor() {
       </div>
 
       <div class="editor-foot">
-        <p class="status-line" id="editorStatus">로컬 자동 임시저장</p>
+        <p class="status-line" id="editorStatus">${state.session ? `${getMyBlogTitle()}에 저장` : "로컬 자동 임시저장"}</p>
         <div class="editor-actions">
           <button class="outline-button" type="button" data-editor-action="cancel">돌아가기</button>
           <button class="primary-button" type="submit">발행</button>
@@ -510,7 +645,7 @@ function bindEditorEvents() {
     toast("임시저장했습니다.");
   });
   $("[data-editor-action='cancel']").addEventListener("click", () => {
-    state.view = "home";
+    state.view = state.session ? "myblog" : "home";
     state.editingId = null;
     state.editorInitial = null;
     render();
@@ -589,6 +724,8 @@ function readEditorPost({ loose = false } = {}) {
 
   return {
     id: base.id || crypto.randomUUID(),
+    owner_id: state.session?.user?.id || base.owner_id || null,
+    author_name: getDisplayName(),
     title: title || "제목 없음",
     slug: base.slug || makeSlug(title || "untitled"),
     excerpt: makeExcerpt(content),
@@ -616,7 +753,7 @@ function updatePreview() {
   const post = readEditorPost({ loose: true });
   $("#editorPreview").innerHTML = `
     ${post.cover_url ? `<div class="reader-cover"><img src="${escapeAttr(post.cover_url)}" alt="${escapeAttr(post.title)} 커버" /></div>` : ""}
-    <div class="post-meta">${escapeHtml(post.category)} · ${formatDate(post.updated_at)}</div>
+    <div class="post-meta">${escapeHtml(post.category)} · ${formatDate(post.updated_at)} · ${escapeHtml(post.author_name)}</div>
     <h2 class="reader-title">${escapeHtml(post.title)}</h2>
     <div class="tag-list">${post.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>
     <div class="content">${sanitizeHtml(post.content)}</div>
@@ -630,7 +767,7 @@ async function publishPost(event) {
     const saved = await persistPost(post);
     localStorage.removeItem(DRAFT_STORAGE);
     state.selectedId = saved.id;
-    state.view = "home";
+    state.view = state.session ? "myblog" : "home";
     state.editingId = null;
     state.editorInitial = null;
     await loadPosts();
@@ -645,24 +782,23 @@ async function persistPost(post) {
   if (state.supabase && state.session) {
     const payload = {
       ...post,
-      id: isUuid(post.id) ? post.id : crypto.randomUUID()
+      id: isUuid(post.id) ? post.id : crypto.randomUUID(),
+      owner_id: state.session.user.id,
+      author_name: getDisplayName()
     };
     const { data, error } = await state.supabase.from(TABLE_NAME).upsert(payload, { onConflict: "id" }).select().single();
     if (error) {
       throw error;
     }
-    toast("Supabase에 발행했습니다.");
+    toast("내 블로그에 발행했습니다.");
     return normalizePost(data);
   }
 
-  const saved = {
-    ...post,
-    id: post.id || crypto.randomUUID()
-  };
+  const saved = { ...post, id: post.id || crypto.randomUUID(), author_name: "로컬 작성자" };
   const next = [saved, ...state.posts.filter((item) => item.id !== saved.id)].sort(sortByDate);
   state.posts = next;
   cacheLocalPosts(next);
-  toast(state.supabase ? "로그인 전이라 로컬에 저장했습니다." : "로컬에 저장했습니다.");
+  toast("로컬에 저장했습니다. Supabase 로그인 후에는 계정별 블로그에 저장됩니다.");
   return saved;
 }
 
@@ -672,12 +808,12 @@ async function deletePost(id) {
   }
 
   if (state.supabase && state.session && isUuid(id)) {
-    const { error } = await state.supabase.from(TABLE_NAME).delete().eq("id", id);
+    const { error } = await state.supabase.from(TABLE_NAME).delete().eq("id", id).eq("owner_id", state.session.user.id);
     if (error) {
       toast(error.message);
       return;
     }
-    toast("Supabase에서 삭제했습니다.");
+    toast("내 블로그에서 삭제했습니다.");
   } else {
     state.posts = state.posts.filter((post) => post.id !== id);
     cacheLocalPosts(state.posts);
@@ -686,6 +822,47 @@ async function deletePost(id) {
 
   state.selectedId = null;
   await loadPosts();
+}
+
+async function saveProfile(event) {
+  event.preventDefault();
+  if (!state.session) {
+    openAuth();
+    return;
+  }
+
+  const profile = {
+    id: state.session.user.id,
+    blog_title: $("#profileBlogTitle").value.trim() || "나의 하늘색 블로그",
+    display_name: $("#profileDisplayName").value.trim() || state.session.user.email?.split("@")[0] || "작성자",
+    bio: $("#profileBio").value.trim() || "오늘의 생각을 차분히 기록합니다."
+  };
+
+  if (state.supabase) {
+    const { data, error } = await state.supabase.from(PROFILE_TABLE).upsert(profile, { onConflict: "id" }).select().single();
+    if (error) {
+      toast(error.message);
+      return;
+    }
+    state.profile = data;
+  } else {
+    state.profile = profile;
+  }
+
+  $("#profileDialog")?.close();
+  toast("블로그 설정을 저장했습니다.");
+  render();
+}
+
+function openAuth() {
+  if (!state.supabase) {
+    $("#settingsDialog").showModal();
+    toast("Supabase anon key를 먼저 저장하세요.");
+    return;
+  }
+  renderAuthDialog();
+  $("#authDialog").showModal();
+  updateIcons();
 }
 
 async function signInWithPassword(event) {
@@ -702,7 +879,7 @@ async function signInWithPassword(event) {
     return;
   }
   $("#authDialog").close();
-  toast("로그인했습니다.");
+  toast("로그인했습니다. 내 블로그를 준비했습니다.");
 }
 
 async function sendMagicLink() {
@@ -731,6 +908,8 @@ async function signOut() {
     return;
   }
   await state.supabase.auth.signOut();
+  state.profile = null;
+  state.view = "home";
   $("#authDialog").close();
   toast("로그아웃했습니다.");
 }
@@ -746,14 +925,19 @@ function renderAuthDialog() {
 function updateConnectionStatus() {
   const syncLabel = $("#syncLabel");
   const authButton = $("#authButton");
+  const myBlogNav = $("#myBlogNav");
   if (!syncLabel || !authButton) {
     return;
+  }
+
+  if (myBlogNav) {
+    myBlogNav.hidden = !state.session;
   }
 
   if (!getSupabaseKey()) {
     syncLabel.textContent = "로컬 모드";
   } else if (state.supabase && state.session) {
-    syncLabel.textContent = "작성자 연결";
+    syncLabel.textContent = "내 블로그 연결";
   } else if (state.supabase) {
     syncLabel.textContent = "Supabase";
   } else {
@@ -769,17 +953,33 @@ function updateTopNav() {
   });
 }
 
-function getFilteredPosts() {
+function getVisiblePosts() {
   const query = state.query.trim().toLowerCase();
+  const isMine = state.view === "myblog";
+  const userId = state.session?.user?.id;
+
   return state.posts.filter((post) => {
-    const inCategory = state.category === "전체" || (post.category || "기타") === state.category;
-    const haystack = `${post.title} ${post.excerpt || ""} ${(post.tags || []).join(" ")} ${htmlToText(post.content)}`.toLowerCase();
-    return inCategory && (!query || haystack.includes(query));
+    const ownerMatch = isMine ? post.owner_id === userId : post.published === true;
+    const categoryMatch = state.category === "전체" || (post.category || "기타") === state.category;
+    const haystack = `${post.title} ${post.excerpt || ""} ${(post.tags || []).join(" ")} ${post.author_name || ""} ${htmlToText(post.content)}`.toLowerCase();
+    return ownerMatch && categoryMatch && (!query || haystack.includes(query));
   });
 }
 
-function getCategories() {
-  return ["전체", ...new Set(state.posts.map((post) => post.category || "기타"))];
+function getCategories(posts) {
+  return ["전체", ...new Set(posts.map((post) => post.category || "기타"))];
+}
+
+function getMyBlogTitle() {
+  return state.profile?.blog_title || `${getDisplayName()}의 하늘색 블로그`;
+}
+
+function getMyBlogBio() {
+  return state.profile?.bio || "오늘의 생각을 차분히 기록합니다.";
+}
+
+function getDisplayName() {
+  return state.profile?.display_name || state.session?.user?.email?.split("@")[0] || "작성자";
 }
 
 function getSupabaseKey() {
@@ -812,6 +1012,8 @@ function createBlankPost() {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
+    owner_id: state.session?.user?.id || null,
+    author_name: getDisplayName(),
     title: "",
     slug: "",
     excerpt: "",
@@ -832,6 +1034,8 @@ function normalizePosts(posts = []) {
 function normalizePost(post) {
   return {
     id: post.id,
+    owner_id: post.owner_id || null,
+    author_name: post.author_name || "공개 작성자",
     title: post.title || "제목 없음",
     slug: post.slug || makeSlug(post.title || "post"),
     excerpt: post.excerpt || makeExcerpt(post.content || ""),
@@ -858,13 +1062,14 @@ function sortByDate(a, b) {
 }
 
 function makeSlug(value) {
-  return value
+  const base = value
     .toString()
     .trim()
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 80) || `post-${Date.now()}`;
+    .slice(0, 72);
+  return `${base || "post"}-${Date.now().toString(36)}`;
 }
 
 function makeExcerpt(html) {
