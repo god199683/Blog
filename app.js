@@ -282,7 +282,7 @@ function renderBlogList() {
               </button>
             `
             : `
-              <button class="primary-button wide" type="button" data-nav="${state.session ? "myblog" : "editor"}">
+              <button class="primary-button wide" type="button" ${state.session ? 'data-nav="myblog"' : 'id="homeLoginButton"'}>
                 <i data-lucide="${state.session ? "user-round" : "log-in"}"></i>
                 ${state.session ? "내 블로그로" : "로그인하고 시작"}
               </button>
@@ -433,6 +433,8 @@ function bindListEvents() {
   });
 
   $("#refreshButton")?.addEventListener("click", loadPosts);
+
+  $("#homeLoginButton")?.addEventListener("click", openAuth);
 
   $("#editProfileButton")?.addEventListener("click", () => {
     $("#profileDialog")?.showModal();
@@ -930,12 +932,16 @@ function updateConnectionStatus() {
   const syncLabel = $("#syncLabel");
   const authButton = $("#authButton");
   const myBlogNav = $("#myBlogNav");
+  const editorNav = $("#editorNav");
   if (!syncLabel || !authButton) {
     return;
   }
 
   if (myBlogNav) {
     myBlogNav.hidden = !state.session;
+  }
+  if (editorNav) {
+    editorNav.hidden = !state.session;
   }
 
   if (!getSupabaseKey()) {
