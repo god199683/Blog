@@ -24,52 +24,13 @@ const state = {
   loading: true
 };
 
-const seedPosts = [
-  {
-    id: "local-seed-1",
-    title: "모두의 하늘 블로그에 오신 것을 환영합니다",
-    slug: "welcome-public-sky-blog",
-    excerpt: "홈은 모든 사람이 읽을 수 있는 공개 글이 모이는 공간입니다.",
-    category: "공지",
-    tags: ["시작", "공용홈"],
-    cover_url: "https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=1200&q=80",
-    content: `
-      <p>이 홈 화면은 특정 계정의 블로그가 아니라 공개된 글이 함께 모이는 공용 공간입니다.</p>
-      <p>로그인하면 상단에 <strong>내 블로그</strong> 메뉴가 나타나고, 그 안에서 내 블로그 이름과 글을 따로 관리할 수 있습니다.</p>
-    `,
-    published: true,
-    owner_id: null,
-    author_name: "Sky Blog",
-    created_at: "2026-05-06T09:00:00+09:00",
-    updated_at: "2026-05-06T09:00:00+09:00"
-  },
-  {
-    id: "local-seed-2",
-    title: "로그인하면 나만의 블로그가 생깁니다",
-    slug: "account-blog-editor",
-    excerpt: "계정마다 별도의 블로그 이름, 소개, 글 목록을 가질 수 있습니다.",
-    category: "에디터",
-    tags: ["내블로그", "Supabase"],
-    cover_url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
-    content: `
-      <p>글쓰기 화면에서 작성한 글은 로그인한 계정의 소유 글로 저장됩니다.</p>
-      <blockquote>공개 글은 홈에도 노출되고, 비공개 글은 내 블로그에서만 관리할 수 있습니다.</blockquote>
-    `,
-    published: true,
-    owner_id: null,
-    author_name: "Sky Blog",
-    created_at: "2026-05-05T18:20:00+09:00",
-    updated_at: "2026-05-05T18:20:00+09:00"
-  }
-];
-
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
-  $("#brandTitle").textContent = CONFIG.blogTitle || "Sky Blog";
+  $("#brandTitle").textContent = CONFIG.blogTitle || "Blog";
   bindGlobalControls();
   await initSupabase();
   await loadPosts();
@@ -269,10 +230,6 @@ async function loadPosts() {
     state.posts = getLocalPosts();
   }
 
-  if (!state.posts.length) {
-    state.posts = clonePosts(seedPosts);
-  }
-
   state.selectedId = getVisiblePosts()[0]?.id || null;
   state.loading = false;
   render();
@@ -298,10 +255,10 @@ function renderBlogList() {
     state.selectedId = selected.id;
   }
 
-  const title = isMine ? getMyBlogTitle() : "모두의 하늘 블로그";
+  const title = isMine ? getMyBlogTitle() : "공용 홈";
   const description = isMine
     ? getMyBlogBio()
-    : "공개로 발행된 글이 함께 모이는 공용 홈입니다.";
+    : "계정별 블로그에서 공개로 발행한 글만 모아 보여줍니다.";
   const countLabel = isMine ? "내 글" : "공개 글";
 
   app.innerHTML = `
@@ -356,7 +313,7 @@ function renderBlogList() {
               ? `<div class="empty-state">불러오는 중...</div>`
               : visiblePosts.length
                 ? visiblePosts.map((post) => renderPostCard(post, selected?.id === post.id)).join("")
-                : `<div class="empty-state">${isMine ? "아직 내 글이 없습니다." : "공개 글이 없습니다."}</div>`
+                : `<div class="empty-state">${isMine ? "아직 내 글이 없습니다." : "아직 공개된 계정 글이 없습니다."}</div>`
           }
         </div>
       </section>
@@ -869,6 +826,7 @@ function openAuth() {
   }
   if (!state.session) {
     state.authMode = "login";
+    $("#signOutButton").hidden = true;
   }
   renderAuthDialog();
   $("#authDialog").showModal();
@@ -998,7 +956,7 @@ function getVisiblePosts() {
   const userId = state.session?.user?.id;
 
   return state.posts.filter((post) => {
-    const ownerMatch = isMine ? post.owner_id === userId : post.published === true;
+    const ownerMatch = isMine ? post.owner_id === userId : post.published === true && Boolean(post.owner_id);
     const categoryMatch = state.category === "전체" || (post.category || "기타") === state.category;
     const haystack = `${post.title} ${post.excerpt || ""} ${(post.tags || []).join(" ")} ${post.author_name || ""} ${htmlToText(post.content)}`.toLowerCase();
     return ownerMatch && categoryMatch && (!query || haystack.includes(query));
@@ -1028,9 +986,9 @@ function getSupabaseKey() {
 function getLocalPosts() {
   try {
     const saved = JSON.parse(localStorage.getItem(POSTS_STORAGE) || "[]");
-    return saved.length ? normalizePosts(saved) : clonePosts(seedPosts);
+    return saved.length ? normalizePosts(saved) : [];
   } catch {
-    return clonePosts(seedPosts);
+    return [];
   }
 }
 
