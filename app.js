@@ -498,7 +498,7 @@ function renderPostView() {
   app.innerHTML = `
     <section class="post-view-shell">
       <div class="post-view-head">
-        <button class="outline-button" type="button" data-nav="${backView}">
+        <button class="outline-button viewer-compact-button" type="button" data-nav="${backView}">
           <i data-lucide="arrow-left"></i>
           돌아가기
         </button>
@@ -860,7 +860,7 @@ function renderReader(post, isMine) {
       <h2 class="reader-title">${escapeHtml(post.title)}</h2>
       <div class="tag-list">${(post.tags || []).map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>
       <div class="reader-toolbar">
-        <button class="outline-button ${state.bookReader ? "is-active" : ""}" type="button" id="bookReaderButton">
+        <button class="outline-button viewer-compact-button ${state.bookReader ? "is-active" : ""}" type="button" id="bookReaderButton">
           <i data-lucide="book-open"></i>
           책 형태로 읽기
         </button>
@@ -869,11 +869,11 @@ function renderReader(post, isMine) {
         canEdit
           ? `
             <div class="reader-toolbar">
-              <button class="outline-button" type="button" data-edit-id="${escapeAttr(post.id)}">
+              <button class="outline-button viewer-compact-button" type="button" data-edit-id="${escapeAttr(post.id)}">
                 <i data-lucide="square-pen"></i>
                 수정
               </button>
-              <button class="ghost-button" type="button" data-delete-id="${escapeAttr(post.id)}">
+              <button class="ghost-button viewer-compact-button" type="button" data-delete-id="${escapeAttr(post.id)}">
                 <i data-lucide="trash-2"></i>
                 삭제
               </button>

@@ -972,8 +972,20 @@ img {
 .reader-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 18px 0 24px;
+  gap: 6px;
+  margin: 12px 0 18px;
+}
+
+.viewer-compact-button {
+  min-height: 28px;
+  padding: 0 9px;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.viewer-compact-button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .tag-list {
