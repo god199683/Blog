@@ -321,14 +321,16 @@ function renderBlogList() {
         ${
           isMine
             ? `
-              <button class="outline-button wide" type="button" id="editProfileButton">
-                <i data-lucide="settings"></i>
-                블로그 설정
-              </button>
-              <button class="primary-button wide" type="button" data-nav="editor">
-                <i data-lucide="square-pen"></i>
-                새 글 쓰기
-              </button>
+              <div class="profile-actions">
+                <button class="outline-button" type="button" id="editProfileButton">
+                  <i data-lucide="settings"></i>
+                  블로그 설정
+                </button>
+                <button class="primary-button" type="button" data-nav="editor">
+                  <i data-lucide="square-pen"></i>
+                  새 글 쓰기
+                </button>
+              </div>
             `
             : `
               <button class="primary-button wide" type="button" ${state.session ? 'data-nav="myblog"' : 'id="homeLoginButton"'}>
