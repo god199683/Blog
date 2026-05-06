@@ -6,6 +6,11 @@ const AUTH_EMAIL_DOMAIN = CONFIG.authEmailDomain || "blog.local";
 const SUPABASE_KEY_STORAGE = "skyblog.supabaseAnonKey";
 const POSTS_STORAGE = "skyblog.posts.v2";
 const DRAFT_STORAGE = "skyblog.draft.v2";
+const ROUTES = {
+  home: "#home",
+  myblog: "#blog/me",
+  editor: "#write"
+};
 
 const app = document.querySelector("#app");
 const toastBox = document.querySelector("#toast");
@@ -34,6 +39,7 @@ async function init() {
   $("#brandTitle").textContent = CONFIG.blogTitle || "Blog";
   bindGlobalControls();
   await initSupabase();
+  applyRouteFromHash();
   await loadPosts();
   updateIcons();
 }
@@ -62,13 +68,10 @@ function bindGlobalControls() {
       toast("로그인하면 내 블로그를 만들 수 있습니다.");
       return;
     }
-    state.view = nextView;
-    state.editingId = null;
-    state.editorInitial = null;
-    state.selectedId = null;
-    state.category = "전체";
-    render();
+    navigateTo(nextView);
   });
+
+  window.addEventListener("hashchange", applyRouteFromHash);
 
   $("#syncButton").addEventListener("click", () => {
     $("#supabaseUrl").value = SUPABASE_URL;
@@ -96,7 +99,7 @@ function bindGlobalControls() {
     state.supabase = null;
     state.session = null;
     state.profile = null;
-    state.view = "home";
+    navigateTo("home", { replace: true });
     $("#settingsDialog").close();
     await loadPosts();
     toast("Supabase 키를 지우고 로컬 모드로 전환했습니다.");
@@ -142,7 +145,7 @@ async function initSupabase(showSuccess = false) {
       if (session) {
         await ensureProfile();
       } else if (state.view === "myblog" || state.view === "editor") {
-        state.view = "home";
+        navigateTo("home", { replace: true });
       }
       updateConnectionStatus();
       await loadPosts();
@@ -245,6 +248,59 @@ function render() {
     renderBlogList();
   }
   updateIcons();
+}
+
+function navigateTo(view, { replace = false } = {}) {
+  if ((view === "myblog" || view === "editor") && !state.session) {
+    openAuth();
+    toast("로그인하면 내 블로그로 이동할 수 있습니다.");
+    view = "home";
+  }
+
+  const route = ROUTES[view] || ROUTES.home;
+  if (replace) {
+    window.history.replaceState(null, "", route);
+  } else if (window.location.hash !== route) {
+    window.location.hash = route;
+    return;
+  }
+
+  applyView(view);
+}
+
+function applyRouteFromHash() {
+  const view = viewFromHash();
+  if ((view === "myblog" || view === "editor") && !state.session) {
+    window.history.replaceState(null, "", ROUTES.home);
+    applyView("home");
+    return;
+  }
+
+  if (view === "editor") {
+    openEditor(null, { keepRoute: true });
+    return;
+  }
+
+  applyView(view);
+}
+
+function viewFromHash() {
+  if (window.location.hash === ROUTES.myblog) {
+    return "myblog";
+  }
+  if (window.location.hash === ROUTES.editor) {
+    return "editor";
+  }
+  return "home";
+}
+
+function applyView(view) {
+  state.view = view;
+  state.editingId = null;
+  state.editorInitial = null;
+  state.selectedId = null;
+  state.category = "전체";
+  render();
 }
 
 function renderBlogList() {
@@ -468,10 +524,15 @@ function bindListEvents() {
   });
 }
 
-function openEditor(postId = null) {
+function openEditor(postId = null, { keepRoute = false } = {}) {
   if (!state.session && state.supabase) {
     openAuth();
     toast("로그인하면 계정별 블로그에 글을 쓸 수 있습니다.");
+    return;
+  }
+
+  if (!keepRoute && window.location.hash !== ROUTES.editor) {
+    window.location.hash = ROUTES.editor;
     return;
   }
 
@@ -604,10 +665,9 @@ function bindEditorEvents() {
     toast("임시저장했습니다.");
   });
   $("[data-editor-action='cancel']").addEventListener("click", () => {
-    state.view = state.session ? "myblog" : "home";
     state.editingId = null;
     state.editorInitial = null;
-    render();
+    navigateTo(state.session ? "myblog" : "home");
   });
 
   updatePreview();
@@ -726,12 +786,11 @@ async function publishPost(event) {
     const saved = await persistPost(post);
     localStorage.removeItem(DRAFT_STORAGE);
     state.selectedId = saved.id;
-    state.view = state.session ? "myblog" : "home";
     state.editingId = null;
     state.editorInitial = null;
     await loadPosts();
     state.selectedId = saved.id;
-    render();
+    navigateTo(state.session ? "myblog" : "home");
   } catch (error) {
     toast(error.message);
   }
@@ -896,7 +955,7 @@ async function signOut() {
   }
   await state.supabase.auth.signOut();
   state.profile = null;
-  state.view = "home";
+  navigateTo("home", { replace: true });
   $("#authDialog").close();
   toast("로그아웃했습니다.");
 }
