@@ -959,43 +959,160 @@ img {
   flex-wrap: wrap;
 }
 
-.color-palette {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+.color-dropdown {
+  position: relative;
 }
 
-.color-swatch {
-  width: 20px;
+.color-menu-button {
+  width: 48px;
+  gap: 2px;
+}
+
+.color-menu-button > svg:first-child {
+  width: 17px;
+  height: 17px;
+}
+
+.color-menu-button > svg:last-child {
+  width: 12px;
+  height: 12px;
+}
+
+.color-preview-line {
+  position: absolute;
+  left: 8px;
+  right: 17px;
+  bottom: 5px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--active-color);
+}
+
+.office-color-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 90;
+  width: 342px;
+  border: 1px solid #8d98a8;
+  border-radius: 4px;
+  color: #1f2937;
+  background: #ffffff;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+}
+
+.office-color-section {
+  padding: 10px 12px;
+  border-bottom: 1px solid #d8dee8;
+}
+
+.office-color-section strong {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.office-color-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  color: #8a8f99;
+  font-size: 14px;
+}
+
+.office-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #9aa3af;
+  font-size: 12px;
+}
+
+.office-switch span {
+  position: relative;
+  width: 36px;
   height: 20px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 999px;
+  background: #d1d5db;
+}
+
+.office-switch span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  content: "";
+}
+
+.theme-color-grid,
+.standard-color-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 28px);
+  gap: 6px;
+}
+
+.theme-color-column {
+  display: grid;
+  gap: 0;
+}
+
+.office-color-swatch {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 0;
   background:
     linear-gradient(var(--swatch), var(--swatch)),
     linear-gradient(45deg, #d8e6f2 25%, transparent 25% 75%, #d8e6f2 75%),
     linear-gradient(45deg, #d8e6f2 25%, transparent 25% 75%, #d8e6f2 75%);
   background-color: #ffffff;
-  background-position: 0 0, 0 0, 6px 6px;
-  background-size: auto, 12px 12px, 12px 12px;
+  background-position: 0 0, 0 0, 7px 7px;
+  background-size: auto, 14px 14px, 14px 14px;
 }
 
-.color-swatch:hover,
-.color-swatch:focus-visible {
-  border-color: var(--sky-400);
-  outline: 2px solid rgba(56, 174, 234, 0.18);
+.office-color-swatch:hover,
+.office-color-swatch:focus-visible {
+  position: relative;
+  z-index: 1;
+  border-color: #2563eb;
+  outline: 2px solid rgba(37, 99, 235, 0.2);
 }
 
-.color-input {
-  width: 32px;
-  height: 32px;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+.office-color-command {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 1px solid #d8dee8;
+  color: #374151;
+  background: #ffffff;
+  text-align: left;
+  font-size: 14px;
+}
+
+.office-color-command:last-child {
+  border-bottom: 0;
+}
+
+.office-color-command:hover,
+.office-color-command:focus-visible {
+  background: #f3f8ff;
+  outline: none;
+}
+
+.empty-color-box {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #d8dee8;
+  background: #ffffff;
 }
 
 .editor-workspace {

@@ -640,10 +640,57 @@ function renderFolderOption(folder, selectedId, depth) {
 }
 
 function renderColorPalette(type) {
-  const colors = ["#111827", "#64748b", "#ef4444", "#f97316", "#eab308", "#22c55e", "#1499db", "#6366f1", "#a855f7", "#ffffff"];
-  return colors.map((color) => `
-    <button class="color-swatch" type="button" data-${type}-color="${color}" style="--swatch: ${color}" aria-label="${type === "text" ? "글자색" : "글씨 배경색"} ${color}" title="${type === "text" ? "글자색" : "글씨 배경색"} ${color}"></button>
-  `).join("");
+  const colorLabel = type === "text" ? "글자색" : "글씨 배경색";
+  const noneLabel = type === "text" ? "자동 색상(N)" : "채우기 없음(N)";
+  const themeColumns = [
+    ["#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#a6a6a6", "#808080"],
+    ["#000000", "#404040", "#595959", "#737373", "#8c8c8c", "#0d0d0d"],
+    ["#f8fafc", "#e5e7eb", "#d1d5db", "#9ca3af", "#6b7280", "#374151"],
+    ["#111827", "#1f2937", "#374151", "#4b5563", "#6b7280", "#030712"],
+    ["#0f5d78", "#c8eff9", "#90ddf0", "#45bfe3", "#087fa7", "#07536c"],
+    ["#ed6c2f", "#fde2d1", "#fac4a4", "#f59a68", "#c44a0b", "#843000"],
+    ["#166b2d", "#d2f6dc", "#97e9aa", "#3dd963", "#07531d", "#053512"],
+    ["#16a7d6", "#c9eff9", "#8fdef1", "#45c4e5", "#087fa7", "#07506a"],
+    ["#a62aa0", "#f3c8ef", "#e58edf", "#d14aca", "#7a116f", "#4e0a47"],
+    ["#47a525", "#d8f4cd", "#b3e892", "#7fd55d", "#2c7117", "#1f4d10"]
+  ];
+  const standardColors = ["#d70000", "#ff0000", "#ffc000", "#ffff00", "#92d050", "#00b050", "#00b0f0", "#0070c0", "#002060", "#7030a0"];
+  const dataName = type === "text" ? "data-text-color" : "data-bg-color";
+
+  return `
+    <div class="office-color-section office-color-toggle">
+      <span>고대비 전용(H)</span>
+      <span class="office-switch" aria-hidden="true"><span></span>끔</span>
+    </div>
+    <div class="office-color-section">
+      <strong>테마 색</strong>
+      <div class="theme-color-grid" aria-label="${colorLabel} 테마 색">
+        ${themeColumns.map((column) => `
+          <div class="theme-color-column">
+            ${column.map((color) => `
+              <button class="office-color-swatch" type="button" ${dataName}="${color}" style="--swatch: ${color}" aria-label="${colorLabel} ${color}" title="${colorLabel} ${color}"></button>
+            `).join("")}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+    <div class="office-color-section">
+      <strong>표준 색</strong>
+      <div class="standard-color-grid" aria-label="${colorLabel} 표준 색">
+        ${standardColors.map((color) => `
+          <button class="office-color-swatch" type="button" ${dataName}="${color}" style="--swatch: ${color}" aria-label="${colorLabel} ${color}" title="${colorLabel} ${color}"></button>
+        `).join("")}
+      </div>
+    </div>
+    <button class="office-color-command" type="button" ${dataName}="${type === "text" ? "#111827" : "transparent"}">
+      <span class="empty-color-box"></span>
+      ${noneLabel}
+    </button>
+    <button class="office-color-command" type="button" data-open-native-color="${type}">
+      <i data-lucide="palette"></i>
+      다른 색(M)...
+    </button>
+  `;
 }
 
 function renderCategory(category, posts, folders, canManage) {
@@ -1395,13 +1442,27 @@ function renderEditor() {
           <button class="tool-button" type="button" data-command="strikeThrough" aria-label="취소선" title="취소선"><i data-lucide="strikethrough"></i></button>
           <button class="tool-button is-text" type="button" data-command="subscript" aria-label="아래 첨자" title="아래 첨자">x₂</button>
           <button class="tool-button is-text" type="button" data-command="superscript" aria-label="위 첨자" title="위 첨자">x²</button>
-          <input class="color-input" id="textColor" type="color" value="#1499db" aria-label="글자색 직접 선택" title="글자색 직접 선택" />
-          <div class="color-palette" aria-label="글자색 팔레트">
-            ${renderColorPalette("text")}
+          <div class="color-dropdown">
+            <button class="tool-button color-menu-button" type="button" data-color-menu="text" aria-label="글자색" title="글자색">
+              <i data-lucide="type"></i>
+              <span class="color-preview-line" id="textColorPreview" style="--active-color: #1499db"></span>
+              <i data-lucide="chevron-down"></i>
+            </button>
+            <div class="office-color-menu" id="textColorMenu" hidden>
+              ${renderColorPalette("text")}
+            </div>
+            <input class="sr-only" id="textColor" type="color" value="#1499db" aria-label="글자색 직접 선택" title="글자색 직접 선택" />
           </div>
-          <input class="color-input" id="highlightColor" type="color" value="#fff2a8" aria-label="글씨 배경색 직접 선택" title="글씨 배경색 직접 선택" />
-          <div class="color-palette" aria-label="글씨 배경색 팔레트">
-            ${renderColorPalette("bg")}
+          <div class="color-dropdown">
+            <button class="tool-button color-menu-button" type="button" data-color-menu="bg" aria-label="글씨 배경색" title="글씨 배경색">
+              <i data-lucide="paint-bucket"></i>
+              <span class="color-preview-line" id="highlightColorPreview" style="--active-color: #fff2a8"></span>
+              <i data-lucide="chevron-down"></i>
+            </button>
+            <div class="office-color-menu" id="bgColorMenu" hidden>
+              ${renderColorPalette("bg")}
+            </div>
+            <input class="sr-only" id="highlightColor" type="color" value="#fff2a8" aria-label="글씨 배경색 직접 선택" title="글씨 배경색 직접 선택" />
           </div>
         </div>
         <div class="tool-group style-tool-group">
@@ -1481,15 +1542,32 @@ function bindEditorEvents() {
     updatePreview();
   }, 300);
 
-  $$(".tool-button").forEach((button) => {
+  $$("[data-command]").forEach((button) => {
     button.addEventListener("click", () => runEditorCommand(button.dataset.command, button.dataset.value));
   });
 
+  $("[data-color-menu='text']").addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleColorMenu("text");
+  });
+  $("[data-color-menu='bg']").addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleColorMenu("bg");
+  });
+  $("#editorForm").addEventListener("click", (event) => {
+    if (!event.target.closest(".color-dropdown")) {
+      closeColorMenus();
+    }
+  });
   $("#textColor").addEventListener("input", (event) => {
+    updateColorPreview("text", event.target.value);
     applyTextColor(event.target.value, update);
+    closeColorMenus();
   });
   $("#highlightColor").addEventListener("input", (event) => {
+    updateColorPreview("bg", event.target.value);
     applyInlineStyle({ backgroundColor: event.target.value }, update);
+    closeColorMenus();
   });
   $("#fontFamily").addEventListener("change", (event) => {
     applyInlineStyle({ fontFamily: event.target.value }, update);
@@ -1503,13 +1581,25 @@ function bindEditorEvents() {
   $$("[data-text-color]").forEach((button) => {
     button.addEventListener("click", () => {
       $("#textColor").value = button.dataset.textColor;
+      updateColorPreview("text", button.dataset.textColor);
       applyTextColor(button.dataset.textColor, update);
+      closeColorMenus();
     });
   });
   $$("[data-bg-color]").forEach((button) => {
     button.addEventListener("click", () => {
-      $("#highlightColor").value = button.dataset.bgColor;
+      if (button.dataset.bgColor !== "transparent") {
+        $("#highlightColor").value = button.dataset.bgColor;
+      }
+      updateColorPreview("bg", button.dataset.bgColor);
       applyInlineStyle({ backgroundColor: button.dataset.bgColor }, update);
+      closeColorMenus();
+    });
+  });
+  $$("[data-open-native-color]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = button.dataset.openNativeColor === "text" ? $("#textColor") : $("#highlightColor");
+      input.click();
     });
   });
   $$("[data-vertical-align]").forEach((button) => {
@@ -1558,6 +1648,29 @@ function bindEditorEvents() {
   });
 
   updatePreview();
+}
+
+function toggleColorMenu(type) {
+  const currentMenu = type === "text" ? $("#textColorMenu") : $("#bgColorMenu");
+  const shouldOpen = currentMenu.hidden;
+  closeColorMenus();
+  currentMenu.hidden = !shouldOpen;
+}
+
+function closeColorMenus() {
+  ["textColorMenu", "bgColorMenu"].forEach((id) => {
+    const menu = document.getElementById(id);
+    if (menu) {
+      menu.hidden = true;
+    }
+  });
+}
+
+function updateColorPreview(type, color) {
+  const preview = type === "text" ? $("#textColorPreview") : $("#highlightColorPreview");
+  if (preview) {
+    preview.style.setProperty("--active-color", color);
+  }
 }
 
 function runEditorCommand(command, value) {
