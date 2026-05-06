@@ -553,14 +553,14 @@ function renderFeedPosts(posts, folders, isMine) {
   }
 
   const categories = [...new Set([
-    ...posts.map((post) => post.category || ETC_CATEGORY_LABEL),
+    ...posts.map((post) => post.category || getFallbackCategoryName()),
     ...folders.map((folder) => getFolderCategoryName(folder))
-  ])];
+  ].filter((category) => category && category !== DEFAULT_CATEGORY_LABEL))];
   return categories.map((category) => renderFeedCategory(category, posts, folders, isMine)).join("");
 }
 
 function renderFeedCategory(category, posts, folders, canManagePosts) {
-  const categoryPosts = posts.filter((post) => (post.category || ETC_CATEGORY_LABEL) === category);
+  const categoryPosts = posts.filter((post) => (post.category || getFallbackCategoryName()) === category);
   const categoryFolders = getFoldersForCategory(folders, category);
   const folderPostIds = new Set(categoryFolders.flatMap((folder) => [folder.id, ...getFolderDescendantIds(folder.id)]));
   const rootFolders = buildFolderTree(categoryFolders).filter((folder) => !folder.parent_id);
@@ -666,9 +666,10 @@ function getSupabaseSetupMessage(error) {
 }
 
 function renderCategoryOptions(selectedCategory) {
-  const categories = getCategories(state.posts).filter((category) => category !== "전체");
-  const options = categories.length ? categories : [DEFAULT_CATEGORY_LABEL];
-  return options.map((category) => `<option value="${escapeAttr(category)}" ${category === selectedCategory ? "selected" : ""}>${escapeHtml(category)}</option>`).join("");
+  const categories = getCategories(state.posts).filter((category) => category !== ALL_CATEGORY_LABEL);
+  return categories.length
+    ? categories.map((category) => `<option value="${escapeAttr(category)}" ${category === selectedCategory ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")
+    : `<option value="">카테고리 없음</option>`;
 }
 
 function renderFolderOption(folder, selectedId, depth) {
@@ -754,7 +755,7 @@ function renderColorPalette(type) {
 
 function renderCategory(category, posts, folders, canManage) {
   const isAll = category === ALL_CATEGORY_LABEL;
-  const count = isAll ? posts.length : posts.filter((post) => (post.category || ETC_CATEGORY_LABEL) === category).length;
+  const count = isAll ? posts.length : posts.filter((post) => (post.category || getFallbackCategoryName()) === category).length;
   const categoryFolders = isAll ? [] : getFoldersForCategory(folders, category);
   const openKey = `category:${category}`;
   const isOpen = state.taxonomyOpen[openKey] !== false;
@@ -822,7 +823,7 @@ function renderFolderNode(folder, canManage, depth) {
 
 function renderFolderOptions(selectedId, categoryName) {
   const selectedFolder = state.folders.find((folder) => folder.id === selectedId);
-  const scopedFolders = getFoldersForCategory(getMyFolders(), categoryName || (selectedFolder ? getFolderCategoryName(selectedFolder) : DEFAULT_CATEGORY_LABEL));
+  const scopedFolders = getFoldersForCategory(getMyFolders(), categoryName || (selectedFolder ? getFolderCategoryName(selectedFolder) : getFallbackCategoryName()));
   const roots = buildFolderTree(scopedFolders).filter((folder) => !folder.parent_id);
   return roots.map((folder) => renderFolderOption(folder, selectedId, 0)).join("");
 }
@@ -838,7 +839,7 @@ function renderPostCard(post, isActive, canManage = false) {
         </label>
       ` : ""}
       <div>
-        <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)}</div>
+        <div class="post-meta">${escapeHtml(post.category || getFallbackCategoryName())} · ${formatDate(post.created_at)}</div>
         <h3>${escapeHtml(post.title)}</h3>
         <p>${escapeHtml(post.excerpt || makeExcerpt(post.content))}</p>
         ${canManage ? `
@@ -862,7 +863,7 @@ function renderReader(post, isMine) {
   const canEdit = state.session && post.owner_id === state.session.user.id;
   return `
     <div class="reader-body ${state.bookReader ? "is-book-reader" : ""}">
-      <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)} · ${escapeHtml(post.author_name || "공개 작성자")}</div>
+      <div class="post-meta">${escapeHtml(post.category || getFallbackCategoryName())} · ${formatDate(post.created_at)} · ${escapeHtml(post.author_name || "공개 작성자")}</div>
       <h2 class="reader-title">${escapeHtml(post.title)}</h2>
       <div class="tag-list">${(post.tags || []).map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>
       <div class="reader-toolbar">
@@ -1168,7 +1169,7 @@ async function addCategory({ silent = false } = {}) {
 }
 
 async function ensureCategoryId(name) {
-  const normalized = name && name !== ALL_CATEGORY_LABEL ? name.trim() : DEFAULT_CATEGORY_LABEL;
+  const normalized = name && name !== ALL_CATEGORY_LABEL ? name.trim() : getFallbackCategoryName();
   if (!normalized || !state.session) {
     return null;
   }
@@ -1533,7 +1534,7 @@ function renderEditor() {
             <span>카테고리</span>
             <div class="inline-field">
               <select id="editorCategory">
-                ${renderCategoryOptions(post.category || DEFAULT_CATEGORY_LABEL)}
+                ${renderCategoryOptions(post.category || getFallbackCategoryName())}
               </select>
               <button class="icon-button" type="button" id="editorAddCategoryButton" aria-label="새 카테고리" title="새 카테고리"><i data-lucide="plus"></i></button>
             </div>
@@ -1543,7 +1544,7 @@ function renderEditor() {
             <div class="inline-field">
               <select id="editorFolder">
                 <option value="">폴더 없음</option>
-                ${renderFolderOptions(post.folder_id || "", post.category || DEFAULT_CATEGORY_LABEL)}
+                ${renderFolderOptions(post.folder_id || "", post.category || getFallbackCategoryName())}
               </select>
               <button class="icon-button" type="button" id="editorAddFolderButton" aria-label="새 폴더" title="새 폴더"><i data-lucide="folder-plus"></i></button>
             </div>
@@ -2061,7 +2062,7 @@ function readEditorPost({ loose = false } = {}) {
     title: title || "제목 없음",
     slug: base.slug || makeSlug(title || "untitled"),
     excerpt: makeExcerpt(content),
-    category: $("#editorCategory").value.trim() || DEFAULT_CATEGORY_LABEL,
+    category: $("#editorCategory").value.trim() || getFallbackCategoryName(),
     folder_id: $("#editorFolder").value || null,
     tags: Array.isArray(base.tags) ? base.tags : [],
     cover_url: base.cover_url || "",
@@ -2349,7 +2350,7 @@ function getVisiblePosts() {
       return false;
     }
     const ownerMatch = isMine ? post.owner_id === userId : post.published === true && Boolean(post.owner_id);
-    const categoryMatch = state.category === "전체" || (post.category || "기타") === state.category;
+    const categoryMatch = state.category === ALL_CATEGORY_LABEL || (post.category || getFallbackCategoryName()) === state.category;
     const folderMatch = isFolderMatch(post);
     const haystack = `${post.title} ${post.excerpt || ""} ${(post.tags || []).join(" ")} ${post.author_name || ""} ${htmlToText(post.content)}`.toLowerCase();
     return ownerMatch && categoryMatch && folderMatch && (!query || haystack.includes(query));
@@ -2358,9 +2359,11 @@ function getVisiblePosts() {
 
 function getCategories(posts) {
   const scopeCategories = state.categories
-    .filter((category) => !category.deleted_at && (!category.owner_id || category.owner_id === state.session?.user?.id))
+    .filter((category) => !category.deleted_at && category.name && category.name !== DEFAULT_CATEGORY_LABEL && (!category.owner_id || category.owner_id === state.session?.user?.id))
     .map((category) => category.name);
-  return ["전체", ...new Set([...scopeCategories, ...posts.map((post) => post.category || "기타")])];
+  const postCategories = posts.map((post) => post.category).filter((category) => category && category !== DEFAULT_CATEGORY_LABEL);
+  const folderCategories = getSidebarFolders().map((folder) => getFolderCategoryName(folder)).filter((category) => category && category !== DEFAULT_CATEGORY_LABEL);
+  return [ALL_CATEGORY_LABEL, ...new Set([...scopeCategories, ...postCategories, ...folderCategories])];
 }
 
 function isFolderMatch(post) {
@@ -2424,7 +2427,16 @@ function getFolderCategoryName(folder) {
 
   const descendantIds = [folder.id, ...getFolderDescendantIds(folder.id)];
   const linkedPost = getPostsForCurrentScope().find((post) => descendantIds.includes(post.folder_id));
-  return linkedPost?.category || DEFAULT_CATEGORY_LABEL;
+  return linkedPost?.category || getFallbackCategoryName();
+}
+
+function getFallbackCategoryName() {
+  return state.categories.find((category) => (
+    !category.deleted_at &&
+    category.name &&
+    category.name !== DEFAULT_CATEGORY_LABEL &&
+    (!category.owner_id || category.owner_id === state.session?.user?.id)
+  ))?.name || "";
 }
 
 function getFolderCategoryId(parentId, categoryName) {
@@ -2436,7 +2448,10 @@ function getFolderCategoryId(parentId, categoryName) {
 }
 
 function getCategoryIdByName(name) {
-  const normalized = name && name !== ALL_CATEGORY_LABEL ? name : DEFAULT_CATEGORY_LABEL;
+  const normalized = name && name !== ALL_CATEGORY_LABEL ? name : getFallbackCategoryName();
+  if (!normalized) {
+    return null;
+  }
   return state.categories.find((category) => category.name === normalized && (!category.owner_id || category.owner_id === state.session?.user?.id))?.id || null;
 }
 
@@ -2624,7 +2639,7 @@ async function readImportFile(file) {
 function postToText(post) {
   return [
     `Title: ${post.title || "제목 없음"}`,
-    `Category: ${post.category || DEFAULT_CATEGORY_LABEL}`,
+    `Category: ${post.category || getFallbackCategoryName()}`,
     `Published: ${post.published !== false ? "true" : "false"}`,
     `Date: ${post.created_at || new Date().toISOString()}`,
     "---",
@@ -2644,7 +2659,7 @@ function textToPost(text, filename = "imported.txt") {
   const body = bodyParts.join("\n---\n").trim() || normalized.trim();
   return createImportedPost({
     title: meta.title || filename.replace(/\.[^.]+$/, ""),
-    category: meta.category || DEFAULT_CATEGORY_LABEL,
+    category: meta.category || getFallbackCategoryName(),
     published: meta.published !== "false",
     content: textToHtml(body)
   });
@@ -2667,7 +2682,7 @@ async function docxToPost(file, filename = "imported.docx") {
   });
 }
 
-function createImportedPost({ title, category = DEFAULT_CATEGORY_LABEL, published = true, content }) {
+function createImportedPost({ title, category = getFallbackCategoryName(), published = true, content }) {
   const now = new Date().toISOString();
   return {
     ...createBlankPost(),
@@ -2779,7 +2794,7 @@ async function restoreFolder(id) {
   const rootUpdate = {
     deleted_at: null,
     parent_id: parentExists ? folder.parent_id : null,
-    category_id: categoryExists ? folder.category_id : getCategoryIdByName(DEFAULT_CATEGORY_LABEL)
+    category_id: categoryExists ? folder.category_id : getCategoryIdByName(getFallbackCategoryName())
   };
 
   if (state.supabase && isUuid(id)) {
@@ -2805,7 +2820,7 @@ async function restorePost(id) {
   const update = {
     deleted_at: null,
     folder_id: folderExists ? post.folder_id : null,
-    category: categoryExists ? post.category : DEFAULT_CATEGORY_LABEL
+    category: categoryExists ? post.category : getFallbackCategoryName()
   };
 
   if (state.supabase && isUuid(id)) {
@@ -2953,7 +2968,7 @@ function createBlankPost() {
     title: "",
     slug: "",
     excerpt: "",
-    category: DEFAULT_CATEGORY_LABEL,
+    category: state.category !== ALL_CATEGORY_LABEL ? state.category : getFallbackCategoryName(),
     tags: [],
     cover_url: "",
     content: "<p></p>",
@@ -3002,7 +3017,7 @@ function normalizePost(post) {
     title: post.title || "제목 없음",
     slug: post.slug || makeSlug(post.title || "post"),
     excerpt: post.excerpt || makeExcerpt(post.content || ""),
-    category: post.category || DEFAULT_CATEGORY_LABEL,
+    category: post.category || getFallbackCategoryName(),
     tags: Array.isArray(post.tags) ? post.tags : [],
     cover_url: post.cover_url || "",
     content: sanitizeHtml(post.content || ""),
