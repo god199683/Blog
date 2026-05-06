@@ -424,7 +424,7 @@ img {
 
 .category-row {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   gap: 6px;
   align-items: center;
 }
@@ -464,9 +464,19 @@ img {
 
 .folder-branch {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   gap: 6px;
   margin-left: calc(var(--depth) * 14px);
+}
+
+.taxonomy-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.danger-button {
+  color: #dc2626;
 }
 
 .folder-node {
@@ -542,14 +552,66 @@ img {
 }
 
 .post-card {
-  display: grid;
-  grid-template-columns: 92px 1fr;
-  gap: 14px;
+  display: block;
   min-height: 112px;
-  padding: 10px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.feed-group,
+.feed-folder,
+.feed-group-body,
+.feed-folder-body {
+  display: grid;
+  gap: 10px;
+}
+
+.feed-group {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.feed-group-head,
+.feed-folder-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.feed-group-head span,
+.feed-folder-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.feed-group-head svg,
+.feed-folder-head svg {
+  width: 16px;
+  height: 16px;
+}
+
+.feed-group-head.is-active,
+.feed-folder-head.is-active {
+  color: var(--sky-700);
+  border-color: var(--sky-200);
+  background: var(--sky-50);
+}
+
+.feed-folder {
+  margin-left: calc(var(--depth) * 16px);
 }
 
 .post-card.is-active {
@@ -1024,15 +1086,6 @@ img {
 
   .blog-grid.is-sidebar-collapsed .profile-panel {
     width: 58px;
-  }
-
-  .post-card {
-    grid-template-columns: 82px 1fr;
-  }
-
-  .post-thumb {
-    width: 82px;
-    min-height: 82px;
   }
 
   .reader-body,

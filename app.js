@@ -438,7 +438,7 @@ function renderBlogList() {
             state.loading
               ? `<div class="empty-state">불러오는 중...</div>`
               : visiblePosts.length
-                ? visiblePosts.map((post) => renderPostCard(post, false)).join("")
+                ? renderFeedPosts(visiblePosts, visibleFolders, isMine)
                 : renderEmptyState(isMine)
           }
         </div>
@@ -472,6 +472,71 @@ function renderPostView() {
   `;
 
   bindPostViewEvents();
+}
+
+function renderFeedPosts(posts, folders, isMine) {
+  if (state.loading) {
+    return `<div class="empty-state">불러오는 중...</div>`;
+  }
+  if (!posts.length) {
+    return renderEmptyState(isMine);
+  }
+  if (state.activeFolderId !== "all") {
+    return posts.map((post) => renderPostCard(post, false)).join("");
+  }
+
+  const categories = [...new Set(posts.map((post) => post.category || ETC_CATEGORY_LABEL))];
+  return categories.map((category) => renderFeedCategory(category, posts, folders)).join("");
+}
+
+function renderFeedCategory(category, posts, folders) {
+  const categoryPosts = posts.filter((post) => (post.category || ETC_CATEGORY_LABEL) === category);
+  const categoryFolders = getFoldersForCategory(folders, category);
+  const folderPostIds = new Set(categoryFolders.flatMap((folder) => [folder.id, ...getFolderDescendantIds(folder.id)]));
+  const rootFolders = buildFolderTree(categoryFolders).filter((folder) => !folder.parent_id);
+  const directPosts = categoryPosts.filter((post) => !folderPostIds.has(post.folder_id));
+  const openKey = `feedCategory:${category}`;
+  const isOpen = state.taxonomyOpen[openKey] !== false;
+
+  return `
+    <section class="feed-group">
+      <button class="feed-group-head ${state.category === category ? "is-active" : ""}" type="button" data-feed-category="${escapeAttr(category)}">
+        <span><i data-lucide="${isOpen ? "chevron-down" : "chevron-right"}"></i>${escapeHtml(category)}</span>
+        <strong>${categoryPosts.length}</strong>
+      </button>
+      ${isOpen ? `
+        <div class="feed-group-body">
+          ${rootFolders.map((folder) => renderFeedFolder(folder, categoryPosts, 0)).join("")}
+          ${directPosts.map((post) => renderPostCard(post, false)).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
+function renderFeedFolder(folder, posts, depth) {
+  const descendants = getFolderDescendantIds(folder.id);
+  const folderIds = [folder.id, ...descendants];
+  const folderPosts = posts.filter((post) => folderIds.includes(post.folder_id));
+  const ownPosts = posts.filter((post) => post.folder_id === folder.id);
+  const hasChildren = folder.children.length > 0;
+  const openKey = `feedFolder:${folder.id}`;
+  const isOpen = state.taxonomyOpen[openKey] !== false;
+
+  return `
+    <div class="feed-folder" style="--depth: ${depth}">
+      <button class="feed-folder-head ${state.activeFolderId === folder.id ? "is-active" : ""}" type="button" data-feed-folder="${escapeAttr(folder.id)}">
+        <span><i data-lucide="${isOpen ? "chevron-down" : "chevron-right"}"></i>${escapeHtml(folder.name)}</span>
+        <strong>${folderPosts.length}</strong>
+      </button>
+      ${isOpen ? `
+        <div class="feed-folder-body">
+          ${hasChildren ? folder.children.map((child) => renderFeedFolder(child, posts, depth + 1)).join("") : ""}
+          ${ownPosts.map((post) => renderPostCard(post, false)).join("")}
+        </div>
+      ` : ""}
+    </div>
+  `;
 }
 
 function renderEmptyState(isMine) {
@@ -537,7 +602,13 @@ function renderCategory(category, posts, folders, canManage) {
           <span>${escapeHtml(category)}</span>
           <strong>${count}</strong>
         </button>
-        ${canManage && !isAll ? `<button class="icon-button mini-button" type="button" data-add-category-folder="${escapeAttr(category)}" aria-label="\uD3F4\uB354 \uCD94\uAC00" title="\uD3F4\uB354 \uCD94\uAC00"><i data-lucide="folder-plus"></i></button>` : `<span class="tree-spacer"></span>`}
+        ${canManage && !isAll ? `
+          <div class="taxonomy-actions">
+            <button class="icon-button mini-button" type="button" data-add-category-folder="${escapeAttr(category)}" aria-label="\uD3F4\uB354 \uCD94\uAC00" title="\uD3F4\uB354 \uCD94\uAC00"><i data-lucide="folder-plus"></i></button>
+            <button class="icon-button mini-button" type="button" data-edit-category="${escapeAttr(category)}" aria-label="\uCE74\uD14C\uACE0\uB9AC \uC774\uB984 \uBCC0\uACBD" title="\uCE74\uD14C\uACE0\uB9AC \uC774\uB984 \uBCC0\uACBD"><i data-lucide="pencil"></i></button>
+            <button class="icon-button mini-button danger-button" type="button" data-delete-category="${escapeAttr(category)}" aria-label="\uCE74\uD14C\uACE0\uB9AC \uC0AD\uC81C" title="\uCE74\uD14C\uACE0\uB9AC \uC0AD\uC81C"><i data-lucide="trash-2"></i></button>
+          </div>
+        ` : `<span class="tree-spacer"></span>`}
       </div>
       ${!isAll && isOpen ? `<div class="category-folders">${renderFolderTree(categoryFolders, canManage, category)}</div>` : ""}
     </div>
@@ -568,7 +639,13 @@ function renderFolderNode(folder, canManage, depth) {
         <span><i data-lucide="folder"></i>${escapeHtml(folder.name)}</span>
         <strong>${count}</strong>
       </button>
-      ${canManage ? `<button class="icon-button mini-button folder-add-child" type="button" data-add-child-folder="${escapeAttr(folder.id)}" aria-label="\uD558\uC704 \uD3F4\uB354 \uCD94\uAC00" title="\uD558\uC704 \uD3F4\uB354 \uCD94\uAC00"><i data-lucide="plus"></i></button>` : ""}
+      ${canManage ? `
+        <div class="taxonomy-actions">
+          <button class="icon-button mini-button folder-add-child" type="button" data-add-child-folder="${escapeAttr(folder.id)}" aria-label="\uD558\uC704 \uD3F4\uB354 \uCD94\uAC00" title="\uD558\uC704 \uD3F4\uB354 \uCD94\uAC00"><i data-lucide="plus"></i></button>
+          <button class="icon-button mini-button" type="button" data-edit-folder="${escapeAttr(folder.id)}" aria-label="\uD3F4\uB354 \uC774\uB984 \uBCC0\uACBD" title="\uD3F4\uB354 \uC774\uB984 \uBCC0\uACBD"><i data-lucide="pencil"></i></button>
+          <button class="icon-button mini-button danger-button" type="button" data-delete-folder="${escapeAttr(folder.id)}" aria-label="\uD3F4\uB354 \uC0AD\uC81C" title="\uD3F4\uB354 \uC0AD\uC81C"><i data-lucide="trash-2"></i></button>
+        </div>
+      ` : ""}
     </div>
     ${hasChildren && isOpen ? folder.children.map((child) => renderFolderNode(child, canManage, depth + 1)).join("") : ""}
   `;
@@ -584,7 +661,6 @@ function renderFolderOptions(selectedId, categoryName) {
 function renderPostCard(post, isActive) {
   return `
     <article class="post-card ${isActive ? "is-active" : ""}" data-post-id="${escapeAttr(post.id)}" tabindex="0">
-      <div class="post-thumb">${renderCover(post)}</div>
       <div>
         <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)}</div>
         <h3>${escapeHtml(post.title)}</h3>
@@ -709,10 +785,38 @@ function bindListEvents() {
     });
   });
 
+  $$("[data-edit-category]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      renameCategory(button.dataset.editCategory);
+    });
+  });
+
+  $$("[data-delete-category]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteCategory(button.dataset.deleteCategory);
+    });
+  });
+
   $$("[data-add-child-folder]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       addFolder(button.dataset.addChildFolder);
+    });
+  });
+
+  $$("[data-edit-folder]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      renameFolder(button.dataset.editFolder);
+    });
+  });
+
+  $$("[data-delete-folder]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteFolder(button.dataset.deleteFolder);
     });
   });
 
@@ -735,6 +839,27 @@ function bindListEvents() {
       }
       renderBlogList();
       updateIcons();
+    });
+  });
+
+  $$("[data-feed-category]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const category = button.dataset.feedCategory;
+      state.category = category;
+      state.activeFolderId = "all";
+      toggleTaxonomy(`feedCategory:${category}`);
+    });
+  });
+
+  $$("[data-feed-folder]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const folderId = button.dataset.feedFolder;
+      state.activeFolderId = folderId;
+      const folder = state.folders.find((item) => item.id === folderId);
+      if (folder) {
+        state.category = getFolderCategoryName(folder);
+      }
+      toggleTaxonomy(`feedFolder:${folderId}`);
     });
   });
 
@@ -864,6 +989,186 @@ async function addFolder(parentId, { silent = false, categoryName = null } = {})
   } catch (error) {
     toast(`폴더 추가 실패: ${error.message}`);
     return null;
+  }
+}
+
+async function renameCategory(categoryName) {
+  const category = getCategoryByName(categoryName);
+  const nextName = (prompt("변경할 카테고리 이름", categoryName) || "").trim();
+  if (!nextName || nextName === categoryName || !state.session) {
+    return;
+  }
+
+  try {
+    if (state.supabase) {
+      if (category?.id) {
+        const { error } = await state.supabase
+          .from(CATEGORY_TABLE)
+          .update({ name: nextName })
+          .eq("id", category.id)
+          .eq("owner_id", state.session.user.id);
+        if (error) {
+          throw error;
+        }
+      }
+      const postsUpdate = await state.supabase
+        .from(TABLE_NAME)
+        .update({ category: nextName })
+        .eq("owner_id", state.session.user.id)
+        .eq("category", categoryName);
+      if (postsUpdate.error) {
+        throw postsUpdate.error;
+      }
+    } else {
+      state.categories = state.categories.map((item) => item.name === categoryName ? { ...item, name: nextName } : item);
+      state.posts = state.posts.map((post) => post.category === categoryName ? { ...post, category: nextName } : post);
+      cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
+      cacheLocalPosts(state.posts);
+    }
+    state.category = nextName;
+    await loadPosts();
+    toast("카테고리 이름을 변경했습니다.");
+  } catch (error) {
+    toast(`카테고리 이름 변경 실패: ${error.message}`);
+  }
+}
+
+async function deleteCategory(categoryName) {
+  if (!state.session || !confirm(`"${categoryName}" 카테고리를 삭제할까요? 글은 삭제하지 않고 기본 카테고리로 이동합니다.`)) {
+    return;
+  }
+
+  const category = getCategoryByName(categoryName);
+  const categoryFolders = getFoldersForCategory(getMyFolders(), categoryName);
+  const folderIds = categoryFolders.flatMap((folder) => [folder.id, ...getFolderDescendantIds(folder.id)]);
+
+  try {
+    if (state.supabase) {
+      if (folderIds.length) {
+        const postFolderUpdate = await state.supabase
+          .from(TABLE_NAME)
+          .update({ folder_id: null })
+          .eq("owner_id", state.session.user.id)
+          .in("folder_id", folderIds);
+        if (postFolderUpdate.error) {
+          throw postFolderUpdate.error;
+        }
+      }
+      const postsUpdate = await state.supabase
+        .from(TABLE_NAME)
+        .update({ category: DEFAULT_CATEGORY_LABEL })
+        .eq("owner_id", state.session.user.id)
+        .eq("category", categoryName);
+      if (postsUpdate.error) {
+        throw postsUpdate.error;
+      }
+      if (folderIds.length) {
+        const foldersDelete = await state.supabase
+          .from(FOLDER_TABLE)
+          .delete()
+          .eq("owner_id", state.session.user.id)
+          .in("id", folderIds);
+        if (foldersDelete.error) {
+          throw foldersDelete.error;
+        }
+      }
+      if (category?.id) {
+        const categoryDelete = await state.supabase
+          .from(CATEGORY_TABLE)
+          .delete()
+          .eq("id", category.id)
+          .eq("owner_id", state.session.user.id);
+        if (categoryDelete.error) {
+          throw categoryDelete.error;
+        }
+      }
+    } else {
+      state.categories = state.categories.filter((item) => item.name !== categoryName);
+      state.folders = state.folders.filter((folder) => !folderIds.includes(folder.id));
+      state.posts = state.posts.map((post) => post.category === categoryName || folderIds.includes(post.folder_id)
+        ? { ...post, category: post.category === categoryName ? DEFAULT_CATEGORY_LABEL : post.category, folder_id: folderIds.includes(post.folder_id) ? null : post.folder_id }
+        : post);
+      cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
+      cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+      cacheLocalPosts(state.posts);
+    }
+    state.category = ALL_CATEGORY_LABEL;
+    state.activeFolderId = "all";
+    await loadPosts();
+    toast("카테고리를 삭제했습니다.");
+  } catch (error) {
+    toast(`카테고리 삭제 실패: ${error.message}`);
+  }
+}
+
+async function renameFolder(folderId) {
+  const folder = state.folders.find((item) => item.id === folderId);
+  if (!folder || !state.session) {
+    return;
+  }
+  const nextName = (prompt("변경할 폴더 이름", folder.name) || "").trim();
+  if (!nextName || nextName === folder.name) {
+    return;
+  }
+
+  try {
+    if (state.supabase && isUuid(folderId)) {
+      const { error } = await state.supabase
+        .from(FOLDER_TABLE)
+        .update({ name: nextName })
+        .eq("id", folderId)
+        .eq("owner_id", state.session.user.id);
+      if (error) {
+        throw error;
+      }
+    } else {
+      state.folders = state.folders.map((item) => item.id === folderId ? { ...item, name: nextName } : item);
+      cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+    }
+    await loadTaxonomy();
+    renderBlogList();
+    toast("폴더 이름을 변경했습니다.");
+  } catch (error) {
+    toast(`폴더 이름 변경 실패: ${error.message}`);
+  }
+}
+
+async function deleteFolder(folderId) {
+  const folder = state.folders.find((item) => item.id === folderId);
+  if (!folder || !state.session || !confirm(`"${folder.name}" 폴더를 삭제할까요? 하위 폴더도 함께 삭제됩니다.`)) {
+    return;
+  }
+  const folderIds = [folderId, ...getFolderDescendantIds(folderId)];
+
+  try {
+    if (state.supabase && isUuid(folderId)) {
+      const postsUpdate = await state.supabase
+        .from(TABLE_NAME)
+        .update({ folder_id: null })
+        .eq("owner_id", state.session.user.id)
+        .in("folder_id", folderIds);
+      if (postsUpdate.error) {
+        throw postsUpdate.error;
+      }
+      const folderDelete = await state.supabase
+        .from(FOLDER_TABLE)
+        .delete()
+        .eq("id", folderId)
+        .eq("owner_id", state.session.user.id);
+      if (folderDelete.error) {
+        throw folderDelete.error;
+      }
+    } else {
+      state.folders = state.folders.filter((item) => !folderIds.includes(item.id));
+      state.posts = state.posts.map((post) => folderIds.includes(post.folder_id) ? { ...post, folder_id: null } : post);
+      cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+      cacheLocalPosts(state.posts);
+    }
+    state.activeFolderId = "all";
+    await loadPosts();
+    toast("폴더를 삭제했습니다.");
+  } catch (error) {
+    toast(`폴더 삭제 실패: ${error.message}`);
   }
 }
 
@@ -1626,6 +1931,10 @@ function getFolderCategoryId(parentId, categoryName) {
 function getCategoryIdByName(name) {
   const normalized = name && name !== ALL_CATEGORY_LABEL ? name : DEFAULT_CATEGORY_LABEL;
   return state.categories.find((category) => category.name === normalized && (!category.owner_id || category.owner_id === state.session?.user?.id))?.id || null;
+}
+
+function getCategoryByName(name) {
+  return state.categories.find((category) => category.name === name && (!category.owner_id || category.owner_id === state.session?.user?.id)) || null;
 }
 
 function buildFolderTree(folders) {
