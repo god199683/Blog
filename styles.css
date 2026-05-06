@@ -204,6 +204,31 @@ img {
   font-weight: 800;
 }
 
+.toolbar-select,
+.toolbar-number {
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  font-weight: 700;
+  outline: none;
+}
+
+.toolbar-select {
+  min-width: 108px;
+  padding: 0 32px 0 11px;
+}
+
+.toolbar-select.compact-select {
+  min-width: 78px;
+}
+
+.toolbar-number {
+  width: 72px;
+  padding: 0 9px;
+}
+
 .ghost-button:hover,
 .outline-button:hover,
 .primary-button:hover,
@@ -737,6 +762,10 @@ img {
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(12px);
+}
+
+.style-tool-group {
+  flex-wrap: wrap;
 }
 
 .color-input {

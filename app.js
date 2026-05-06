@@ -45,6 +45,7 @@ const state = {
   taxonomyOpen: getStoredOpenState(),
   loading: true
 };
+let savedEditorRange = null;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -947,6 +948,24 @@ function renderEditor() {
           <button class="tool-button" type="button" data-command="underline" aria-label="밑줄" title="밑줄"><i data-lucide="underline"></i></button>
           <input class="color-input" id="textColor" type="color" value="#1499db" aria-label="글자색" title="글자색" />
         </div>
+        <div class="tool-group style-tool-group">
+          <select class="toolbar-select font-select" id="fontFamily" aria-label="글씨체" title="글씨체">
+            <option value="">기본</option>
+            <option value="'Noto Sans KR', sans-serif">Noto Sans</option>
+            <option value="'Malgun Gothic', sans-serif">맑은 고딕</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="'Times New Roman', serif">Times</option>
+            <option value="'Courier New', monospace">Courier</option>
+          </select>
+          <input class="toolbar-number" id="fontSizeInput" type="number" min="8" max="96" step="1" value="16" aria-label="글씨 크기" title="글씨 크기" />
+          <select class="toolbar-select compact-select" id="lineHeightSelect" aria-label="줄 간격" title="줄 간격">
+            <option value="1.2">1.2</option>
+            <option value="1.5" selected>1.5</option>
+            <option value="1.8">1.8</option>
+            <option value="2">2.0</option>
+            <option value="2.4">2.4</option>
+          </select>
+        </div>
         <div class="tool-group">
           <button class="tool-button is-text" type="button" data-command="formatBlock" data-value="h2">H2</button>
           <button class="tool-button is-text" type="button" data-command="formatBlock" data-value="h3">H3</button>
@@ -1002,9 +1021,19 @@ function bindEditorEvents() {
   });
 
   $("#textColor").addEventListener("input", (event) => {
-    editor.focus();
+    restoreEditorSelection();
     document.execCommand("foreColor", false, event.target.value);
+    rememberEditorSelection();
     update();
+  });
+  $("#fontFamily").addEventListener("change", (event) => {
+    applyInlineStyle({ fontFamily: event.target.value }, update);
+  });
+  $("#fontSizeInput").addEventListener("input", (event) => {
+    applyInlineStyle({ fontSize: `${clamp(Number(event.target.value) || 16, 8, 96)}px` }, update);
+  });
+  $("#lineHeightSelect").addEventListener("change", (event) => {
+    applyInlineStyle({ lineHeight: event.target.value }, update);
   });
 
   ["editorTitle", "editorCategory", "editorFolder", "editorPublished"].forEach((id) => {
@@ -1031,6 +1060,8 @@ function bindEditorEvents() {
   });
 
   editor.addEventListener("input", update);
+  editor.addEventListener("keyup", rememberEditorSelection);
+  editor.addEventListener("mouseup", rememberEditorSelection);
   editor.addEventListener("paste", handleImagePaste);
 
   $("#editorForm").addEventListener("submit", publishPost);
@@ -1071,6 +1102,71 @@ function runEditorCommand(command, value) {
 
   saveDraft();
   updatePreview();
+}
+
+function rememberEditorSelection() {
+  const editor = $("#editorContent");
+  const selection = window.getSelection();
+  if (!editor || !selection?.rangeCount) {
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+  if (editor.contains(range.commonAncestorContainer)) {
+    savedEditorRange = range.cloneRange();
+  }
+}
+
+function restoreEditorSelection() {
+  const editor = $("#editorContent");
+  if (!editor || !savedEditorRange) {
+    editor?.focus();
+    return;
+  }
+
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(savedEditorRange);
+  editor.focus();
+}
+
+function applyInlineStyle(styles, update) {
+  restoreEditorSelection();
+  const editor = $("#editorContent");
+  const selection = window.getSelection();
+  if (!editor || !selection?.rangeCount) {
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+  if (!editor.contains(range.commonAncestorContainer)) {
+    return;
+  }
+
+  if (range.collapsed) {
+    const target = getEditableStyleTarget(range.startContainer);
+    Object.assign(target.style, styles);
+  } else {
+    const wrapper = document.createElement("span");
+    Object.assign(wrapper.style, styles);
+    wrapper.appendChild(range.extractContents());
+    range.insertNode(wrapper);
+    selection.removeAllRanges();
+    const nextRange = document.createRange();
+    nextRange.selectNodeContents(wrapper);
+    selection.addRange(nextRange);
+  }
+
+  rememberEditorSelection();
+  saveDraft();
+  updatePreview();
+  update();
+}
+
+function getEditableStyleTarget(node) {
+  const editor = $("#editorContent");
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  return element?.closest("p,h1,h2,h3,h4,h5,h6,li,blockquote,div,span") || editor;
 }
 
 function handleImagePaste(event) {
@@ -1731,6 +1827,10 @@ function formatDate(value) {
 
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function debounce(callback, delay) {
