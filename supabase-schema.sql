@@ -44,11 +44,15 @@ create table if not exists public.categories (
 create table if not exists public.folders (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete cascade not null,
+  category_id uuid references public.categories(id) on delete set null,
   parent_id uuid references public.folders(id) on delete cascade,
   name text not null,
   sort_order integer default 0,
   created_at timestamptz default now()
 );
+
+alter table public.folders add column if not exists category_id uuid references public.categories(id) on delete set null;
+create index if not exists folders_category_id_idx on public.folders(category_id);
 
 alter table public.posts drop constraint if exists posts_folder_id_fkey;
 alter table public.posts

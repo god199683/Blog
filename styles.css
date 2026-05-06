@@ -345,12 +345,6 @@ img {
   margin-top: 16px;
 }
 
-.folder-list {
-  display: grid;
-  gap: 6px;
-  margin-top: 18px;
-}
-
 .sidebar-section-head {
   display: flex;
   align-items: center;
@@ -365,6 +359,33 @@ img {
   width: 30px;
   height: 30px;
   min-height: 30px;
+}
+
+.category-group {
+  display: grid;
+  gap: 6px;
+}
+
+.category-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  gap: 6px;
+  align-items: center;
+}
+
+.category-folders {
+  display: grid;
+  gap: 6px;
+}
+
+.tree-toggle {
+  color: var(--muted);
+}
+
+.tree-spacer {
+  display: block;
+  width: 30px;
+  height: 30px;
 }
 
 .category-chip {
@@ -387,7 +408,7 @@ img {
 
 .folder-branch {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 30px;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
   gap: 6px;
   margin-left: calc(var(--depth) * 14px);
 }

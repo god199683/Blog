@@ -11,6 +11,10 @@ const CATEGORIES_STORAGE = "skyblog.categories.v1";
 const FOLDERS_STORAGE = "skyblog.folders.v1";
 const DRAFT_STORAGE = "skyblog.draft.v2";
 const SIDEBAR_STORAGE = "skyblog.sidebarCollapsed";
+const TAXONOMY_OPEN_STORAGE = "skyblog.taxonomyOpen.v1";
+const ALL_CATEGORY_LABEL = "\uC804\uCCB4";
+const DEFAULT_CATEGORY_LABEL = "\uC77C\uC0C1";
+const ETC_CATEGORY_LABEL = "\uAE30\uD0C0";
 const ROUTES = {
   home: "#home",
   myblog: "#blog/me",
@@ -38,6 +42,7 @@ const state = {
   folders: [],
   supabaseError: null,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_STORAGE) === "true",
+  taxonomyOpen: getStoredOpenState(),
   loading: true
 };
 
@@ -412,14 +417,7 @@ function renderBlogList() {
               <strong>카테고리</strong>
               ${isMine ? `<button class="icon-button mini-button" type="button" id="addCategoryButton" aria-label="카테고리 추가" title="카테고리 추가"><i data-lucide="plus"></i></button>` : ""}
             </div>
-            ${categories.map((category) => renderCategory(category, visiblePosts)).join("")}
-          </div>
-          <div class="folder-list" aria-label="폴더">
-            <div class="sidebar-section-head">
-              <strong>폴더</strong>
-              ${isMine ? `<button class="icon-button mini-button" type="button" id="addRootFolderButton" aria-label="폴더 추가" title="폴더 추가"><i data-lucide="folder-plus"></i></button>` : ""}
-            </div>
-            ${renderFolderTree(visibleFolders, isMine)}
+            ${categories.map((category) => renderCategory(category, visiblePosts, visibleFolders, isMine)).join("")}
           </div>
         </div>
       </aside>
@@ -498,47 +496,6 @@ function getSupabaseSetupMessage(error) {
   return message;
 }
 
-function renderCategory(category, posts) {
-  const count = category === "전체" ? posts.length : posts.filter((post) => (post.category || "기타") === category).length;
-  return `
-    <button class="category-chip ${state.category === category ? "is-active" : ""}" type="button" data-category="${escapeAttr(category)}">
-      <span>${escapeHtml(category)}</span>
-      <strong>${count}</strong>
-    </button>
-  `;
-}
-
-function renderFolderTree(folders, canManage) {
-  const tree = buildFolderTree(folders).filter((folder) => !folder.parent_id);
-  return `
-    <button class="folder-node ${state.activeFolderId === "all" ? "is-active" : ""}" type="button" data-folder-id="all">
-      <span><i data-lucide="folder"></i>전체 폴더</span>
-      <strong>${getPostsForCurrentScope().length}</strong>
-    </button>
-    ${tree.length ? tree.map((folder) => renderFolderNode(folder, canManage, 0)).join("") : `<p class="folder-empty">폴더가 없습니다.</p>`}
-  `;
-}
-
-function renderFolderNode(folder, canManage, depth) {
-  const descendants = getFolderDescendantIds(folder.id);
-  const count = getPostsForCurrentScope().filter((post) => post.folder_id === folder.id || descendants.includes(post.folder_id)).length;
-  return `
-    <div class="folder-branch" style="--depth: ${depth}">
-      <button class="folder-node ${state.activeFolderId === folder.id ? "is-active" : ""}" type="button" data-folder-id="${escapeAttr(folder.id)}">
-        <span><i data-lucide="folder"></i>${escapeHtml(folder.name)}</span>
-        <strong>${count}</strong>
-      </button>
-      ${canManage ? `<button class="icon-button mini-button folder-add-child" type="button" data-add-child-folder="${escapeAttr(folder.id)}" aria-label="하위 폴더 추가" title="하위 폴더 추가"><i data-lucide="plus"></i></button>` : ""}
-    </div>
-    ${folder.children.map((child) => renderFolderNode(child, canManage, depth + 1)).join("")}
-  `;
-}
-
-function renderFolderOptions(selectedId) {
-  const roots = buildFolderTree(getMyFolders()).filter((folder) => !folder.parent_id);
-  return roots.map((folder) => renderFolderOption(folder, selectedId, 0)).join("");
-}
-
 function renderCategoryOptions(selectedCategory) {
   const categories = getCategories(state.posts).filter((category) => category !== "전체");
   const options = categories.length ? categories : ["일상"];
@@ -551,6 +508,69 @@ function renderFolderOption(folder, selectedId, depth) {
     <option value="${escapeAttr(folder.id)}" ${folder.id === selectedId ? "selected" : ""}>${escapeHtml(prefix + folder.name)}</option>
     ${folder.children.map((child) => renderFolderOption(child, selectedId, depth + 1)).join("")}
   `;
+}
+
+function renderCategory(category, posts, folders, canManage) {
+  const isAll = category === ALL_CATEGORY_LABEL;
+  const count = isAll ? posts.length : posts.filter((post) => (post.category || ETC_CATEGORY_LABEL) === category).length;
+  const categoryFolders = isAll ? [] : getFoldersForCategory(folders, category);
+  const openKey = `category:${category}`;
+  const isOpen = state.taxonomyOpen[openKey] !== false;
+
+  return `
+    <div class="category-group">
+      <div class="category-row">
+        ${isAll ? `<span class="tree-spacer"></span>` : `
+          <button class="icon-button mini-button tree-toggle" type="button" data-category-toggle="${escapeAttr(category)}" aria-label="${isOpen ? "\uCE74\uD14C\uACE0\uB9AC \uC811\uAE30" : "\uCE74\uD14C\uACE0\uB9AC \uD3BC\uCE58\uAE30"}" title="${isOpen ? "\uCE74\uD14C\uACE0\uB9AC \uC811\uAE30" : "\uCE74\uD14C\uACE0\uB9AC \uD3BC\uCE58\uAE30"}">
+            <i data-lucide="${isOpen ? "chevron-down" : "chevron-right"}"></i>
+          </button>
+        `}
+        <button class="category-chip ${state.category === category ? "is-active" : ""}" type="button" data-category="${escapeAttr(category)}">
+          <span>${escapeHtml(category)}</span>
+          <strong>${count}</strong>
+        </button>
+        ${canManage && !isAll ? `<button class="icon-button mini-button" type="button" data-add-category-folder="${escapeAttr(category)}" aria-label="\uD3F4\uB354 \uCD94\uAC00" title="\uD3F4\uB354 \uCD94\uAC00"><i data-lucide="folder-plus"></i></button>` : `<span class="tree-spacer"></span>`}
+      </div>
+      ${!isAll && isOpen ? `<div class="category-folders">${renderFolderTree(categoryFolders, canManage, category)}</div>` : ""}
+    </div>
+  `;
+}
+
+function renderFolderTree(folders, canManage, category) {
+  const tree = buildFolderTree(folders).filter((folder) => !folder.parent_id);
+  return tree.length
+    ? tree.map((folder) => renderFolderNode(folder, canManage, 0)).join("")
+    : `<p class="folder-empty">${escapeHtml(category)} \uD3F4\uB354\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</p>`;
+}
+
+function renderFolderNode(folder, canManage, depth) {
+  const descendants = getFolderDescendantIds(folder.id);
+  const count = getPostsForCurrentScope().filter((post) => post.folder_id === folder.id || descendants.includes(post.folder_id)).length;
+  const hasChildren = folder.children.length > 0;
+  const isOpen = state.taxonomyOpen[`folder:${folder.id}`] !== false;
+
+  return `
+    <div class="folder-branch" style="--depth: ${depth}">
+      ${hasChildren ? `
+        <button class="icon-button mini-button tree-toggle" type="button" data-folder-toggle="${escapeAttr(folder.id)}" aria-label="${isOpen ? "\uD3F4\uB354 \uC811\uAE30" : "\uD3F4\uB354 \uD3BC\uCE58\uAE30"}" title="${isOpen ? "\uD3F4\uB354 \uC811\uAE30" : "\uD3F4\uB354 \uD3BC\uCE58\uAE30"}">
+          <i data-lucide="${isOpen ? "chevron-down" : "chevron-right"}"></i>
+        </button>
+      ` : `<span class="tree-spacer"></span>`}
+      <button class="folder-node ${state.activeFolderId === folder.id ? "is-active" : ""}" type="button" data-folder-id="${escapeAttr(folder.id)}">
+        <span><i data-lucide="folder"></i>${escapeHtml(folder.name)}</span>
+        <strong>${count}</strong>
+      </button>
+      ${canManage ? `<button class="icon-button mini-button folder-add-child" type="button" data-add-child-folder="${escapeAttr(folder.id)}" aria-label="\uD558\uC704 \uD3F4\uB354 \uCD94\uAC00" title="\uD558\uC704 \uD3F4\uB354 \uCD94\uAC00"><i data-lucide="plus"></i></button>` : ""}
+    </div>
+    ${hasChildren && isOpen ? folder.children.map((child) => renderFolderNode(child, canManage, depth + 1)).join("") : ""}
+  `;
+}
+
+function renderFolderOptions(selectedId, categoryName) {
+  const selectedFolder = state.folders.find((folder) => folder.id === selectedId);
+  const scopedFolders = getFoldersForCategory(getMyFolders(), categoryName || (selectedFolder ? getFolderCategoryName(selectedFolder) : DEFAULT_CATEGORY_LABEL));
+  const roots = buildFolderTree(scopedFolders).filter((folder) => !folder.parent_id);
+  return roots.map((folder) => renderFolderOption(folder, selectedId, 0)).join("");
 }
 
 function renderPostCard(post, isActive) {
@@ -659,7 +679,27 @@ function bindListEvents() {
 
   $("#profileForm")?.addEventListener("submit", saveProfile);
   $("#addCategoryButton")?.addEventListener("click", addCategory);
-  $("#addRootFolderButton")?.addEventListener("click", () => addFolder(null));
+
+  $$("[data-category-toggle]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleTaxonomy(`category:${button.dataset.categoryToggle}`);
+    });
+  });
+
+  $$("[data-folder-toggle]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleTaxonomy(`folder:${button.dataset.folderToggle}`);
+    });
+  });
+
+  $$("[data-add-category-folder]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      addFolder(null, { categoryName: button.dataset.addCategoryFolder });
+    });
+  });
 
   $$("[data-add-child-folder]").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -671,6 +711,7 @@ function bindListEvents() {
   $$("[data-category]").forEach((button) => {
     button.addEventListener("click", () => {
       state.category = button.dataset.category;
+      state.activeFolderId = "all";
       state.selectedId = null;
       renderBlogList();
       updateIcons();
@@ -680,6 +721,10 @@ function bindListEvents() {
   $$("[data-folder-id]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeFolderId = button.dataset.folderId;
+      const folder = state.folders.find((item) => item.id === state.activeFolderId);
+      if (folder) {
+        state.category = getFolderCategoryName(folder);
+      }
       renderBlogList();
       updateIcons();
     });
@@ -715,6 +760,13 @@ function bindPostViewEvents() {
   $$("[data-delete-id]").forEach((button) => {
     button.addEventListener("click", () => deletePost(button.dataset.deleteId));
   });
+}
+
+function toggleTaxonomy(key) {
+  state.taxonomyOpen[key] = state.taxonomyOpen[key] === false;
+  localStorage.setItem(TAXONOMY_OPEN_STORAGE, JSON.stringify(state.taxonomyOpen));
+  renderBlogList();
+  updateIcons();
 }
 
 function navigateToPost(postId) {
@@ -754,22 +806,46 @@ async function addCategory({ silent = false } = {}) {
   }
 }
 
-async function addFolder(parentId, { silent = false } = {}) {
+async function ensureCategoryId(name) {
+  const normalized = name && name !== ALL_CATEGORY_LABEL ? name.trim() : DEFAULT_CATEGORY_LABEL;
+  if (!normalized || !state.session) {
+    return null;
+  }
+
+  const existing = state.categories.find((category) => category.name === normalized && category.owner_id === state.session.user.id);
+  if (existing) {
+    return existing.id;
+  }
+
+  const category = {
+    id: crypto.randomUUID(),
+    owner_id: state.session.user.id,
+    name: normalized
+  };
+  const saved = await persistTaxonomy(CATEGORY_TABLE, category);
+  state.categories = normalizeCategories([...state.categories.filter((item) => item.name !== saved.name), saved]);
+  cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
+  return saved.id;
+}
+
+async function addFolder(parentId, { silent = false, categoryName = null } = {}) {
   const name = prompt(parentId ? "추가할 하위 폴더 이름" : "추가할 폴더 이름");
   const normalized = (name || "").trim();
   if (!normalized || !state.session) {
     return null;
   }
 
-  const folder = {
-    id: crypto.randomUUID(),
-    owner_id: state.session.user.id,
-    parent_id: parentId || null,
-    name: normalized,
-    sort_order: state.folders.length
-  };
-
   try {
+    const parentCategoryId = getFolderCategoryId(parentId, categoryName);
+    const categoryId = parentCategoryId || await ensureCategoryId(categoryName || state.category);
+    const folder = {
+      id: crypto.randomUUID(),
+      owner_id: state.session.user.id,
+      parent_id: parentId || null,
+      category_id: categoryId,
+      name: normalized,
+      sort_order: state.folders.length
+    };
     const saved = await persistTaxonomy(FOLDER_TABLE, folder);
     state.folders = normalizeFolders([...state.folders, saved]);
     cacheTaxonomy(FOLDERS_STORAGE, state.folders);
@@ -846,7 +922,7 @@ function renderEditor() {
           <div class="inline-field">
             <select id="editorFolder">
               <option value="">폴더 없음</option>
-              ${renderFolderOptions(post.folder_id || "")}
+              ${renderFolderOptions(post.folder_id || "", post.category || DEFAULT_CATEGORY_LABEL)}
             </select>
             <button class="icon-button" type="button" id="editorAddFolderButton" aria-label="새 폴더" title="새 폴더"><i data-lucide="folder-plus"></i></button>
           </div>
@@ -934,6 +1010,10 @@ function bindEditorEvents() {
   ["editorTitle", "editorCategory", "editorFolder", "editorPublished"].forEach((id) => {
     document.getElementById(id).addEventListener("input", update);
   });
+  $("#editorCategory").addEventListener("change", () => {
+    $("#editorFolder").innerHTML = `<option value="">\uD3F4\uB354 \uC5C6\uC74C</option>${renderFolderOptions("", $("#editorCategory").value)}`;
+    update();
+  });
   $("#editorAddCategoryButton").addEventListener("click", async () => {
     const category = await addCategory({ silent: true });
     if (category) {
@@ -943,9 +1023,9 @@ function bindEditorEvents() {
   });
   $("#editorAddFolderButton").addEventListener("click", async () => {
     const parentId = $("#editorFolder").value || null;
-    const folder = await addFolder(parentId, { silent: true });
+    const folder = await addFolder(parentId, { silent: true, categoryName: $("#editorCategory").value });
     if (folder) {
-      $("#editorFolder").innerHTML = `<option value="">폴더 없음</option>${renderFolderOptions(folder.id)}`;
+      $("#editorFolder").innerHTML = `<option value="">폴더 없음</option>${renderFolderOptions(folder.id, $("#editorCategory").value)}`;
       update();
     }
   });
@@ -1378,6 +1458,34 @@ function getMyFolders() {
   return state.folders.filter((folder) => !folder.owner_id || folder.owner_id === state.session?.user?.id);
 }
 
+function getFoldersForCategory(folders, categoryName) {
+  return folders.filter((folder) => getFolderCategoryName(folder) === categoryName);
+}
+
+function getFolderCategoryName(folder) {
+  const category = state.categories.find((item) => item.id === folder.category_id);
+  if (category) {
+    return category.name;
+  }
+
+  const descendantIds = [folder.id, ...getFolderDescendantIds(folder.id)];
+  const linkedPost = getPostsForCurrentScope().find((post) => descendantIds.includes(post.folder_id));
+  return linkedPost?.category || DEFAULT_CATEGORY_LABEL;
+}
+
+function getFolderCategoryId(parentId, categoryName) {
+  const parentFolder = state.folders.find((folder) => folder.id === parentId);
+  if (parentFolder?.category_id) {
+    return parentFolder.category_id;
+  }
+  return getCategoryIdByName(categoryName || state.category) || null;
+}
+
+function getCategoryIdByName(name) {
+  const normalized = name && name !== ALL_CATEGORY_LABEL ? name : DEFAULT_CATEGORY_LABEL;
+  return state.categories.find((category) => category.name === normalized && (!category.owner_id || category.owner_id === state.session?.user?.id))?.id || null;
+}
+
 function buildFolderTree(folders) {
   const map = new Map(folders.map((folder) => [folder.id, { ...folder, children: [] }]));
   map.forEach((folder) => {
@@ -1447,6 +1555,15 @@ function getStoredTaxonomy(key) {
   }
 }
 
+function getStoredOpenState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TAXONOMY_OPEN_STORAGE) || "{}");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
 function cacheTaxonomy(key, items) {
   localStorage.setItem(key, JSON.stringify(items));
 }
@@ -1500,6 +1617,7 @@ function normalizeFolders(folders = []) {
     id: folder.id,
     owner_id: folder.owner_id || null,
     parent_id: folder.parent_id || null,
+    category_id: folder.category_id || null,
     name: folder.name || "새 폴더",
     sort_order: Number(folder.sort_order || 0),
     created_at: folder.created_at || new Date().toISOString()
