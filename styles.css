@@ -301,11 +301,12 @@ img {
 .search-field i {
   position: absolute;
   top: 50%;
-  right: 12px;
+  right: 10px;
   width: 18px;
   height: 18px;
   color: var(--muted);
   transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .search-field input,
@@ -322,7 +323,14 @@ img {
 }
 
 .search-field input {
-  padding: 0 39px 0 12px;
+  padding: 0 42px 0 12px;
+}
+
+.search-field input::-webkit-search-decoration,
+.search-field input::-webkit-search-cancel-button,
+.search-field input::-webkit-search-results-button,
+.search-field input::-webkit-search-results-decoration {
+  display: none;
 }
 
 .field input,
