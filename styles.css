@@ -941,6 +941,30 @@ img {
   padding: 30px;
 }
 
+.reader-body.is-book-reader {
+  max-width: 760px;
+  min-height: 720px;
+  margin: 24px auto;
+  padding: 58px 66px;
+  border: 1px solid #e5d8bd;
+  border-radius: 4px;
+  color: #263442;
+  background: #fffdf7;
+  box-shadow:
+    0 20px 42px rgba(35, 48, 64, 0.12),
+    inset 14px 0 0 rgba(221, 204, 168, 0.24);
+}
+
+.reader-body.is-book-reader .reader-title {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.reader-body.is-book-reader .content {
+  font-size: 18px;
+  line-height: 2;
+}
+
 .reader-title {
   font-size: 34px;
 }

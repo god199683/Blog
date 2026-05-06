@@ -48,6 +48,7 @@ const state = {
   trashOpen: false,
   selectionMode: false,
   selectedPostIds: new Set(),
+  bookReader: false,
   loading: true
 };
 let savedEditorRange = null;
@@ -854,11 +855,16 @@ function renderPostCard(post, isActive, canManage = false) {
 function renderReader(post, isMine) {
   const canEdit = state.session && post.owner_id === state.session.user.id;
   return `
-    <div class="reader-cover">${renderCover(post)}</div>
-    <div class="reader-body">
+    <div class="reader-body ${state.bookReader ? "is-book-reader" : ""}">
       <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)} · ${escapeHtml(post.author_name || "공개 작성자")}</div>
       <h2 class="reader-title">${escapeHtml(post.title)}</h2>
       <div class="tag-list">${(post.tags || []).map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>
+      <div class="reader-toolbar">
+        <button class="outline-button ${state.bookReader ? "is-active" : ""}" type="button" id="bookReaderButton">
+          <i data-lucide="book-open"></i>
+          책 형태로 읽기
+        </button>
+      </div>
       ${
         canEdit
           ? `
@@ -1096,6 +1102,12 @@ function bindStaticListEvents() {
 }
 
 function bindPostViewEvents() {
+  $("#bookReaderButton")?.addEventListener("click", () => {
+    state.bookReader = !state.bookReader;
+    renderPostView();
+    updateIcons();
+  });
+
   $$("[data-edit-id]").forEach((button) => {
     button.addEventListener("click", () => openEditor(button.dataset.editId));
   });
