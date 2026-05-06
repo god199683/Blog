@@ -13,7 +13,7 @@ const DRAFT_STORAGE = "skyblog.draft.v2";
 const SIDEBAR_STORAGE = "skyblog.sidebarCollapsed";
 const TAXONOMY_OPEN_STORAGE = "skyblog.taxonomyOpen.v1";
 const ALL_CATEGORY_LABEL = "\uC804\uCCB4";
-const DEFAULT_CATEGORY_LABEL = "\uC77C\uC0C1";
+const DEFAULT_CATEGORY_LABEL = "\uAE30\uD0C0";
 const ETC_CATEGORY_LABEL = "\uAE30\uD0C0";
 const ROUTES = {
   home: "#home",
@@ -628,7 +628,7 @@ function getSupabaseSetupMessage(error) {
 
 function renderCategoryOptions(selectedCategory) {
   const categories = getCategories(state.posts).filter((category) => category !== "전체");
-  const options = categories.length ? categories : ["일상"];
+  const options = categories.length ? categories : [DEFAULT_CATEGORY_LABEL];
   return options.map((category) => `<option value="${escapeAttr(category)}" ${category === selectedCategory ? "selected" : ""}>${escapeHtml(category)}</option>`).join("");
 }
 
@@ -1408,7 +1408,7 @@ function renderEditor() {
           <span>카테고리</span>
           <div class="inline-field">
             <select id="editorCategory">
-              ${renderCategoryOptions(post.category || "일상")}
+              ${renderCategoryOptions(post.category || DEFAULT_CATEGORY_LABEL)}
             </select>
             <button class="icon-button" type="button" id="editorAddCategoryButton" aria-label="새 카테고리" title="새 카테고리"><i data-lucide="plus"></i></button>
           </div>
@@ -1469,6 +1469,7 @@ function renderEditor() {
         </div>
         <div class="tool-group style-tool-group">
           <select class="toolbar-select font-select" id="fontFamily" aria-label="글씨체" title="글씨체">
+            <option value="Carlito, 'Noto Sans KR', sans-serif" selected>Carlito</option>
             <option value="">기본</option>
             <option value="'Noto Sans KR', sans-serif">Noto Sans</option>
             <option value="'Malgun Gothic', sans-serif">맑은 고딕</option>
@@ -1820,7 +1821,7 @@ function readEditorPost({ loose = false } = {}) {
     title: title || "제목 없음",
     slug: base.slug || makeSlug(title || "untitled"),
     excerpt: makeExcerpt(content),
-    category: $("#editorCategory").value.trim() || "일상",
+    category: $("#editorCategory").value.trim() || DEFAULT_CATEGORY_LABEL,
     folder_id: $("#editorFolder").value || null,
     tags: Array.isArray(base.tags) ? base.tags : [],
     cover_url: base.cover_url || "",
@@ -2470,7 +2471,7 @@ function createBlankPost() {
     title: "",
     slug: "",
     excerpt: "",
-    category: "일상",
+    category: DEFAULT_CATEGORY_LABEL,
     tags: [],
     cover_url: "",
     content: "<p></p>",
@@ -2519,7 +2520,7 @@ function normalizePost(post) {
     title: post.title || "제목 없음",
     slug: post.slug || makeSlug(post.title || "post"),
     excerpt: post.excerpt || makeExcerpt(post.content || ""),
-    category: post.category || "일상",
+    category: post.category || DEFAULT_CATEGORY_LABEL,
     tags: Array.isArray(post.tags) ? post.tags : [],
     cover_url: post.cover_url || "",
     content: sanitizeHtml(post.content || ""),
