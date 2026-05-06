@@ -80,19 +80,8 @@ img {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   width: max-content;
-}
-
-.brand-mark {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  color: #ffffff;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--sky-500), #65c8f4);
-  box-shadow: 0 12px 24px rgba(20, 153, 219, 0.22);
 }
 
 .brand strong {
@@ -253,18 +242,6 @@ img {
   padding: 22px;
 }
 
-.profile-visual {
-  display: grid;
-  width: 72px;
-  height: 72px;
-  margin-bottom: 18px;
-  place-items: center;
-  color: var(--sky-700);
-  border: 1px solid var(--sky-200);
-  border-radius: 8px;
-  background: linear-gradient(145deg, #ffffff, var(--sky-100));
-}
-
 .profile-panel h1,
 .reader-title,
 .editor-title {
@@ -290,7 +267,7 @@ img {
 .search-field i {
   position: absolute;
   top: 50%;
-  left: 12px;
+  right: 12px;
   width: 18px;
   height: 18px;
   color: var(--muted);
@@ -311,7 +288,7 @@ img {
 }
 
 .search-field input {
-  padding: 0 12px 0 39px;
+  padding: 0 39px 0 12px;
 }
 
 .field input,

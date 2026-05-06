@@ -316,7 +316,6 @@ function renderBlogList() {
   app.innerHTML = `
     <section class="blog-grid">
       <aside class="profile-panel">
-        <div class="profile-visual"><i data-lucide="${isMine ? "user-round" : "cloud-sun"}"></i></div>
         <p class="eyebrow">${isMine ? "My Blog" : "Public Home"}</p>
         <h1>${escapeHtml(title)}</h1>
         ${
@@ -340,8 +339,8 @@ function renderBlogList() {
         }
         <label class="search-field">
           <span class="sr-only">검색</span>
-          <i data-lucide="search"></i>
           <input id="searchInput" type="search" value="${escapeAttr(state.query)}" placeholder="글 검색" />
+          <i data-lucide="search"></i>
         </label>
         <div class="category-list" aria-label="카테고리">
           ${categories.map((category) => renderCategory(category, visiblePosts)).join("")}
