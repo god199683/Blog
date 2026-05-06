@@ -1607,8 +1607,11 @@ function bindEditorEvents() {
   $("#addFontButton").addEventListener("click", () => {
     addCustomFont(update);
   });
-  $("#fontSizeInput").addEventListener("input", (event) => {
-    applyInlineStyle({ fontSize: `${clamp(Number(event.target.value) || 16, 8, 96)}px` }, update);
+  $("#fontSizeInput").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyFontSizeFromInput(event.target, update);
+    }
   });
   $("#lineHeightSelect").addEventListener("change", (event) => {
     applyInlineStyle({ lineHeight: event.target.value }, update);
@@ -1724,6 +1727,12 @@ function addCustomFont(update) {
   select.value = quoteFontFamily(fontName);
   applyInlineStyle({ fontFamily: select.value }, update);
   toast(`"${fontName}" 폰트를 추가했습니다.`);
+}
+
+function applyFontSizeFromInput(input, update) {
+  const size = clamp(Number(input.value) || 16, 8, 96);
+  input.value = size;
+  applyInlineStyle({ fontSize: `${size}px` }, update);
 }
 
 function runEditorCommand(command, value) {

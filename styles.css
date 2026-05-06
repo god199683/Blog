@@ -415,10 +415,14 @@ img {
 .field input:focus,
 .meta-field input:focus,
 .meta-field select:focus,
-.editor-title:focus,
-.editor-canvas:focus {
+.editor-title:focus {
   border-color: var(--sky-400);
   box-shadow: 0 0 0 4px rgba(56, 174, 234, 0.14);
+}
+
+.editor-canvas:focus {
+  border-color: var(--line);
+  box-shadow: none;
 }
 
 .category-list {
@@ -878,6 +882,8 @@ img {
   color: #213242;
   font-size: 16px;
   line-height: 1.78;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .content h2,
@@ -890,6 +896,13 @@ img {
   margin: 0 0 1.05em;
 }
 
+.content pre,
+.content code {
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .content blockquote {
   margin: 22px 0;
   padding: 14px 18px;
@@ -900,6 +913,7 @@ img {
 
 .content img {
   width: auto;
+  max-width: 100%;
   max-height: 520px;
   margin: 18px auto;
   border-radius: 8px;
@@ -1309,19 +1323,25 @@ img {
 }
 
 .editor-page {
-  padding: 26px;
+  padding: 10px;
   overflow: auto;
 }
 
 .editor-canvas {
   min-height: 100%;
-  padding: 34px;
+  max-width: 100%;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
-  box-shadow: 0 14px 34px rgba(20, 36, 51, 0.08);
+  box-shadow: none;
   font-family: "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  overflow-x: hidden;
   outline: none;
+}
+
+.editor-canvas > * {
+  max-width: 100%;
 }
 
 .editor-canvas:empty::before {
@@ -1492,10 +1512,13 @@ img {
     width: 58px;
   }
 
-  .reader-body,
+  .reader-body {
+    padding: 20px;
+  }
+
   .editor-page,
   .editor-canvas {
-    padding: 20px;
+    padding: 10px;
   }
 
   .reader-title,
