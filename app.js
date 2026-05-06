@@ -511,6 +511,13 @@ function renderFolderOption(folder, selectedId, depth) {
   `;
 }
 
+function renderColorPalette(type) {
+  const colors = ["#111827", "#64748b", "#ef4444", "#f97316", "#eab308", "#22c55e", "#1499db", "#6366f1", "#a855f7", "#ffffff"];
+  return colors.map((color) => `
+    <button class="color-swatch" type="button" data-${type}-color="${color}" style="--swatch: ${color}" aria-label="${type === "text" ? "글자색" : "글씨 배경색"} ${color}" title="${type === "text" ? "글자색" : "글씨 배경색"} ${color}"></button>
+  `).join("");
+}
+
 function renderCategory(category, posts, folders, canManage) {
   const isAll = category === ALL_CATEGORY_LABEL;
   const count = isAll ? posts.length : posts.filter((post) => (post.category || ETC_CATEGORY_LABEL) === category).length;
@@ -946,7 +953,14 @@ function renderEditor() {
           <button class="tool-button" type="button" data-command="bold" aria-label="굵게" title="굵게"><i data-lucide="bold"></i></button>
           <button class="tool-button" type="button" data-command="italic" aria-label="기울임" title="기울임"><i data-lucide="italic"></i></button>
           <button class="tool-button" type="button" data-command="underline" aria-label="밑줄" title="밑줄"><i data-lucide="underline"></i></button>
-          <input class="color-input" id="textColor" type="color" value="#1499db" aria-label="글자색" title="글자색" />
+          <input class="color-input" id="textColor" type="color" value="#1499db" aria-label="글자색 직접 선택" title="글자색 직접 선택" />
+          <div class="color-palette" aria-label="글자색 팔레트">
+            ${renderColorPalette("text")}
+          </div>
+          <input class="color-input" id="highlightColor" type="color" value="#fff2a8" aria-label="글씨 배경색 직접 선택" title="글씨 배경색 직접 선택" />
+          <div class="color-palette" aria-label="글씨 배경색 팔레트">
+            ${renderColorPalette("bg")}
+          </div>
         </div>
         <div class="tool-group style-tool-group">
           <select class="toolbar-select font-select" id="fontFamily" aria-label="글씨체" title="글씨체">
@@ -977,6 +991,12 @@ function renderEditor() {
           <button class="tool-button" type="button" data-command="insertOrderedList" aria-label="번호 목록" title="번호 목록"><i data-lucide="list-ordered"></i></button>
           <button class="tool-button" type="button" data-command="justifyLeft" aria-label="왼쪽 정렬" title="왼쪽 정렬"><i data-lucide="align-left"></i></button>
           <button class="tool-button" type="button" data-command="justifyCenter" aria-label="가운데 정렬" title="가운데 정렬"><i data-lucide="align-center"></i></button>
+          <button class="tool-button" type="button" data-command="justifyRight" aria-label="오른쪽 정렬" title="오른쪽 정렬"><i data-lucide="align-right"></i></button>
+        </div>
+        <div class="tool-group">
+          <button class="tool-button" type="button" data-vertical-align="top" aria-label="위쪽 정렬" title="위쪽 정렬"><i data-lucide="align-vertical-justify-start"></i></button>
+          <button class="tool-button" type="button" data-vertical-align="middle" aria-label="세로 가운데 정렬" title="세로 가운데 정렬"><i data-lucide="align-vertical-justify-center"></i></button>
+          <button class="tool-button" type="button" data-vertical-align="bottom" aria-label="아래쪽 정렬" title="아래쪽 정렬"><i data-lucide="align-vertical-justify-end"></i></button>
         </div>
         <div class="tool-group">
           <button class="tool-button" type="button" data-command="createLink" aria-label="링크" title="링크"><i data-lucide="link"></i></button>
@@ -1021,10 +1041,10 @@ function bindEditorEvents() {
   });
 
   $("#textColor").addEventListener("input", (event) => {
-    restoreEditorSelection();
-    document.execCommand("foreColor", false, event.target.value);
-    rememberEditorSelection();
-    update();
+    applyTextColor(event.target.value, update);
+  });
+  $("#highlightColor").addEventListener("input", (event) => {
+    applyInlineStyle({ backgroundColor: event.target.value }, update);
   });
   $("#fontFamily").addEventListener("change", (event) => {
     applyInlineStyle({ fontFamily: event.target.value }, update);
@@ -1034,6 +1054,23 @@ function bindEditorEvents() {
   });
   $("#lineHeightSelect").addEventListener("change", (event) => {
     applyInlineStyle({ lineHeight: event.target.value }, update);
+  });
+  $$("[data-text-color]").forEach((button) => {
+    button.addEventListener("click", () => {
+      $("#textColor").value = button.dataset.textColor;
+      applyTextColor(button.dataset.textColor, update);
+    });
+  });
+  $$("[data-bg-color]").forEach((button) => {
+    button.addEventListener("click", () => {
+      $("#highlightColor").value = button.dataset.bgColor;
+      applyInlineStyle({ backgroundColor: button.dataset.bgColor }, update);
+    });
+  });
+  $$("[data-vertical-align]").forEach((button) => {
+    button.addEventListener("click", () => {
+      applyInlineStyle({ verticalAlign: button.dataset.verticalAlign }, update);
+    });
   });
 
   ["editorTitle", "editorCategory", "editorFolder", "editorPublished"].forEach((id) => {
@@ -1102,6 +1139,15 @@ function runEditorCommand(command, value) {
 
   saveDraft();
   updatePreview();
+}
+
+function applyTextColor(color, update) {
+  restoreEditorSelection();
+  document.execCommand("foreColor", false, color);
+  rememberEditorSelection();
+  saveDraft();
+  updatePreview();
+  update();
 }
 
 function rememberEditorSelection() {
