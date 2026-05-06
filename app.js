@@ -891,6 +891,10 @@ function renderPostCard(post, isActive, canManage = false) {
 
 function renderReader(post, isMine) {
   const canEdit = state.session && post.owner_id === state.session.user.id;
+  const readerSequence = getReaderSequence(post);
+  const readerIndex = readerSequence.findIndex((item) => item.id === post.id);
+  const previousPost = readerIndex > 0 ? readerSequence[readerIndex - 1] : null;
+  const nextPost = readerIndex >= 0 && readerIndex < readerSequence.length - 1 ? readerSequence[readerIndex + 1] : null;
   return `
     <div class="reader-body ${state.bookReader ? "is-book-reader" : ""}">
       <div class="post-meta">${escapeHtml(post.category || getFallbackCategoryName())} · ${formatDate(post.created_at)} · ${escapeHtml(post.author_name || "공개 작성자")}</div>
@@ -902,6 +906,19 @@ function renderReader(post, isMine) {
           책 형태로 읽기
         </button>
       </div>
+      ${state.bookReader ? `
+        <div class="reader-sequence">
+          <button class="outline-button viewer-compact-button" type="button" data-reader-nav="${escapeAttr(previousPost?.id || "")}" ${previousPost ? "" : "disabled"}>
+            <i data-lucide="chevron-left"></i>
+            이전 글
+          </button>
+          <span>${readerIndex >= 0 ? `${readerIndex + 1} / ${readerSequence.length}` : "1 / 1"}</span>
+          <button class="outline-button viewer-compact-button" type="button" data-reader-nav="${escapeAttr(nextPost?.id || "")}" ${nextPost ? "" : "disabled"}>
+            다음 글
+            <i data-lucide="chevron-right"></i>
+          </button>
+        </div>
+      ` : ""}
       ${
         canEdit
           ? `
@@ -923,6 +940,23 @@ function renderReader(post, isMine) {
       <div class="content">${sanitizeHtml(post.content)}</div>
     </div>
   `;
+}
+
+function getReaderSequence(post) {
+  const category = post.category || getFallbackCategoryName();
+  return state.posts
+    .filter((item) => {
+      if (item.deleted_at || item.owner_id !== post.owner_id) {
+        return false;
+      }
+      if (!item.published && item.owner_id !== state.session?.user?.id) {
+        return false;
+      }
+      const sameCategory = (item.category || getFallbackCategoryName()) === category;
+      const sameFolder = (item.folder_id || null) === (post.folder_id || null);
+      return sameCategory && sameFolder;
+    })
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 }
 
 function renderCover(post) {
@@ -1138,6 +1172,16 @@ function bindPostViewEvents() {
     state.bookReader = !state.bookReader;
     renderPostView();
     updateIcons();
+  });
+
+  $$("[data-reader-nav]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!button.dataset.readerNav) {
+        return;
+      }
+      state.bookReader = true;
+      navigateToPost(button.dataset.readerNav);
+    });
   });
 
   $$("[data-edit-id]").forEach((button) => {
