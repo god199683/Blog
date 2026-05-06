@@ -276,6 +276,7 @@ async function loadTaxonomy() {
 }
 
 function render() {
+  updateBrandTitle();
   updateTopNav();
   updateConnectionStatus();
   if (state.view === "editor") {
@@ -286,6 +287,21 @@ function render() {
     renderBlogList();
   }
   updateIcons();
+}
+
+function updateBrandTitle() {
+  const brandTitle = $("#brandTitle");
+  if (!brandTitle) {
+    return;
+  }
+
+  const selectedPost = state.posts.find((post) => post.id === state.selectedId);
+  const isOwnPostView = state.view === "post" && selectedPost?.owner_id === state.session?.user?.id;
+  const title = state.session && (state.view === "myblog" || state.view === "editor" || isOwnPostView)
+    ? getMyBlogTitle()
+    : CONFIG.blogTitle || "Blog";
+  brandTitle.textContent = title;
+  document.title = title;
 }
 
 function navigateTo(view, { replace = false } = {}) {
