@@ -195,20 +195,14 @@ async function ensureProfile() {
     return state.profile;
   }
 
-  const created = await state.supabase
-    .from(PROFILE_TABLE)
-    .insert(defaults)
-    .select()
-    .single();
-
-  if (created.error) {
-    toast(`프로필을 만들지 못했습니다: ${created.error.message}`);
+  try {
+    state.profile = await persistProfile(defaults);
+    return state.profile;
+  } catch (error) {
+    toast(`프로필을 만들지 못했습니다: ${error.message}`);
     state.profile = defaults;
     return defaults;
   }
-
-  state.profile = created.data || defaults;
-  return state.profile;
 }
 
 async function loadPosts() {
@@ -857,12 +851,12 @@ async function saveProfile(event) {
   };
 
   if (state.supabase) {
-    const { data, error } = await state.supabase.from(PROFILE_TABLE).upsert(profile, { onConflict: "id" }).select().single();
-    if (error) {
-      toast(error.message);
+    try {
+      state.profile = await persistProfile(profile);
+    } catch (error) {
+      toast(`블로그 이름 저장 실패: ${error.message}`);
       return;
     }
-    state.profile = data;
   } else {
     state.profile = profile;
   }
@@ -870,6 +864,49 @@ async function saveProfile(event) {
   $("#profileDialog")?.close();
   toast("블로그 설정을 저장했습니다.");
   render();
+}
+
+async function persistProfile(profile) {
+  if (!state.supabase || !state.session) {
+    return profile;
+  }
+
+  const userId = state.session.user.id;
+  const payload = {
+    ...profile,
+    id: userId
+  };
+
+  const updated = await state.supabase
+    .from(PROFILE_TABLE)
+    .update({
+      blog_title: payload.blog_title,
+      display_name: payload.display_name,
+      bio: payload.bio
+    })
+    .eq("id", userId)
+    .select()
+    .maybeSingle();
+
+  if (updated.error) {
+    throw updated.error;
+  }
+
+  if (updated.data) {
+    return updated.data;
+  }
+
+  const created = await state.supabase
+    .from(PROFILE_TABLE)
+    .insert(payload)
+    .select()
+    .single();
+
+  if (created.error) {
+    throw created.error;
+  }
+
+  return created.data;
 }
 
 function openAuth() {
