@@ -10,7 +10,8 @@ const SIDEBAR_STORAGE = "skyblog.sidebarCollapsed";
 const ROUTES = {
   home: "#home",
   myblog: "#blog/me",
-  editor: "#write"
+  editor: "#write",
+  postPrefix: "#post/"
 };
 
 const app = document.querySelector("#app");
@@ -227,7 +228,9 @@ async function loadPosts() {
     state.posts = getLocalPosts();
   }
 
-  state.selectedId = getVisiblePosts()[0]?.id || null;
+  if (state.view !== "post") {
+    state.selectedId = getVisiblePosts()[0]?.id || null;
+  }
   state.loading = false;
   render();
 }
@@ -237,6 +240,8 @@ function render() {
   updateConnectionStatus();
   if (state.view === "editor") {
     renderEditor();
+  } else if (state.view === "post") {
+    renderPostView();
   } else {
     renderBlogList();
   }
@@ -274,10 +279,14 @@ function applyRouteFromHash() {
     return;
   }
 
-  applyView(view);
+  applyView(view, { keepSelected: view === "post" });
 }
 
 function viewFromHash() {
+  if (window.location.hash.startsWith(ROUTES.postPrefix)) {
+    state.selectedId = decodeURIComponent(window.location.hash.slice(ROUTES.postPrefix.length));
+    return "post";
+  }
   if (window.location.hash === ROUTES.myblog) {
     return "myblog";
   }
@@ -287,11 +296,13 @@ function viewFromHash() {
   return "home";
 }
 
-function applyView(view) {
+function applyView(view, { keepSelected = false } = {}) {
   state.view = view;
   state.editingId = null;
   state.editorInitial = null;
-  state.selectedId = null;
+  if (!keepSelected) {
+    state.selectedId = null;
+  }
   state.category = "전체";
   render();
 }
@@ -300,10 +311,6 @@ function renderBlogList() {
   const isMine = state.view === "myblog";
   const visiblePosts = getVisiblePosts();
   const categories = getCategories(visiblePosts);
-  const selected = visiblePosts.find((post) => post.id === state.selectedId) || visiblePosts[0];
-  if (selected) {
-    state.selectedId = selected.id;
-  }
 
   const title = isMine ? getMyBlogTitle() : "공용 홈";
   const countLabel = isMine ? "내 글" : "공개 글";
@@ -364,21 +371,40 @@ function renderBlogList() {
             state.loading
               ? `<div class="empty-state">불러오는 중...</div>`
               : visiblePosts.length
-                ? visiblePosts.map((post) => renderPostCard(post, selected?.id === post.id)).join("")
+                ? visiblePosts.map((post) => renderPostCard(post, false)).join("")
                 : renderEmptyState(isMine)
           }
         </div>
       </section>
-
-      <article class="reader-panel">
-        ${selected ? renderReader(selected, isMine) : `<div class="empty-state">표시할 글이 없습니다.</div>`}
-      </article>
     </section>
 
     ${isMine ? renderProfileDialog() : ""}
   `;
 
   bindListEvents();
+}
+
+function renderPostView() {
+  const post = state.posts.find((item) => item.id === state.selectedId);
+  const canView = post && (post.published || post.owner_id === state.session?.user?.id);
+  const isMine = Boolean(post && state.session && post.owner_id === state.session.user.id);
+  const backView = isMine ? "myblog" : "home";
+
+  app.innerHTML = `
+    <section class="post-view-shell">
+      <div class="post-view-head">
+        <button class="outline-button" type="button" data-nav="${backView}">
+          <i data-lucide="arrow-left"></i>
+          돌아가기
+        </button>
+      </div>
+      <article class="reader-panel post-view-panel">
+        ${canView ? renderReader(post, isMine) : `<div class="empty-state">글을 찾을 수 없습니다.</div>`}
+      </article>
+    </section>
+  `;
+
+  bindPostViewEvents();
 }
 
 function renderEmptyState(isMine) {
@@ -531,9 +557,7 @@ function bindListEvents() {
 
   $$("[data-post-id]").forEach((card) => {
     const select = () => {
-      state.selectedId = card.dataset.postId;
-      renderBlogList();
-      updateIcons();
+      navigateToPost(card.dataset.postId);
     };
     card.addEventListener("click", select);
     card.addEventListener("keydown", (event) => {
@@ -551,6 +575,26 @@ function bindListEvents() {
   $$("[data-delete-id]").forEach((button) => {
     button.addEventListener("click", () => deletePost(button.dataset.deleteId));
   });
+}
+
+function bindPostViewEvents() {
+  $$("[data-edit-id]").forEach((button) => {
+    button.addEventListener("click", () => openEditor(button.dataset.editId));
+  });
+
+  $$("[data-delete-id]").forEach((button) => {
+    button.addEventListener("click", () => deletePost(button.dataset.deleteId));
+  });
+}
+
+function navigateToPost(postId) {
+  const route = `${ROUTES.postPrefix}${encodeURIComponent(postId)}`;
+  if (window.location.hash !== route) {
+    window.location.hash = route;
+    return;
+  }
+  state.selectedId = postId;
+  applyView("post", { keepSelected: true });
 }
 
 function openEditor(postId = null, { keepRoute = false } = {}) {

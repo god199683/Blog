@@ -221,13 +221,13 @@ img {
 
 .blog-grid {
   display: grid;
-  grid-template-columns: 280px minmax(330px, 0.9fr) minmax(420px, 1.25fr);
+  grid-template-columns: 280px minmax(420px, 1fr);
   gap: 20px;
   align-items: start;
 }
 
 .blog-grid.is-sidebar-collapsed {
-  grid-template-columns: 58px minmax(330px, 0.9fr) minmax(420px, 1.25fr);
+  grid-template-columns: 58px minmax(420px, 1fr);
 }
 
 .profile-panel,
@@ -460,6 +460,21 @@ img {
 .reader-panel {
   min-height: 620px;
   overflow: hidden;
+}
+
+.post-view-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.post-view-head {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.post-view-panel {
+  width: min(980px, 100%);
+  margin: 0 auto;
 }
 
 .reader-cover {
