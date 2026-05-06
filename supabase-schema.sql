@@ -13,6 +13,7 @@ create table if not exists public.posts (
   cover_url text default '',
   content text not null,
   published boolean default true,
+  deleted_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -20,6 +21,7 @@ create table if not exists public.posts (
 alter table public.posts add column if not exists owner_id uuid references auth.users(id) on delete cascade;
 alter table public.posts add column if not exists folder_id uuid;
 alter table public.posts add column if not exists author_name text default '작성자';
+alter table public.posts add column if not exists deleted_at timestamptz;
 alter table public.posts alter column slug set not null;
 alter table public.posts drop constraint if exists posts_slug_key;
 create unique index if not exists posts_owner_slug_idx on public.posts(owner_id, slug);
@@ -29,6 +31,7 @@ create table if not exists public.profiles (
   display_name text not null default '작성자',
   blog_title text not null default '나의 하늘색 블로그',
   bio text not null default '오늘의 생각을 차분히 기록합니다.',
+  deleted_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -48,10 +51,16 @@ create table if not exists public.folders (
   parent_id uuid references public.folders(id) on delete cascade,
   name text not null,
   sort_order integer default 0,
+  deleted_at timestamptz,
   created_at timestamptz default now()
 );
 
 alter table public.folders add column if not exists category_id uuid references public.categories(id) on delete set null;
+alter table public.categories add column if not exists deleted_at timestamptz;
+alter table public.folders add column if not exists deleted_at timestamptz;
+create index if not exists posts_deleted_at_idx on public.posts(deleted_at);
+create index if not exists categories_deleted_at_idx on public.categories(deleted_at);
+create index if not exists folders_deleted_at_idx on public.folders(deleted_at);
 create index if not exists folders_category_id_idx on public.folders(category_id);
 
 alter table public.posts drop constraint if exists posts_folder_id_fkey;
@@ -92,22 +101,24 @@ drop policy if exists "Public can read profiles" on public.profiles;
 drop policy if exists "Users can create own profile" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Public can read categories" on public.categories;
+drop policy if exists "Users can read own categories" on public.categories;
 drop policy if exists "Users can create own categories" on public.categories;
 drop policy if exists "Users can update own categories" on public.categories;
 drop policy if exists "Users can delete own categories" on public.categories;
 drop policy if exists "Public can read folders" on public.folders;
+drop policy if exists "Users can read own folders" on public.folders;
 drop policy if exists "Users can create own folders" on public.folders;
 drop policy if exists "Users can update own folders" on public.folders;
 drop policy if exists "Users can delete own folders" on public.folders;
 
 create policy "Public can read published posts"
 on public.posts for select
-using (published = true);
+using (published = true and deleted_at is null);
 
 create policy "Authenticated users can read public and own posts"
 on public.posts for select
 to authenticated
-using (published = true or owner_id = auth.uid());
+using ((published = true and deleted_at is null) or owner_id = auth.uid());
 
 create policy "Users can create own posts"
 on public.posts for insert
@@ -142,7 +153,12 @@ with check (id = auth.uid());
 
 create policy "Public can read categories"
 on public.categories for select
-using (true);
+using (deleted_at is null);
+
+create policy "Users can read own categories"
+on public.categories for select
+to authenticated
+using (owner_id = auth.uid());
 
 create policy "Users can create own categories"
 on public.categories for insert
@@ -162,7 +178,12 @@ using (owner_id = auth.uid());
 
 create policy "Public can read folders"
 on public.folders for select
-using (true);
+using (deleted_at is null);
+
+create policy "Users can read own folders"
+on public.folders for select
+to authenticated
+using (owner_id = auth.uid());
 
 create policy "Users can create own folders"
 on public.folders for insert

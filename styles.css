@@ -105,7 +105,7 @@ img {
 .tool-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
 }
 
 .topnav {
@@ -190,8 +190,9 @@ img {
 .icon-button,
 .tool-button {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
   padding: 0;
   color: var(--muted);
   border-color: var(--line);
@@ -200,14 +201,14 @@ img {
 
 .tool-button.is-text {
   width: auto;
-  min-width: 44px;
-  padding: 0 10px;
+  min-width: 32px;
+  padding: 0 7px;
   font-weight: 800;
 }
 
 .toolbar-select,
 .toolbar-number {
-  height: 40px;
+  height: 32px;
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--ink);
@@ -217,8 +218,8 @@ img {
 }
 
 .toolbar-select {
-  min-width: 108px;
-  padding: 0 32px 0 11px;
+  min-width: 118px;
+  padding: 0 26px 0 8px;
 }
 
 .toolbar-select.compact-select {
@@ -226,7 +227,7 @@ img {
 }
 
 .toolbar-number {
-  width: 72px;
+  width: 58px;
   padding: 0 9px;
 }
 
@@ -518,6 +519,73 @@ img {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.trash-section {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.trash-toggle,
+.trash-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.trash-toggle {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.trash-toggle span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trash-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.trash-list {
+  display: grid;
+  gap: 6px;
+}
+
+.trash-item {
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+}
+
+.trash-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-item small {
+  color: var(--muted);
+}
+
+.compact-action {
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
 }
 
 .feed-panel {
@@ -850,8 +918,8 @@ img {
   z-index: 20;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 22px;
+  gap: 6px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(12px);
@@ -864,16 +932,16 @@ img {
 .color-palette {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
+  gap: 3px;
+  padding: 3px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
 }
 
 .color-swatch {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background:
@@ -892,9 +960,9 @@ img {
 }
 
 .color-input {
-  width: 40px;
-  height: 40px;
-  padding: 5px;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);

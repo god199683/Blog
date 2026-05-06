@@ -43,6 +43,7 @@ const state = {
   supabaseError: null,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_STORAGE) === "true",
   taxonomyOpen: getStoredOpenState(),
+  trashOpen: false,
   loading: true
 };
 let savedEditorRange = null;
@@ -420,6 +421,7 @@ function renderBlogList() {
             </div>
             ${categories.map((category) => renderCategory(category, visiblePosts, visibleFolders, isMine)).join("")}
           </div>
+          ${isMine ? renderTrashSection() : ""}
         </div>
       </aside>
 
@@ -535,6 +537,32 @@ function renderFeedFolder(folder, posts, depth) {
           ${ownPosts.map((post) => renderPostCard(post, false)).join("")}
         </div>
       ` : ""}
+    </div>
+  `;
+}
+
+function renderTrashSection() {
+  const trashItems = getTrashItems();
+  return `
+    <div class="trash-section">
+      <button class="trash-toggle" type="button" id="trashToggle">
+        <span><i data-lucide="${state.trashOpen ? "chevron-down" : "chevron-right"}"></i>휴지통</span>
+        <strong>${trashItems.length}</strong>
+      </button>
+      ${state.trashOpen ? `
+        <div class="trash-list">
+          ${trashItems.length ? trashItems.map(renderTrashItem).join("") : `<p class="folder-empty">휴지통이 비어 있습니다.</p>`}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderTrashItem(item) {
+  return `
+    <div class="trash-item">
+      <span>${escapeHtml(item.label)} <small>${escapeHtml(item.typeLabel)}</small></span>
+      <button class="outline-button compact-action" type="button" data-restore-type="${item.type}" data-restore-id="${escapeAttr(item.id)}">복원</button>
     </div>
   `;
 }
@@ -763,6 +791,15 @@ function bindListEvents() {
 
   $("#profileForm")?.addEventListener("submit", saveProfile);
   $("#addCategoryButton")?.addEventListener("click", addCategory);
+  $("#trashToggle")?.addEventListener("click", () => {
+    state.trashOpen = !state.trashOpen;
+    renderBlogList();
+    updateIcons();
+  });
+
+  $$("[data-restore-type]").forEach((button) => {
+    button.addEventListener("click", () => restoreTrashItem(button.dataset.restoreType, button.dataset.restoreId));
+  });
 
   $$("[data-category-toggle]").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -1034,6 +1071,43 @@ async function renameCategory(categoryName) {
 }
 
 async function deleteCategory(categoryName) {
+  if (!state.session || !confirm(`"${categoryName}" 카테고리를 휴지통으로 이동할까요?`)) {
+    return;
+  }
+
+  const softCategory = getCategoryByName(categoryName);
+  const deletedAt = new Date().toISOString();
+  const softCategoryFolders = getFoldersForCategory(getMyFolders(), categoryName);
+  const softFolderIds = softCategoryFolders.flatMap((folder) => [folder.id, ...getFolderDescendantIds(folder.id)]);
+
+  try {
+    if (state.supabase) {
+      if (softCategory?.id) {
+        const categoryUpdate = await state.supabase.from(CATEGORY_TABLE).update({ deleted_at: deletedAt }).eq("id", softCategory.id).eq("owner_id", state.session.user.id);
+        if (categoryUpdate.error) throw categoryUpdate.error;
+      }
+      if (softFolderIds.length) {
+        const foldersUpdate = await state.supabase.from(FOLDER_TABLE).update({ deleted_at: deletedAt }).eq("owner_id", state.session.user.id).in("id", softFolderIds);
+        if (foldersUpdate.error) throw foldersUpdate.error;
+      }
+      const postsUpdate = await state.supabase.from(TABLE_NAME).update({ deleted_at: deletedAt }).eq("owner_id", state.session.user.id).eq("category", categoryName);
+      if (postsUpdate.error) throw postsUpdate.error;
+    } else {
+      state.categories = state.categories.map((item) => item.name === categoryName ? { ...item, deleted_at: deletedAt } : item);
+      state.folders = state.folders.map((folder) => softFolderIds.includes(folder.id) ? { ...folder, deleted_at: deletedAt } : folder);
+      state.posts = state.posts.map((post) => post.category === categoryName ? { ...post, deleted_at: deletedAt } : post);
+      cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
+      cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+      cacheLocalPosts(state.posts);
+    }
+    state.category = ALL_CATEGORY_LABEL;
+    state.activeFolderId = "all";
+    await loadPosts();
+    toast("카테고리를 휴지통으로 이동했습니다.");
+  } catch (error) {
+    toast(`카테고리 삭제 실패: ${error.message}`);
+  }
+  return;
   if (!state.session || !confirm(`"${categoryName}" 카테고리를 삭제할까요? 글은 삭제하지 않고 기본 카테고리로 이동합니다.`)) {
     return;
   }
@@ -1134,6 +1208,35 @@ async function renameFolder(folderId) {
 }
 
 async function deleteFolder(folderId) {
+  const folder = state.folders.find((item) => item.id === folderId);
+  if (!folder || !state.session || !confirm(`"${folder.name}" 폴더를 휴지통으로 이동할까요?`)) {
+    return;
+  }
+  const deletedAt = new Date().toISOString();
+  const folderIds = [folderId, ...getFolderDescendantIds(folderId)];
+
+  try {
+    if (state.supabase && isUuid(folderId)) {
+      const foldersUpdate = await state.supabase.from(FOLDER_TABLE).update({ deleted_at: deletedAt }).eq("owner_id", state.session.user.id).in("id", folderIds);
+      if (foldersUpdate.error) throw foldersUpdate.error;
+      const postsUpdate = await state.supabase.from(TABLE_NAME).update({ deleted_at: deletedAt }).eq("owner_id", state.session.user.id).in("folder_id", folderIds);
+      if (postsUpdate.error) throw postsUpdate.error;
+    } else {
+      state.folders = state.folders.map((item) => folderIds.includes(item.id) ? { ...item, deleted_at: deletedAt } : item);
+      state.posts = state.posts.map((post) => folderIds.includes(post.folder_id) ? { ...post, deleted_at: deletedAt } : post);
+      cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+      cacheLocalPosts(state.posts);
+    }
+    state.activeFolderId = "all";
+    await loadPosts();
+    toast("폴더를 휴지통으로 이동했습니다.");
+  } catch (error) {
+    toast(`폴더 삭제 실패: ${error.message}`);
+  }
+  return;
+}
+
+async function __oldDeleteFolder(folderId) {
   const folder = state.folders.find((item) => item.id === folderId);
   if (!folder || !state.session || !confirm(`"${folder.name}" 폴더를 삭제할까요? 하위 폴더도 함께 삭제됩니다.`)) {
     return;
@@ -1258,6 +1361,9 @@ function renderEditor() {
           <button class="tool-button" type="button" data-command="bold" aria-label="굵게" title="굵게"><i data-lucide="bold"></i></button>
           <button class="tool-button" type="button" data-command="italic" aria-label="기울임" title="기울임"><i data-lucide="italic"></i></button>
           <button class="tool-button" type="button" data-command="underline" aria-label="밑줄" title="밑줄"><i data-lucide="underline"></i></button>
+          <button class="tool-button" type="button" data-command="strikeThrough" aria-label="취소선" title="취소선"><i data-lucide="strikethrough"></i></button>
+          <button class="tool-button is-text" type="button" data-command="subscript" aria-label="아래 첨자" title="아래 첨자">x₂</button>
+          <button class="tool-button is-text" type="button" data-command="superscript" aria-label="위 첨자" title="위 첨자">x²</button>
           <input class="color-input" id="textColor" type="color" value="#1499db" aria-label="글자색 직접 선택" title="글자색 직접 선택" />
           <div class="color-palette" aria-label="글자색 팔레트">
             ${renderColorPalette("text")}
@@ -1297,6 +1403,9 @@ function renderEditor() {
           <button class="tool-button" type="button" data-command="justifyLeft" aria-label="왼쪽 정렬" title="왼쪽 정렬"><i data-lucide="align-left"></i></button>
           <button class="tool-button" type="button" data-command="justifyCenter" aria-label="가운데 정렬" title="가운데 정렬"><i data-lucide="align-center"></i></button>
           <button class="tool-button" type="button" data-command="justifyRight" aria-label="오른쪽 정렬" title="오른쪽 정렬"><i data-lucide="align-right"></i></button>
+          <button class="tool-button" type="button" data-command="justifyFull" aria-label="양쪽 정렬" title="양쪽 정렬"><i data-lucide="align-justify"></i></button>
+          <button class="tool-button" type="button" data-command="outdent" aria-label="내어쓰기" title="내어쓰기"><i data-lucide="outdent"></i></button>
+          <button class="tool-button" type="button" data-command="indent" aria-label="들여쓰기" title="들여쓰기"><i data-lucide="indent"></i></button>
         </div>
         <div class="tool-group">
           <button class="tool-button" type="button" data-vertical-align="top" aria-label="위쪽 정렬" title="위쪽 정렬"><i data-lucide="align-vertical-justify-start"></i></button>
@@ -1637,6 +1746,30 @@ async function persistPost(post) {
 }
 
 async function deletePost(id) {
+  if (!confirm("이 글을 휴지통으로 이동할까요?")) {
+    return;
+  }
+
+  const deletedAt = new Date().toISOString();
+  if (state.supabase && state.session && isUuid(id)) {
+    const { error } = await state.supabase
+      .from(TABLE_NAME)
+      .update({ deleted_at: deletedAt })
+      .eq("id", id)
+      .eq("owner_id", state.session.user.id);
+    if (error) {
+      toast(error.message);
+      return;
+    }
+  } else {
+    state.posts = state.posts.map((post) => post.id === id ? { ...post, deleted_at: deletedAt } : post);
+    cacheLocalPosts(state.posts);
+  }
+
+  state.selectedId = null;
+  await loadPosts();
+  toast("글을 휴지통으로 이동했습니다.");
+  return;
   if (!confirm("이 글을 삭제할까요?")) {
     return;
   }
@@ -1864,6 +1997,9 @@ function getVisiblePosts() {
   const userId = state.session?.user?.id;
 
   return state.posts.filter((post) => {
+    if (post.deleted_at) {
+      return false;
+    }
     const ownerMatch = isMine ? post.owner_id === userId : post.published === true && Boolean(post.owner_id);
     const categoryMatch = state.category === "전체" || (post.category || "기타") === state.category;
     const folderMatch = isFolderMatch(post);
@@ -1874,7 +2010,7 @@ function getVisiblePosts() {
 
 function getCategories(posts) {
   const scopeCategories = state.categories
-    .filter((category) => !category.owner_id || category.owner_id === state.session?.user?.id)
+    .filter((category) => !category.deleted_at && (!category.owner_id || category.owner_id === state.session?.user?.id))
     .map((category) => category.name);
   return ["전체", ...new Set([...scopeCategories, ...posts.map((post) => post.category || "기타")])];
 }
@@ -1890,7 +2026,7 @@ function isFolderMatch(post) {
 function getPostsForCurrentScope() {
   const isMine = state.view === "myblog";
   const userId = state.session?.user?.id;
-  return state.posts.filter((post) => (isMine ? post.owner_id === userId : post.published === true && Boolean(post.owner_id)));
+  return state.posts.filter((post) => !post.deleted_at && (isMine ? post.owner_id === userId : post.published === true && Boolean(post.owner_id)));
 }
 
 function getVisibleFolders() {
@@ -1898,11 +2034,11 @@ function getVisibleFolders() {
   if (state.view === "myblog") {
     return getMyFolders();
   }
-  return state.folders.filter((folder) => ownerIds.has(folder.owner_id));
+  return state.folders.filter((folder) => !folder.deleted_at && ownerIds.has(folder.owner_id));
 }
 
 function getMyFolders() {
-  return state.folders.filter((folder) => !folder.owner_id || folder.owner_id === state.session?.user?.id);
+  return state.folders.filter((folder) => !folder.deleted_at && (!folder.owner_id || folder.owner_id === state.session?.user?.id));
 }
 
 function getFoldersForCategory(folders, categoryName) {
@@ -1935,6 +2071,111 @@ function getCategoryIdByName(name) {
 
 function getCategoryByName(name) {
   return state.categories.find((category) => category.name === name && (!category.owner_id || category.owner_id === state.session?.user?.id)) || null;
+}
+
+function getTrashItems() {
+  const userId = state.session?.user?.id;
+  const categories = state.categories
+    .filter((item) => item.deleted_at && item.owner_id === userId)
+    .map((item) => ({ type: "category", typeLabel: "카테고리", id: item.id, label: item.name, deleted_at: item.deleted_at }));
+  const folders = state.folders
+    .filter((item) => item.deleted_at && item.owner_id === userId)
+    .map((item) => ({ type: "folder", typeLabel: "폴더", id: item.id, label: item.name, deleted_at: item.deleted_at }));
+  const posts = state.posts
+    .filter((item) => item.deleted_at && item.owner_id === userId)
+    .map((item) => ({ type: "post", typeLabel: "글", id: item.id, label: item.title, deleted_at: item.deleted_at }));
+
+  return [...categories, ...folders, ...posts].sort((a, b) => new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime());
+}
+
+async function restoreTrashItem(type, id) {
+  try {
+    if (type === "category") {
+      await restoreCategory(id);
+    } else if (type === "folder") {
+      await restoreFolder(id);
+    } else if (type === "post") {
+      await restorePost(id);
+    }
+    await loadPosts();
+    state.trashOpen = true;
+    toast("휴지통에서 복원했습니다.");
+  } catch (error) {
+    toast(`복원 실패: ${error.message}`);
+  }
+}
+
+async function restoreCategory(id) {
+  const category = state.categories.find((item) => item.id === id);
+  if (!category || !state.session) return;
+  const folderIds = state.folders
+    .filter((folder) => folder.category_id === id)
+    .flatMap((folder) => [folder.id, ...getFolderDescendantIds(folder.id)]);
+
+  if (state.supabase && isUuid(id)) {
+    const categoryUpdate = await state.supabase.from(CATEGORY_TABLE).update({ deleted_at: null }).eq("id", id).eq("owner_id", state.session.user.id);
+    if (categoryUpdate.error) throw categoryUpdate.error;
+    if (folderIds.length) {
+      const foldersUpdate = await state.supabase.from(FOLDER_TABLE).update({ deleted_at: null }).eq("owner_id", state.session.user.id).in("id", folderIds);
+      if (foldersUpdate.error) throw foldersUpdate.error;
+    }
+    const postsUpdate = await state.supabase.from(TABLE_NAME).update({ deleted_at: null, category: category.name }).eq("owner_id", state.session.user.id).eq("category", category.name);
+    if (postsUpdate.error) throw postsUpdate.error;
+  } else {
+    state.categories = state.categories.map((item) => item.id === id ? { ...item, deleted_at: null } : item);
+    state.folders = state.folders.map((folder) => folderIds.includes(folder.id) ? { ...folder, deleted_at: null } : folder);
+    state.posts = state.posts.map((post) => post.category === category.name ? { ...post, deleted_at: null } : post);
+    cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
+    cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+    cacheLocalPosts(state.posts);
+  }
+}
+
+async function restoreFolder(id) {
+  const folder = state.folders.find((item) => item.id === id);
+  if (!folder || !state.session) return;
+  const folderIds = [id, ...getFolderDescendantIds(id)];
+  const parentExists = !folder.parent_id || state.folders.some((item) => item.id === folder.parent_id && !item.deleted_at);
+  const categoryExists = folder.category_id && state.categories.some((item) => item.id === folder.category_id && !item.deleted_at);
+  const rootUpdate = {
+    deleted_at: null,
+    parent_id: parentExists ? folder.parent_id : null,
+    category_id: categoryExists ? folder.category_id : getCategoryIdByName(DEFAULT_CATEGORY_LABEL)
+  };
+
+  if (state.supabase && isUuid(id)) {
+    const foldersUpdate = await state.supabase.from(FOLDER_TABLE).update({ deleted_at: null }).eq("owner_id", state.session.user.id).in("id", folderIds);
+    if (foldersUpdate.error) throw foldersUpdate.error;
+    const rootFolderUpdate = await state.supabase.from(FOLDER_TABLE).update(rootUpdate).eq("id", id).eq("owner_id", state.session.user.id);
+    if (rootFolderUpdate.error) throw rootFolderUpdate.error;
+    const postsUpdate = await state.supabase.from(TABLE_NAME).update({ deleted_at: null }).eq("owner_id", state.session.user.id).in("folder_id", folderIds);
+    if (postsUpdate.error) throw postsUpdate.error;
+  } else {
+    state.folders = state.folders.map((item) => item.id === id ? { ...item, ...rootUpdate } : folderIds.includes(item.id) ? { ...item, deleted_at: null } : item);
+    state.posts = state.posts.map((post) => folderIds.includes(post.folder_id) ? { ...post, deleted_at: null } : post);
+    cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+    cacheLocalPosts(state.posts);
+  }
+}
+
+async function restorePost(id) {
+  const post = state.posts.find((item) => item.id === id);
+  if (!post || !state.session) return;
+  const folderExists = post.folder_id && state.folders.some((folder) => folder.id === post.folder_id && !folder.deleted_at);
+  const categoryExists = state.categories.some((category) => category.name === post.category && !category.deleted_at);
+  const update = {
+    deleted_at: null,
+    folder_id: folderExists ? post.folder_id : null,
+    category: categoryExists ? post.category : DEFAULT_CATEGORY_LABEL
+  };
+
+  if (state.supabase && isUuid(id)) {
+    const postUpdate = await state.supabase.from(TABLE_NAME).update(update).eq("id", id).eq("owner_id", state.session.user.id);
+    if (postUpdate.error) throw postUpdate.error;
+  } else {
+    state.posts = state.posts.map((item) => item.id === id ? { ...item, ...update } : item);
+    cacheLocalPosts(state.posts);
+  }
 }
 
 function buildFolderTree(folders) {
@@ -2043,6 +2284,7 @@ function createBlankPost() {
     cover_url: "",
     content: "<p></p>",
     published: true,
+    deleted_at: null,
     created_at: now,
     updated_at: now
   };
@@ -2057,6 +2299,7 @@ function normalizeCategories(categories = []) {
     .map((category) => ({
       id: category.id,
       owner_id: category.owner_id || null,
+      deleted_at: category.deleted_at || null,
       name: category.name || "기타",
       created_at: category.created_at || new Date().toISOString()
     }))
@@ -2071,6 +2314,7 @@ function normalizeFolders(folders = []) {
     category_id: folder.category_id || null,
     name: folder.name || "새 폴더",
     sort_order: Number(folder.sort_order || 0),
+    deleted_at: folder.deleted_at || null,
     created_at: folder.created_at || new Date().toISOString()
   }));
 }
@@ -2089,6 +2333,7 @@ function normalizePost(post) {
     cover_url: post.cover_url || "",
     content: sanitizeHtml(post.content || ""),
     published: post.published !== false,
+    deleted_at: post.deleted_at || null,
     created_at: post.created_at || new Date().toISOString(),
     updated_at: post.updated_at || post.created_at || new Date().toISOString()
   };
