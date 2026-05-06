@@ -408,10 +408,6 @@ function renderBlogList() {
             isMine
               ? `
                 <div class="profile-actions">
-                  <button class="outline-button" type="button" id="editProfileButton">
-                    <i data-lucide="settings"></i>
-                    블로그 설정
-                  </button>
                   <button class="primary-button" type="button" data-nav="editor">
                     <i data-lucide="square-pen"></i>
                     새 글 쓰기
@@ -462,7 +458,6 @@ function renderBlogList() {
       </section>
     </section>
 
-    ${isMine ? renderProfileDialog() : ""}
   `;
 
   bindListEvents();
@@ -771,35 +766,6 @@ function renderCover(post) {
   return `<div class="cover-placeholder"><i data-lucide="image"></i></div>`;
 }
 
-function renderProfileDialog() {
-  return `
-    <dialog class="modal" id="profileDialog">
-      <form id="profileForm" class="modal-body">
-        <div class="modal-head">
-          <div>
-            <p class="eyebrow">My Blog</p>
-            <h2>블로그 설정</h2>
-          </div>
-          <button class="icon-button" type="button" data-close-dialog="profileDialog" aria-label="닫기" title="닫기">
-            <i data-lucide="x"></i>
-          </button>
-        </div>
-        <label class="field">
-          <span>블로그 이름</span>
-          <input id="profileBlogTitle" value="${escapeAttr(getMyBlogTitle())}" />
-        </label>
-        <label class="field">
-          <span>작성자 이름</span>
-          <input id="profileDisplayName" value="${escapeAttr(getDisplayName())}" />
-        </label>
-        <div class="modal-actions">
-          <button class="primary-button" type="submit">저장</button>
-        </div>
-      </form>
-    </dialog>
-  `;
-}
-
 function bindListEvents() {
   $("#sidebarToggle")?.addEventListener("click", () => {
     state.sidebarCollapsed = !state.sidebarCollapsed;
@@ -817,12 +783,6 @@ function bindListEvents() {
 
   $("#homeLoginButton")?.addEventListener("click", openAuth);
 
-  $("#editProfileButton")?.addEventListener("click", () => {
-    $("#profileDialog")?.showModal();
-    updateIcons();
-  });
-
-  $("#profileForm")?.addEventListener("submit", saveProfile);
   $("#addCategoryButton")?.addEventListener("click", addCategory);
   $("#trashToggle")?.addEventListener("click", () => {
     state.trashOpen = !state.trashOpen;
@@ -1839,47 +1799,13 @@ async function deletePost(id) {
   await loadPosts();
 }
 
-async function saveProfile(event) {
-  event.preventDefault();
-  if (!state.session) {
-    openAuth();
-    return;
-  }
-
-  const profile = {
-    id: state.session.user.id,
-    blog_title: $("#profileBlogTitle").value.trim() || "나의 하늘색 블로그",
-    display_name: $("#profileDisplayName").value.trim() || getUserIdentifier(state.session.user) || "작성자",
-    bio: state.profile?.bio || ""
-  };
-
-  if (state.supabase) {
-    try {
-      state.profile = await persistProfile(profile);
-    } catch (error) {
-      toast(`블로그 이름 저장 실패: ${error.message}`);
-      return;
-    }
-  } else {
-    state.profile = profile;
-  }
-
-  $("#profileDialog")?.close();
-  toast("블로그 설정을 저장했습니다.");
-  render();
-}
-
 async function persistProfile(profile) {
   if (!state.supabase || !state.session) {
     return profile;
   }
 
   const userId = state.session.user.id;
-  const payload = {
-    ...profile,
-    id: userId
-  };
-
+  const payload = { ...profile, id: userId };
   const updated = await state.supabase
     .from(PROFILE_TABLE)
     .update({
@@ -1894,21 +1820,14 @@ async function persistProfile(profile) {
   if (updated.error) {
     throw updated.error;
   }
-
   if (updated.data) {
     return updated.data;
   }
 
-  const created = await state.supabase
-    .from(PROFILE_TABLE)
-    .insert(payload)
-    .select()
-    .single();
-
+  const created = await state.supabase.from(PROFILE_TABLE).insert(payload).select().single();
   if (created.error) {
     throw created.error;
   }
-
   return created.data;
 }
 
@@ -2242,11 +2161,12 @@ function getFolderDescendantIds(folderId) {
 }
 
 function getMyBlogTitle() {
-  return state.profile?.blog_title || `${getDisplayName()}의 하늘색 블로그`;
+  const identifier = getUserIdentifier(state.session?.user);
+  return `${identifier || "User"}'s Blog`;
 }
 
 function getDisplayName() {
-  return state.profile?.display_name || getUserIdentifier(state.session?.user) || "작성자";
+  return getUserIdentifier(state.session?.user) || "작성자";
 }
 
 function normalizeIdentifier(value) {
