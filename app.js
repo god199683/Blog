@@ -204,7 +204,6 @@ function renderPosts() {
       <div class="empty-state">
         <p class="meta-line">Empty</p>
         <h3>저장된 글이 없습니다</h3>
-        <p>내부 샘플 글은 모두 삭제했습니다. Supabase에 공개 글을 추가하면 여기에 표시됩니다.</p>
       </div>
     `;
     return;
