@@ -298,17 +298,6 @@ img {
   margin: 18px 0;
 }
 
-.search-field i {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  width: 18px;
-  height: 18px;
-  color: var(--muted);
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
 .search-field input,
 .field input,
 .meta-field input,
@@ -323,7 +312,7 @@ img {
 }
 
 .search-field input {
-  padding: 0 42px 0 12px;
+  padding: 0 12px;
 }
 
 .search-field input::-webkit-search-decoration,

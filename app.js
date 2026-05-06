@@ -348,7 +348,6 @@ function renderBlogList() {
           <label class="search-field">
             <span class="sr-only">검색</span>
             <input id="searchInput" type="search" value="${escapeAttr(state.query)}" placeholder="글 검색" />
-            <i data-lucide="search"></i>
           </label>
           <div class="category-list" aria-label="카테고리">
             ${categories.map((category) => renderCategory(category, visiblePosts)).join("")}
