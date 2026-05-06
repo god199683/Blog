@@ -450,11 +450,7 @@ function renderBlogList() {
         </div>
         <div class="post-list">
           ${
-            state.loading
-              ? `<div class="empty-state">불러오는 중...</div>`
-              : visiblePosts.length
-                ? renderFeedPosts(visiblePosts, visibleFolders, isMine)
-                : renderEmptyState(isMine)
+            renderFeedPosts(visiblePosts, visibleFolders, isMine)
           }
         </div>
       </section>
@@ -496,11 +492,7 @@ function updatePostList() {
   }
   const visiblePosts = getVisiblePosts();
   const visibleFolders = getVisibleFolders();
-  list.innerHTML = state.loading
-    ? `<div class="empty-state">불러오는 중...</div>`
-    : visiblePosts.length
-      ? renderFeedPosts(visiblePosts, visibleFolders, state.view === "myblog")
-      : renderEmptyState(state.view === "myblog");
+  list.innerHTML = renderFeedPosts(visiblePosts, visibleFolders, state.view === "myblog");
   if (count) {
     count.textContent = `${visiblePosts.length}개의 글`;
   }
@@ -512,7 +504,7 @@ function renderFeedPosts(posts, folders, isMine) {
   if (state.loading) {
     return `<div class="empty-state">불러오는 중...</div>`;
   }
-  if (!posts.length) {
+  if (!posts.length && !folders.length) {
     return renderEmptyState(isMine);
   }
   if (state.activeFolderId !== "all") {
@@ -522,7 +514,10 @@ function renderFeedPosts(posts, folders, isMine) {
       : posts.map((post) => renderPostCard(post, false, isMine)).join("");
   }
 
-  const categories = [...new Set(posts.map((post) => post.category || ETC_CATEGORY_LABEL))];
+  const categories = [...new Set([
+    ...posts.map((post) => post.category || ETC_CATEGORY_LABEL),
+    ...folders.map((folder) => getFolderCategoryName(folder))
+  ])];
   return categories.map((category) => renderFeedCategory(category, posts, folders, isMine)).join("");
 }
 
@@ -586,6 +581,12 @@ function renderTrashSection() {
       </button>
       ${state.trashOpen ? `
         <div class="trash-list">
+          ${trashItems.length ? `
+            <button class="outline-button compact-action trash-empty-button" type="button" id="emptyTrashButton">
+              <i data-lucide="trash"></i>
+              휴지통 비우기
+            </button>
+          ` : ""}
           ${trashItems.length ? trashItems.map(renderTrashItem).join("") : `<p class="folder-empty">휴지통이 비어 있습니다.</p>`}
         </div>
       ` : ""}
@@ -919,6 +920,7 @@ function bindStaticListEvents() {
   $$("[data-restore-type]").forEach((button) => {
     button.addEventListener("click", () => restoreTrashItem(button.dataset.restoreType, button.dataset.restoreId));
   });
+  $("#emptyTrashButton")?.addEventListener("click", emptyTrash);
 
   $$("[data-category-toggle]").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -2134,10 +2136,18 @@ function getPostsForCurrentScope() {
 
 function getVisibleFolders() {
   const ownerIds = new Set(getPostsForCurrentScope().map((post) => post.owner_id).filter(Boolean));
-  if (state.view === "myblog") {
-    return getMyFolders();
+  const folders = state.view === "myblog"
+    ? getMyFolders()
+    : state.folders.filter((folder) => !folder.deleted_at && ownerIds.has(folder.owner_id));
+
+  if (state.activeFolderId !== "all") {
+    const folderIds = [state.activeFolderId, ...getFolderDescendantIds(state.activeFolderId)];
+    return folders.filter((folder) => folderIds.includes(folder.id));
   }
-  return state.folders.filter((folder) => !folder.deleted_at && ownerIds.has(folder.owner_id));
+  if (state.category !== ALL_CATEGORY_LABEL) {
+    return folders.filter((folder) => getFolderCategoryName(folder) === state.category);
+  }
+  return folders;
 }
 
 function getSidebarFolders() {
@@ -2209,6 +2219,66 @@ async function restoreTrashItem(type, id) {
     toast("휴지통에서 복원했습니다.");
   } catch (error) {
     toast(`복원 실패: ${error.message}`);
+  }
+}
+
+async function emptyTrash() {
+  const trashItems = getTrashItems();
+  if (!trashItems.length || !state.session) {
+    return;
+  }
+  if (!confirm("휴지통의 모든 항목을 완전히 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) {
+    return;
+  }
+
+  const idsByType = {
+    category: trashItems.filter((item) => item.type === "category").map((item) => item.id),
+    folder: trashItems.filter((item) => item.type === "folder").map((item) => item.id),
+    post: trashItems.filter((item) => item.type === "post").map((item) => item.id)
+  };
+  const uuidIdsByType = Object.fromEntries(
+    Object.entries(idsByType).map(([type, ids]) => [type, ids.filter(isUuid)])
+  );
+
+  try {
+    if (state.supabase) {
+      if (uuidIdsByType.post.length) {
+        const postsDelete = await state.supabase
+          .from(TABLE_NAME)
+          .delete()
+          .eq("owner_id", state.session.user.id)
+          .in("id", uuidIdsByType.post);
+        if (postsDelete.error) throw postsDelete.error;
+      }
+      if (uuidIdsByType.folder.length) {
+        const foldersDelete = await state.supabase
+          .from(FOLDER_TABLE)
+          .delete()
+          .eq("owner_id", state.session.user.id)
+          .in("id", uuidIdsByType.folder);
+        if (foldersDelete.error) throw foldersDelete.error;
+      }
+      if (uuidIdsByType.category.length) {
+        const categoriesDelete = await state.supabase
+          .from(CATEGORY_TABLE)
+          .delete()
+          .eq("owner_id", state.session.user.id)
+          .in("id", uuidIdsByType.category);
+        if (categoriesDelete.error) throw categoriesDelete.error;
+      }
+    }
+
+    state.posts = state.posts.filter((post) => !idsByType.post.includes(post.id));
+    state.folders = state.folders.filter((folder) => !idsByType.folder.includes(folder.id));
+    state.categories = state.categories.filter((category) => !idsByType.category.includes(category.id));
+    cacheLocalPosts(state.posts);
+    cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+    cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
+    await loadPosts();
+    state.trashOpen = true;
+    toast("휴지통을 비웠습니다.");
+  } catch (error) {
+    toast(`휴지통 비우기 실패: ${error.message}`);
   }
 }
 

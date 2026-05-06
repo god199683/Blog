@@ -585,6 +585,19 @@ img {
   gap: 6px;
 }
 
+.trash-empty-button {
+  width: 100%;
+  justify-content: center;
+  color: #b42318;
+  border-color: #ffd7d2;
+  background: #fff7f6;
+}
+
+.trash-empty-button:hover,
+.trash-empty-button:focus-visible {
+  border-color: #fda29b;
+}
+
 .trash-item {
   min-height: 36px;
   padding: 6px 8px;
