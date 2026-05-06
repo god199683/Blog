@@ -1046,22 +1046,22 @@ img {
 .editor-head {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
-  padding: 9px 16px;
+  padding: 5px 12px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, #ffffff, var(--sky-50));
 }
 
 .editor-title {
   width: 100%;
-  min-height: 34px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--ink);
   background: rgba(255, 255, 255, 0.78);
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   outline: none;
 }
@@ -1459,10 +1459,22 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 5px 12px;
   border-top: 1px solid var(--line);
   background: #ffffff;
+}
+
+.editor-compact-button {
+  min-height: 28px;
+  padding: 0 9px;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.editor-compact-button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .modal {

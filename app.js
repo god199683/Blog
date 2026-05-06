@@ -1492,11 +1492,11 @@ function renderEditor() {
       <div class="editor-head">
         <input class="editor-title" id="editorTitle" value="${escapeAttr(post.title || "")}" placeholder="제목" />
         <div class="editor-actions">
-          <button class="ghost-button" type="button" data-editor-action="draft">
+          <button class="ghost-button editor-compact-button" type="button" data-editor-action="draft">
             <i data-lucide="save"></i>
             임시저장
           </button>
-          <button class="primary-button" type="submit">
+          <button class="primary-button editor-compact-button" type="submit">
             <i data-lucide="send"></i>
             발행
           </button>
@@ -1635,8 +1635,8 @@ function renderEditor() {
       <div class="editor-foot">
         <p class="status-line" id="editorStatus">${state.session ? `${getMyBlogTitle()}에 저장` : "로컬 자동 임시저장"}</p>
         <div class="editor-actions">
-          <button class="outline-button" type="button" data-editor-action="cancel">돌아가기</button>
-          <button class="primary-button" type="submit">발행</button>
+          <button class="outline-button editor-compact-button" type="button" data-editor-action="cancel">돌아가기</button>
+          <button class="primary-button editor-compact-button" type="submit">발행</button>
         </div>
       </div>
     </form>
