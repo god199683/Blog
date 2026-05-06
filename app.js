@@ -523,6 +523,12 @@ function renderFolderOptions(selectedId) {
   return roots.map((folder) => renderFolderOption(folder, selectedId, 0)).join("");
 }
 
+function renderCategoryOptions(selectedCategory) {
+  const categories = getCategories(state.posts).filter((category) => category !== "전체");
+  const options = categories.length ? categories : ["일상"];
+  return options.map((category) => `<option value="${escapeAttr(category)}" ${category === selectedCategory ? "selected" : ""}>${escapeHtml(category)}</option>`).join("");
+}
+
 function renderFolderOption(folder, selectedId, depth) {
   const prefix = depth ? `${"--".repeat(depth)} ` : "";
   return `
@@ -705,11 +711,11 @@ function navigateToPost(postId) {
   applyView("post", { keepSelected: true });
 }
 
-async function addCategory() {
+async function addCategory({ silent = false } = {}) {
   const name = prompt("추가할 카테고리 이름");
   const normalized = (name || "").trim();
   if (!normalized || !state.session) {
-    return;
+    return null;
   }
 
   const category = {
@@ -722,17 +728,21 @@ async function addCategory() {
     const saved = await persistTaxonomy(CATEGORY_TABLE, category);
     state.categories = normalizeCategories([...state.categories.filter((item) => item.name !== saved.name), saved]);
     cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
-    renderBlogList();
+    if (!silent) {
+      renderBlogList();
+    }
+    return saved;
   } catch (error) {
     toast(`카테고리 추가 실패: ${error.message}`);
+    return null;
   }
 }
 
-async function addFolder(parentId) {
+async function addFolder(parentId, { silent = false } = {}) {
   const name = prompt(parentId ? "추가할 하위 폴더 이름" : "추가할 폴더 이름");
   const normalized = (name || "").trim();
   if (!normalized || !state.session) {
-    return;
+    return null;
   }
 
   const folder = {
@@ -747,9 +757,13 @@ async function addFolder(parentId) {
     const saved = await persistTaxonomy(FOLDER_TABLE, folder);
     state.folders = normalizeFolders([...state.folders, saved]);
     cacheTaxonomy(FOLDERS_STORAGE, state.folders);
-    renderBlogList();
+    if (!silent) {
+      renderBlogList();
+    }
+    return saved;
   } catch (error) {
     toast(`폴더 추가 실패: ${error.message}`);
+    return null;
   }
 }
 
@@ -785,7 +799,6 @@ function openEditor(postId = null, { keepRoute = false } = {}) {
 
 function renderEditor() {
   const post = state.editorInitial || createBlankPost();
-  const tags = Array.isArray(post.tags) ? post.tags.join(", ") : "";
   app.innerHTML = `
     <form class="editor-shell" id="editorForm">
       <div class="editor-head">
@@ -805,29 +818,29 @@ function renderEditor() {
       <div class="editor-meta">
         <label class="meta-field">
           <span>카테고리</span>
-          <input id="editorCategory" list="categoryOptions" value="${escapeAttr(post.category || "일상")}" />
-          <datalist id="categoryOptions">
-            ${getCategories(state.posts).filter((category) => category !== "전체").map((category) => `<option value="${escapeAttr(category)}"></option>`).join("")}
-          </datalist>
+          <div class="inline-field">
+            <select id="editorCategory">
+              ${renderCategoryOptions(post.category || "일상")}
+            </select>
+            <button class="icon-button" type="button" id="editorAddCategoryButton" aria-label="새 카테고리" title="새 카테고리"><i data-lucide="plus"></i></button>
+          </div>
         </label>
         <label class="meta-field">
           <span>폴더</span>
-          <select id="editorFolder">
-            <option value="">폴더 없음</option>
-            ${renderFolderOptions(post.folder_id || "")}
+          <div class="inline-field">
+            <select id="editorFolder">
+              <option value="">폴더 없음</option>
+              ${renderFolderOptions(post.folder_id || "")}
+            </select>
+            <button class="icon-button" type="button" id="editorAddFolderButton" aria-label="새 폴더" title="새 폴더"><i data-lucide="folder-plus"></i></button>
+          </div>
+        </label>
+        <label class="meta-field">
+          <span>공개 상태</span>
+          <select id="editorPublished">
+            <option value="true" ${post.published !== false ? "selected" : ""}>공개</option>
+            <option value="false" ${post.published === false ? "selected" : ""}>비공개</option>
           </select>
-        </label>
-        <label class="meta-field">
-          <span>태그</span>
-          <input id="editorTags" value="${escapeAttr(tags)}" placeholder="쉼표로 구분" />
-        </label>
-        <label class="meta-field">
-          <span>커버 URL</span>
-          <input id="editorCover" type="url" value="${escapeAttr(post.cover_url || "")}" />
-        </label>
-        <label class="switch-field">
-          <input id="editorPublished" type="checkbox" ${post.published !== false ? "checked" : ""} />
-          공개
         </label>
       </div>
 
@@ -902,8 +915,23 @@ function bindEditorEvents() {
     update();
   });
 
-  ["editorTitle", "editorCategory", "editorFolder", "editorTags", "editorCover", "editorPublished"].forEach((id) => {
+  ["editorTitle", "editorCategory", "editorFolder", "editorPublished"].forEach((id) => {
     document.getElementById(id).addEventListener("input", update);
+  });
+  $("#editorAddCategoryButton").addEventListener("click", async () => {
+    const category = await addCategory({ silent: true });
+    if (category) {
+      $("#editorCategory").innerHTML = renderCategoryOptions(category.name);
+      update();
+    }
+  });
+  $("#editorAddFolderButton").addEventListener("click", async () => {
+    const parentId = $("#editorFolder").value || null;
+    const folder = await addFolder(parentId, { silent: true });
+    if (folder) {
+      $("#editorFolder").innerHTML = `<option value="">폴더 없음</option>${renderFolderOptions(folder.id)}`;
+      update();
+    }
   });
 
   editor.addEventListener("input", update);
@@ -986,10 +1014,6 @@ function readEditorPost({ loose = false } = {}) {
   }
 
   const now = new Date().toISOString();
-  const tags = $("#editorTags").value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
 
   return {
     id: base.id || crypto.randomUUID(),
@@ -1000,10 +1024,10 @@ function readEditorPost({ loose = false } = {}) {
     excerpt: makeExcerpt(content),
     category: $("#editorCategory").value.trim() || "일상",
     folder_id: $("#editorFolder").value || null,
-    tags,
-    cover_url: $("#editorCover").value.trim(),
+    tags: Array.isArray(base.tags) ? base.tags : [],
+    cover_url: base.cover_url || "",
     content,
-    published: $("#editorPublished").checked,
+    published: $("#editorPublished").value === "true",
     created_at: base.created_at || now,
     updated_at: now
   };
@@ -1022,10 +1046,8 @@ function saveDraft() {
 function updatePreview() {
   const post = readEditorPost({ loose: true });
   $("#editorPreview").innerHTML = `
-    ${post.cover_url ? `<div class="reader-cover"><img src="${escapeAttr(post.cover_url)}" alt="${escapeAttr(post.title)} 커버" /></div>` : ""}
     <div class="post-meta">${escapeHtml(post.category)} · ${formatDate(post.updated_at)} · ${escapeHtml(post.author_name)}</div>
     <h2 class="reader-title">${escapeHtml(post.title)}</h2>
-    <div class="tag-list">${post.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>
     <div class="content">${sanitizeHtml(post.content)}</div>
   `;
 }

@@ -658,11 +658,18 @@ img {
 
 .editor-meta {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   padding: 18px 22px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
+}
+
+.inline-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
 }
 
 .meta-field,
