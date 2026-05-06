@@ -92,18 +92,34 @@ button {
   font-weight: 900;
 }
 
-.nav-links {
+.auth-actions {
   display: flex;
   align-items: center;
-  gap: clamp(0.75rem, 2vw, 1.5rem);
-  color: var(--muted);
-  font-size: 0.95rem;
-  font-weight: 700;
+  gap: 0.55rem;
 }
 
-.nav-links a:hover,
-.nav-links a:focus-visible {
-  color: var(--ink);
+.auth-button {
+  min-height: 2.45rem;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--sky-dark);
+  font-size: 0.94rem;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(14, 116, 144, 0.08);
+}
+
+.auth-button:hover,
+.auth-button:focus-visible {
+  border-color: var(--sky);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.16);
+}
+
+.auth-signup {
+  border-color: var(--sky-dark);
+  background: var(--sky-dark);
+  color: #fff;
 }
 
 main {
@@ -558,9 +574,10 @@ h3 {
     flex-direction: column;
   }
 
-  .nav-links {
+  .auth-actions {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   h1 {
