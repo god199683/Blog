@@ -512,6 +512,9 @@ img {
 .folder-node span {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.category-chip span {
   white-space: nowrap;
 }
 
@@ -566,11 +569,11 @@ img {
 
 .folder-node {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 6px;
-  min-height: 28px;
-  padding: 0 8px;
+  min-height: 38px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
@@ -580,17 +583,24 @@ img {
 .folder-node span {
   display: inline-flex;
   min-width: 0;
-  align-items: center;
+  align-items: flex-start;
   gap: 5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 .folder-node svg {
   flex: 0 0 auto;
   width: 14px;
   height: 14px;
+  margin-top: 2px;
+}
+
+.folder-node strong {
+  flex: 0 0 auto;
+  line-height: 1.35;
 }
 
 .folder-node.is-active {
