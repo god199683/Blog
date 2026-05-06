@@ -1007,6 +1007,23 @@ img {
   border-radius: 8px;
 }
 
+.content table {
+  width: 100%;
+  max-width: 100%;
+  margin: 16px 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.content td,
+.content th {
+  min-height: 34px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  vertical-align: top;
+  word-break: break-word;
+}
+
 .content figure {
   margin: 22px 0;
 }
@@ -1172,9 +1189,10 @@ img {
 }
 
 .editor-toolbar .tool-group {
-  min-height: 74px;
+  min-height: 0;
   align-content: flex-start;
   align-items: flex-start;
+  flex: 0 1 auto;
   gap: 3px;
   padding: 0 7px;
   border-right: 1px solid #d6dde6;
@@ -1191,7 +1209,8 @@ img {
 
 .editor-toolbar .tool-group:nth-child(2) {
   order: 2;
-  width: 292px;
+  width: auto;
+  max-width: 320px;
 }
 
 .editor-toolbar .tool-group:nth-child(3) {
@@ -1206,7 +1225,8 @@ img {
 
 .editor-toolbar .tool-group:nth-child(5) {
   order: 4;
-  width: 268px;
+  width: auto;
+  max-width: 300px;
 }
 
 .editor-toolbar .tool-group:nth-child(6) {
@@ -1216,7 +1236,8 @@ img {
 
 .editor-toolbar .tool-group:nth-child(7) {
   order: 6;
-  width: 164px;
+  width: auto;
+  max-width: 196px;
 }
 
 .editor-toolbar .style-tool-group {
@@ -1459,22 +1480,32 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 5px 12px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 2px 10px;
   border-top: 1px solid var(--line);
   background: #ffffff;
 }
 
-.editor-compact-button {
-  min-height: 28px;
-  padding: 0 9px;
+.editor-foot .status-line {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.editor-foot .editor-actions {
   gap: 5px;
-  font-size: 12px;
+}
+
+.editor-compact-button {
+  min-height: 24px;
+  padding: 0 7px;
+  gap: 4px;
+  font-size: 11px;
 }
 
 .editor-compact-button svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .modal {

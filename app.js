@@ -1616,6 +1616,7 @@ function renderEditor() {
         <div class="tool-group">
           <button class="tool-button" type="button" data-command="createLink" aria-label="링크" title="링크"><i data-lucide="link"></i></button>
           <button class="tool-button" type="button" data-command="insertImage" aria-label="이미지" title="이미지"><i data-lucide="image-plus"></i></button>
+          <button class="tool-button" type="button" data-command="insertTable" aria-label="표 삽입" title="표 삽입"><i data-lucide="table"></i></button>
           <button class="tool-button" type="button" data-command="insertHorizontalRule" aria-label="구분선" title="구분선"><i data-lucide="minus"></i></button>
           <button class="tool-button" type="button" data-command="removeFormat" aria-label="서식 지우기" title="서식 지우기"><i data-lucide="eraser"></i></button>
         </div>
@@ -1827,6 +1828,8 @@ function runEditorCommand(command, value) {
     if (url) {
       document.execCommand("insertImage", false, url);
     }
+  } else if (command === "insertTable") {
+    insertEditorTable();
   } else if (command === "blockquote") {
     document.execCommand("formatBlock", false, "blockquote");
   } else if (command === "formatBlock") {
@@ -1835,6 +1838,26 @@ function runEditorCommand(command, value) {
     document.execCommand(command, false, value || null);
   }
 
+  saveDraft();
+  updatePreview();
+}
+
+function insertEditorTable() {
+  restoreEditorSelection();
+  const table = `
+    <table>
+      <tbody>
+        ${Array.from({ length: 3 }).map(() => `
+          <tr>
+            ${Array.from({ length: 3 }).map(() => `<td><br></td>`).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+    <p><br></p>
+  `;
+  document.execCommand("insertHTML", false, table);
+  rememberEditorSelection();
   saveDraft();
   updatePreview();
 }
@@ -2297,7 +2320,18 @@ function getMyFolders() {
 }
 
 function getFoldersForCategory(folders, categoryName) {
-  return folders.filter((folder) => getFolderCategoryName(folder) === categoryName);
+  const categoryFolders = folders.filter((folder) => getFolderCategoryName(folder) === categoryName);
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const expanded = new Map(categoryFolders.map((folder) => [folder.id, folder]));
+  categoryFolders.forEach((folder) => {
+    let parentId = folder.parent_id;
+    while (parentId && byId.has(parentId)) {
+      const parent = byId.get(parentId);
+      expanded.set(parent.id, parent);
+      parentId = parent.parent_id;
+    }
+  });
+  return Array.from(expanded.values());
 }
 
 function getFolderCategoryName(folder) {
