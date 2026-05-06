@@ -6,6 +6,7 @@ const AUTH_EMAIL_DOMAIN = CONFIG.authEmailDomain || "blog.local";
 const SUPABASE_KEY_STORAGE = "skyblog.supabaseAnonKey";
 const POSTS_STORAGE = "skyblog.posts.v2";
 const DRAFT_STORAGE = "skyblog.draft.v2";
+const SIDEBAR_STORAGE = "skyblog.sidebarCollapsed";
 const ROUTES = {
   home: "#home",
   myblog: "#blog/me",
@@ -28,6 +29,7 @@ const state = {
   session: null,
   profile: null,
   supabaseError: null,
+  sidebarCollapsed: localStorage.getItem(SIDEBAR_STORAGE) === "true",
   loading: true
 };
 
@@ -73,13 +75,6 @@ function bindGlobalControls() {
   });
 
   window.addEventListener("hashchange", applyRouteFromHash);
-
-  $("#syncButton").addEventListener("click", () => {
-    $("#supabaseUrl").value = SUPABASE_URL;
-    $("#supabaseKey").value = getSupabaseKey();
-    $("#settingsDialog").showModal();
-    updateIcons();
-  });
 
   $("#settingsForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -314,38 +309,43 @@ function renderBlogList() {
   const countLabel = isMine ? "내 글" : "공개 글";
 
   app.innerHTML = `
-    <section class="blog-grid">
+    <section class="blog-grid ${state.sidebarCollapsed ? "is-sidebar-collapsed" : ""}">
       <aside class="profile-panel">
-        <p class="eyebrow">${isMine ? "My Blog" : "Public Home"}</p>
-        <h1>${escapeHtml(title)}</h1>
-        ${
-          isMine
-            ? `
-              <div class="profile-actions">
-                <button class="outline-button" type="button" id="editProfileButton">
-                  <i data-lucide="settings"></i>
-                  블로그 설정
+        <button class="icon-button sidebar-toggle" type="button" id="sidebarToggle" aria-label="${state.sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}" title="${state.sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}">
+          <i data-lucide="${state.sidebarCollapsed ? "panel-left-open" : "panel-left-close"}"></i>
+        </button>
+        <div class="sidebar-body" ${state.sidebarCollapsed ? "hidden" : ""}>
+          <p class="eyebrow">${isMine ? "My Blog" : "Public Home"}</p>
+          <h1>${escapeHtml(title)}</h1>
+          ${
+            isMine
+              ? `
+                <div class="profile-actions">
+                  <button class="outline-button" type="button" id="editProfileButton">
+                    <i data-lucide="settings"></i>
+                    블로그 설정
+                  </button>
+                  <button class="primary-button" type="button" data-nav="editor">
+                    <i data-lucide="square-pen"></i>
+                    새 글 쓰기
+                  </button>
+                </div>
+              `
+              : `
+                <button class="primary-button wide" type="button" ${state.session ? 'data-nav="myblog"' : 'id="homeLoginButton"'}>
+                  <i data-lucide="${state.session ? "user-round" : "log-in"}"></i>
+                  ${state.session ? "내 블로그로" : "로그인하고 시작"}
                 </button>
-                <button class="primary-button" type="button" data-nav="editor">
-                  <i data-lucide="square-pen"></i>
-                  새 글 쓰기
-                </button>
-              </div>
-            `
-            : `
-              <button class="primary-button wide" type="button" ${state.session ? 'data-nav="myblog"' : 'id="homeLoginButton"'}>
-                <i data-lucide="${state.session ? "user-round" : "log-in"}"></i>
-                ${state.session ? "내 블로그로" : "로그인하고 시작"}
-              </button>
-            `
-        }
-        <label class="search-field">
-          <span class="sr-only">검색</span>
-          <input id="searchInput" type="search" value="${escapeAttr(state.query)}" placeholder="글 검색" />
-          <i data-lucide="search"></i>
-        </label>
-        <div class="category-list" aria-label="카테고리">
-          ${categories.map((category) => renderCategory(category, visiblePosts)).join("")}
+              `
+          }
+          <label class="search-field">
+            <span class="sr-only">검색</span>
+            <input id="searchInput" type="search" value="${escapeAttr(state.query)}" placeholder="글 검색" />
+            <i data-lucide="search"></i>
+          </label>
+          <div class="category-list" aria-label="카테고리">
+            ${categories.map((category) => renderCategory(category, visiblePosts)).join("")}
+          </div>
         </div>
       </aside>
 
@@ -495,6 +495,13 @@ function renderProfileDialog() {
 }
 
 function bindListEvents() {
+  $("#sidebarToggle")?.addEventListener("click", () => {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    localStorage.setItem(SIDEBAR_STORAGE, String(state.sidebarCollapsed));
+    renderBlogList();
+    updateIcons();
+  });
+
   $("#searchInput")?.addEventListener("input", (event) => {
     state.query = event.target.value;
     renderBlogList();
@@ -1045,25 +1052,14 @@ function renderAuthDialog() {
 }
 
 function updateConnectionStatus() {
-  const syncLabel = $("#syncLabel");
   const authButton = $("#authButton");
   const myBlogNav = $("#myBlogNav");
-  if (!syncLabel || !authButton) {
+  if (!authButton) {
     return;
   }
 
   if (myBlogNav) {
     myBlogNav.hidden = !state.session;
-  }
-
-  if (!getSupabaseKey()) {
-    syncLabel.textContent = "로컬 모드";
-  } else if (state.supabase && state.session) {
-    syncLabel.textContent = "내 블로그 연결";
-  } else if (state.supabase) {
-    syncLabel.textContent = "Supabase";
-  } else {
-    syncLabel.textContent = "연결 대기";
   }
 
   authButton.textContent = state.session ? "계정" : "로그인";
