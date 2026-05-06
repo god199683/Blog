@@ -36,6 +36,7 @@ const state = {
   editingId: null,
   editorInitial: null,
   pendingEditorPostId: null,
+  pendingEditorUseDraft: false,
   authMode: "login",
   supabase: null,
   session: null,
@@ -360,7 +361,10 @@ function applyRouteFromHash() {
   }
 
   if (view === "editor") {
-    openEditor(state.pendingEditorPostId || null, { keepRoute: true });
+    openEditor(state.pendingEditorPostId || null, {
+      keepRoute: true,
+      useDraft: state.pendingEditorUseDraft
+    });
     return;
   }
 
@@ -385,6 +389,8 @@ function applyView(view, { keepSelected = false } = {}) {
   state.view = view;
   state.editingId = null;
   state.editorInitial = null;
+  state.pendingEditorPostId = null;
+  state.pendingEditorUseDraft = false;
   if (!keepSelected) {
     state.selectedId = null;
   }
@@ -1471,7 +1477,7 @@ async function persistTaxonomy(table, item) {
   return item;
 }
 
-function openEditor(postId = null, { keepRoute = false } = {}) {
+function openEditor(postId = null, { keepRoute = false, useDraft = false } = {}) {
   if (!state.session && state.supabase) {
     openAuth();
     toast("로그인하면 계정별 블로그에 글을 쓸 수 있습니다.");
@@ -1480,12 +1486,14 @@ function openEditor(postId = null, { keepRoute = false } = {}) {
 
   if (!keepRoute && window.location.hash !== ROUTES.editor) {
     state.pendingEditorPostId = postId;
+    state.pendingEditorUseDraft = useDraft;
     window.location.hash = ROUTES.editor;
     return;
   }
 
-  const post = postId ? state.posts.find((item) => item.id === postId) : getDraft() || createBlankPost();
+  const post = postId ? state.posts.find((item) => item.id === postId) : (useDraft ? getDraft() : null) || createBlankPost();
   state.pendingEditorPostId = null;
+  state.pendingEditorUseDraft = false;
   if (postId && !post) {
     toast("수정할 글을 찾지 못했습니다.");
     navigateTo(state.session ? "myblog" : "home", { replace: true });
@@ -1775,6 +1783,8 @@ function bindEditorEvents() {
   $("[data-editor-action='cancel']").addEventListener("click", () => {
     state.editingId = null;
     state.editorInitial = null;
+    state.pendingEditorPostId = null;
+    state.pendingEditorUseDraft = false;
     navigateTo(state.session ? "myblog" : "home");
   });
 
@@ -2090,6 +2100,8 @@ async function publishPost(event) {
     state.selectedId = saved.id;
     state.editingId = null;
     state.editorInitial = null;
+    state.pendingEditorPostId = null;
+    state.pendingEditorUseDraft = false;
     await loadPosts();
     state.selectedId = saved.id;
     navigateTo(state.session ? "myblog" : "home");
