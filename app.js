@@ -389,8 +389,10 @@ function applyView(view, { keepSelected = false } = {}) {
 function renderBlogList() {
   const isMine = state.view === "myblog";
   const visiblePosts = getVisiblePosts();
-  const categories = getCategories(visiblePosts);
+  const sidebarPosts = getPostsForCurrentScope();
+  const categories = getCategories(sidebarPosts);
   const visibleFolders = getVisibleFolders();
+  const sidebarFolders = getSidebarFolders();
 
   const title = isMine ? getMyBlogTitle() : "공용 홈";
   const countLabel = isMine ? "내 글" : "공개 글";
@@ -430,7 +432,7 @@ function renderBlogList() {
               <strong>카테고리</strong>
               ${isMine ? `<button class="icon-button mini-button" type="button" id="addCategoryButton" aria-label="카테고리 추가" title="카테고리 추가"><i data-lucide="plus"></i></button>` : ""}
             </div>
-            ${categories.map((category) => renderCategory(category, visiblePosts, visibleFolders, isMine)).join("")}
+            ${categories.map((category) => renderCategory(category, sidebarPosts, sidebarFolders, isMine)).join("")}
           </div>
           ${isMine ? renderTrashSection() : ""}
         </div>
@@ -514,14 +516,17 @@ function renderFeedPosts(posts, folders, isMine) {
     return renderEmptyState(isMine);
   }
   if (state.activeFolderId !== "all") {
-    return posts.map((post) => renderPostCard(post, false)).join("");
+    const selectedFolder = findFolderInTree(buildFolderTree(folders), state.activeFolderId);
+    return selectedFolder
+      ? renderFeedFolder(selectedFolder, posts, 0, isMine)
+      : posts.map((post) => renderPostCard(post, false, isMine)).join("");
   }
 
   const categories = [...new Set(posts.map((post) => post.category || ETC_CATEGORY_LABEL))];
-  return categories.map((category) => renderFeedCategory(category, posts, folders)).join("");
+  return categories.map((category) => renderFeedCategory(category, posts, folders, isMine)).join("");
 }
 
-function renderFeedCategory(category, posts, folders) {
+function renderFeedCategory(category, posts, folders, canManagePosts) {
   const categoryPosts = posts.filter((post) => (post.category || ETC_CATEGORY_LABEL) === category);
   const categoryFolders = getFoldersForCategory(folders, category);
   const folderPostIds = new Set(categoryFolders.flatMap((folder) => [folder.id, ...getFolderDescendantIds(folder.id)]));
@@ -538,15 +543,15 @@ function renderFeedCategory(category, posts, folders) {
       </button>
       ${isOpen ? `
         <div class="feed-group-body">
-          ${rootFolders.map((folder) => renderFeedFolder(folder, categoryPosts, 0)).join("")}
-          ${directPosts.map((post) => renderPostCard(post, false)).join("")}
+          ${rootFolders.map((folder) => renderFeedFolder(folder, categoryPosts, 0, canManagePosts)).join("")}
+          ${directPosts.map((post) => renderPostCard(post, false, canManagePosts)).join("")}
         </div>
       ` : ""}
     </section>
   `;
 }
 
-function renderFeedFolder(folder, posts, depth) {
+function renderFeedFolder(folder, posts, depth, canManagePosts) {
   const descendants = getFolderDescendantIds(folder.id);
   const folderIds = [folder.id, ...descendants];
   const folderPosts = posts.filter((post) => folderIds.includes(post.folder_id));
@@ -563,8 +568,8 @@ function renderFeedFolder(folder, posts, depth) {
       </button>
       ${isOpen ? `
         <div class="feed-folder-body">
-          ${hasChildren ? folder.children.map((child) => renderFeedFolder(child, posts, depth + 1)).join("") : ""}
-          ${ownPosts.map((post) => renderPostCard(post, false)).join("")}
+          ${hasChildren ? folder.children.map((child) => renderFeedFolder(child, posts, depth + 1, canManagePosts)).join("") : ""}
+          ${ownPosts.map((post) => renderPostCard(post, false, canManagePosts)).join("")}
         </div>
       ` : ""}
     </div>
@@ -716,13 +721,25 @@ function renderFolderOptions(selectedId, categoryName) {
   return roots.map((folder) => renderFolderOption(folder, selectedId, 0)).join("");
 }
 
-function renderPostCard(post, isActive) {
+function renderPostCard(post, isActive, canManage = false) {
   return `
     <article class="post-card ${isActive ? "is-active" : ""}" data-post-id="${escapeAttr(post.id)}" tabindex="0">
       <div>
         <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)}</div>
         <h3>${escapeHtml(post.title)}</h3>
         <p>${escapeHtml(post.excerpt || makeExcerpt(post.content))}</p>
+        ${canManage ? `
+          <div class="post-card-actions">
+            <button class="outline-button compact-action" type="button" data-edit-id="${escapeAttr(post.id)}">
+              <i data-lucide="square-pen"></i>
+              수정
+            </button>
+            <button class="ghost-button compact-action danger-button" type="button" data-delete-id="${escapeAttr(post.id)}">
+              <i data-lucide="trash-2"></i>
+              삭제
+            </button>
+          </div>
+        ` : ""}
       </div>
     </article>
   `;
@@ -836,11 +853,17 @@ function bindDynamicListEvents() {
   });
 
   $$("[data-edit-id]").forEach((button) => {
-    button.addEventListener("click", () => openEditor(button.dataset.editId));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openEditor(button.dataset.editId);
+    });
   });
 
   $$("[data-delete-id]").forEach((button) => {
-    button.addEventListener("click", () => deletePost(button.dataset.deleteId));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deletePost(button.dataset.deleteId);
+    });
   });
 }
 
@@ -2004,6 +2027,10 @@ function getVisibleFolders() {
   return state.folders.filter((folder) => !folder.deleted_at && ownerIds.has(folder.owner_id));
 }
 
+function getSidebarFolders() {
+  return state.view === "myblog" ? getMyFolders() : getVisibleFolders();
+}
+
 function getMyFolders() {
   return state.folders.filter((folder) => !folder.deleted_at && (!folder.owner_id || folder.owner_id === state.session?.user?.id));
 }
@@ -2153,6 +2180,19 @@ function buildFolderTree(folders) {
     }
   });
   return Array.from(map.values());
+}
+
+function findFolderInTree(folders, folderId) {
+  for (const folder of folders) {
+    if (folder.id === folderId) {
+      return folder;
+    }
+    const child = findFolderInTree(folder.children || [], folderId);
+    if (child) {
+      return child;
+    }
+  }
+  return null;
 }
 
 function getFolderDescendantIds(folderId) {

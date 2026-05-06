@@ -398,7 +398,7 @@ img {
 
 .category-list {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   margin-top: 16px;
 }
 
@@ -420,20 +420,20 @@ img {
 
 .category-group {
   display: grid;
-  gap: 6px;
+  gap: 3px;
 }
 
 .category-row {
   position: relative;
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
-  gap: 6px;
+  gap: 4px;
   align-items: center;
 }
 
 .category-folders {
   display: grid;
-  gap: 6px;
+  gap: 3px;
 }
 
 .tree-toggle {
@@ -450,7 +450,7 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 38px;
+  min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -468,8 +468,8 @@ img {
   position: relative;
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
-  gap: 6px;
-  margin-left: calc(var(--depth) * 14px);
+  gap: 4px;
+  margin-left: calc(var(--depth) * 12px);
 }
 
 .taxonomy-actions {
@@ -508,7 +508,7 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 34px;
+  min-height: 32px;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -753,6 +753,13 @@ img {
   line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.post-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .reader-panel {
