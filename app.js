@@ -1617,6 +1617,8 @@ function renderEditor() {
           <button class="tool-button" type="button" data-command="createLink" aria-label="링크" title="링크"><i data-lucide="link"></i></button>
           <button class="tool-button" type="button" data-command="insertImage" aria-label="이미지" title="이미지"><i data-lucide="image-plus"></i></button>
           <button class="tool-button" type="button" data-command="insertTable" aria-label="표 삽입" title="표 삽입"><i data-lucide="table"></i></button>
+          <button class="tool-button" type="button" data-command="addTableRow" aria-label="표 행 추가" title="표 행 추가"><i data-lucide="rows-3"></i></button>
+          <button class="tool-button" type="button" data-command="addTableColumn" aria-label="표 열 추가" title="표 열 추가"><i data-lucide="columns-3"></i></button>
           <button class="tool-button" type="button" data-command="insertHorizontalRule" aria-label="구분선" title="구분선"><i data-lucide="minus"></i></button>
           <button class="tool-button" type="button" data-command="removeFormat" aria-label="서식 지우기" title="서식 지우기"><i data-lucide="eraser"></i></button>
         </div>
@@ -1830,6 +1832,10 @@ function runEditorCommand(command, value) {
     }
   } else if (command === "insertTable") {
     insertEditorTable();
+  } else if (command === "addTableRow") {
+    addTableRow();
+  } else if (command === "addTableColumn") {
+    addTableColumn();
   } else if (command === "blockquote") {
     document.execCommand("formatBlock", false, "blockquote");
   } else if (command === "formatBlock") {
@@ -1843,13 +1849,15 @@ function runEditorCommand(command, value) {
 }
 
 function insertEditorTable() {
+  const rows = clamp(Number(prompt("표 행 수", "3")) || 3, 1, 20);
+  const columns = clamp(Number(prompt("표 열 수", "3")) || 3, 1, 12);
   restoreEditorSelection();
   const table = `
     <table>
       <tbody>
-        ${Array.from({ length: 3 }).map(() => `
+        ${Array.from({ length: rows }).map(() => `
           <tr>
-            ${Array.from({ length: 3 }).map(() => `<td><br></td>`).join("")}
+            ${Array.from({ length: columns }).map(() => `<td><br></td>`).join("")}
           </tr>
         `).join("")}
       </tbody>
@@ -1860,6 +1868,56 @@ function insertEditorTable() {
   rememberEditorSelection();
   saveDraft();
   updatePreview();
+}
+
+function addTableRow() {
+  const cell = getCurrentTableCell();
+  const row = cell?.closest("tr");
+  if (!row) {
+    toast("표 안에 커서를 둔 뒤 행을 추가하세요.");
+    return;
+  }
+  const nextRow = row.cloneNode(true);
+  nextRow.querySelectorAll("td,th").forEach((cell) => {
+    cell.innerHTML = "<br>";
+  });
+  row.after(nextRow);
+  saveDraft();
+  updatePreview();
+}
+
+function addTableColumn() {
+  const cell = getCurrentTableCell();
+  const row = cell?.closest("tr");
+  const table = cell?.closest("table");
+  if (!cell || !row || !table) {
+    toast("표 안에 커서를 둔 뒤 열을 추가하세요.");
+    return;
+  }
+  const index = Array.from(row.children).indexOf(cell);
+  table.querySelectorAll("tr").forEach((tableRow) => {
+    const reference = tableRow.children[index];
+    const newCell = document.createElement(reference?.tagName?.toLowerCase() === "th" ? "th" : "td");
+    newCell.innerHTML = "<br>";
+    if (reference) {
+      reference.after(newCell);
+    } else {
+      tableRow.appendChild(newCell);
+    }
+  });
+  saveDraft();
+  updatePreview();
+}
+
+function getCurrentTableCell() {
+  restoreEditorSelection();
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) {
+    return null;
+  }
+  const node = selection.getRangeAt(0).startContainer;
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  return element?.closest("td,th") || null;
 }
 
 function applyTextColor(color, update) {

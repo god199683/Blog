@@ -1237,7 +1237,7 @@ img {
 .editor-toolbar .tool-group:nth-child(7) {
   order: 6;
   width: auto;
-  max-width: 196px;
+  max-width: 260px;
 }
 
 .editor-toolbar .style-tool-group {
