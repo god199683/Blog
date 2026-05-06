@@ -35,6 +35,7 @@ const state = {
   view: "home",
   editingId: null,
   editorInitial: null,
+  pendingEditorPostId: null,
   authMode: "login",
   supabase: null,
   session: null,
@@ -45,6 +46,8 @@ const state = {
   sidebarCollapsed: localStorage.getItem(SIDEBAR_STORAGE) === "true",
   taxonomyOpen: getStoredOpenState(),
   trashOpen: false,
+  selectionMode: false,
+  selectedPostIds: new Set(),
   loading: true
 };
 let savedEditorRange = null;
@@ -356,7 +359,7 @@ function applyRouteFromHash() {
   }
 
   if (view === "editor") {
-    openEditor(null, { keepRoute: true });
+    openEditor(state.pendingEditorPostId || null, { keepRoute: true });
     return;
   }
 
@@ -445,11 +448,32 @@ function renderBlogList() {
         <div class="section-head">
           <div>
             <h2>${countLabel}</h2>
-            <p id="visiblePostCount">${visiblePosts.length}개의 글</p>
+            <p id="visiblePostCount">${state.selectionMode ? `${state.selectedPostIds.size}개 선택됨` : `${visiblePosts.length}개의 글`}</p>
           </div>
-          <button class="icon-button" type="button" id="refreshButton" aria-label="새로고침" title="새로고침">
-            <i data-lucide="refresh-cw"></i>
-          </button>
+          <div class="list-actions">
+            <input class="sr-only" id="importPostsInput" type="file" accept=".txt,.docx,.zip,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip" multiple />
+            ${isMine ? `
+              <button class="outline-button compact-action" type="button" id="importPostsButton">
+                <i data-lucide="upload"></i>
+                불러오기
+              </button>
+              <select class="export-format-select" id="exportFormat" aria-label="내보내기 형식" title="내보내기 형식">
+                <option value="txt">TXT</option>
+                <option value="docx">DOCX</option>
+              </select>
+              <button class="outline-button compact-action ${state.selectionMode ? "is-active" : ""}" type="button" id="selectionModeButton">
+                <i data-lucide="list-checks"></i>
+                선택
+              </button>
+              <button class="outline-button compact-action" type="button" id="exportSelectedButton" ${state.selectedPostIds.size ? "" : "disabled"}>
+                <i data-lucide="download"></i>
+                내보내기
+              </button>
+            ` : ""}
+            <button class="icon-button" type="button" id="refreshButton" aria-label="새로고침" title="새로고침">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+          </div>
         </div>
         <div class="post-list">
           ${
@@ -497,7 +521,11 @@ function updatePostList() {
   const visibleFolders = getVisibleFolders();
   list.innerHTML = renderFeedPosts(visiblePosts, visibleFolders, state.view === "myblog");
   if (count) {
-    count.textContent = `${visiblePosts.length}개의 글`;
+    count.textContent = state.selectionMode ? `${state.selectedPostIds.size}개 선택됨` : `${visiblePosts.length}개의 글`;
+  }
+  const exportButton = $("#exportSelectedButton");
+  if (exportButton) {
+    exportButton.disabled = state.selectedPostIds.size === 0;
   }
   bindDynamicListEvents();
   updateIcons();
@@ -584,13 +612,12 @@ function renderTrashSection() {
       </button>
       ${state.trashOpen ? `
         <div class="trash-list">
-          ${trashItems.length ? `
-            <button class="outline-button compact-action trash-empty-button" type="button" id="emptyTrashButton">
-              <i data-lucide="trash"></i>
-              휴지통 비우기
-            </button>
-          ` : ""}
           ${trashItems.length ? trashItems.map(renderTrashItem).join("") : `<p class="folder-empty">휴지통이 비어 있습니다.</p>`}
+        </div>
+      ` : ""}
+      ${trashItems.length ? `
+        <div class="taxonomy-actions trash-actions">
+          <button class="icon-button mini-button danger-button" type="button" id="emptyTrashButton" aria-label="휴지통 비우기" title="휴지통 비우기"><i data-lucide="trash"></i></button>
         </div>
       ` : ""}
     </div>
@@ -601,7 +628,9 @@ function renderTrashItem(item) {
   return `
     <div class="trash-item">
       <span>${escapeHtml(item.label)} <small>${escapeHtml(item.typeLabel)}</small></span>
-      <button class="outline-button compact-action" type="button" data-restore-type="${item.type}" data-restore-id="${escapeAttr(item.id)}">복원</button>
+      <div class="taxonomy-actions">
+        <button class="icon-button mini-button" type="button" data-restore-type="${item.type}" data-restore-id="${escapeAttr(item.id)}" aria-label="복원" title="복원"><i data-lucide="rotate-ccw"></i></button>
+      </div>
     </div>
   `;
 }
@@ -792,8 +821,15 @@ function renderFolderOptions(selectedId, categoryName) {
 }
 
 function renderPostCard(post, isActive, canManage = false) {
+  const isSelected = state.selectedPostIds.has(post.id);
   return `
-    <article class="post-card ${isActive ? "is-active" : ""}" data-post-id="${escapeAttr(post.id)}" tabindex="0">
+    <article class="post-card ${isActive ? "is-active" : ""} ${isSelected ? "is-selected" : ""} ${state.selectionMode ? "is-selectable" : ""}" data-post-id="${escapeAttr(post.id)}" tabindex="0">
+      ${state.selectionMode ? `
+        <label class="post-select-check" aria-label="글 선택">
+          <input type="checkbox" data-select-post="${escapeAttr(post.id)}" ${isSelected ? "checked" : ""} />
+          <span></span>
+        </label>
+      ` : ""}
       <div>
         <div class="post-meta">${escapeHtml(post.category || "기타")} · ${formatDate(post.created_at)}</div>
         <h3>${escapeHtml(post.title)}</h3>
@@ -867,6 +903,17 @@ function bindListEvents() {
   });
 
   $("#refreshButton")?.addEventListener("click", loadPosts);
+  $("#selectionModeButton")?.addEventListener("click", () => {
+    state.selectionMode = !state.selectionMode;
+    if (!state.selectionMode) {
+      state.selectedPostIds.clear();
+    }
+    renderBlogList();
+    updateIcons();
+  });
+  $("#exportSelectedButton")?.addEventListener("click", exportSelectedPosts);
+  $("#importPostsButton")?.addEventListener("click", () => $("#importPostsInput")?.click());
+  $("#importPostsInput")?.addEventListener("change", importPostFiles);
 
   $("#homeLoginButton")?.addEventListener("click", openAuth);
 
@@ -882,6 +929,20 @@ function bindListEvents() {
 }
 
 function bindDynamicListEvents() {
+  $$("[data-select-post]").forEach((checkbox) => {
+    checkbox.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        state.selectedPostIds.add(checkbox.dataset.selectPost);
+      } else {
+        state.selectedPostIds.delete(checkbox.dataset.selectPost);
+      }
+      updatePostList();
+    });
+  });
+
   $$("[data-feed-category]").forEach((button) => {
     button.addEventListener("click", () => {
       const category = button.dataset.feedCategory;
@@ -911,6 +972,16 @@ function bindDynamicListEvents() {
 
   $$("[data-post-id]").forEach((card) => {
     const select = () => {
+      if (state.selectionMode) {
+        const postId = card.dataset.postId;
+        if (state.selectedPostIds.has(postId)) {
+          state.selectedPostIds.delete(postId);
+        } else {
+          state.selectedPostIds.add(postId);
+        }
+        updatePostList();
+        return;
+      }
       navigateToPost(card.dataset.postId);
     };
     card.addEventListener("click", select);
@@ -1396,14 +1467,21 @@ function openEditor(postId = null, { keepRoute = false } = {}) {
   }
 
   if (!keepRoute && window.location.hash !== ROUTES.editor) {
+    state.pendingEditorPostId = postId;
     window.location.hash = ROUTES.editor;
     return;
   }
 
   const post = postId ? state.posts.find((item) => item.id === postId) : getDraft() || createBlankPost();
+  state.pendingEditorPostId = null;
+  if (postId && !post) {
+    toast("수정할 글을 찾지 못했습니다.");
+    navigateTo(state.session ? "myblog" : "home", { replace: true });
+    return;
+  }
   state.view = "editor";
   state.editingId = postId;
-  state.editorInitial = clonePost(post || createBlankPost());
+  state.editorInitial = clonePost(post);
   render();
 }
 
@@ -2120,7 +2198,7 @@ async function signOut() {
 function renderAuthDialog() {
   const identifier = getUserIdentifier(state.session?.user);
   const loggedIn = Boolean(state.session);
-  $("#authTitle").textContent = loggedIn ? "계정" : state.authMode === "signup" ? "회원가입" : "작성자 로그인";
+  $("#authTitle").textContent = loggedIn ? identifier || "아이디" : state.authMode === "signup" ? "회원가입" : "작성자 로그인";
   $("#authState").textContent = loggedIn ? `${identifier} 로그인됨` : state.authMode === "signup" ? "아이디로 새 계정을 만들고 내 블로그를 시작하세요." : "아이디로 로그인하면 내 블로그를 관리할 수 있습니다.";
   $("#authIdentifier").value = identifier;
   $("#authPassword").value = "";
@@ -2147,7 +2225,7 @@ function updateConnectionStatus() {
     myBlogNav.hidden = !state.session;
   }
 
-  authButton.textContent = state.session ? "계정" : "로그인";
+  authButton.textContent = state.session ? getUserIdentifier(state.session.user) || "아이디" : "로그인";
 }
 
 function updateTopNav() {
@@ -2342,6 +2420,214 @@ async function emptyTrash() {
   }
 }
 
+async function exportSelectedPosts() {
+  const posts = state.posts.filter((post) => state.selectedPostIds.has(post.id) && !post.deleted_at);
+  if (!posts.length) {
+    toast("내보낼 글을 선택하세요.");
+    return;
+  }
+
+  const format = $("#exportFormat")?.value || "txt";
+  try {
+    if (posts.length === 1) {
+      const post = posts[0];
+      if (format === "docx") {
+        downloadBlob(await createDocxBlob(post), `${safeFileName(post.title)}.docx`);
+      } else {
+        downloadBlob(new Blob([postToText(post)], { type: "text/plain;charset=utf-8" }), `${safeFileName(post.title)}.txt`);
+      }
+      return;
+    }
+
+    const JSZip = await loadJSZip();
+    const zip = new JSZip();
+    for (const post of posts) {
+      const filename = safeFileName(post.title);
+      if (format === "docx") {
+        zip.file(`${filename}.docx`, await createDocxBlob(post));
+      } else {
+        zip.file(`${filename}.txt`, postToText(post));
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    downloadBlob(blob, `blog-posts-${new Date().toISOString().slice(0, 10)}.zip`);
+  } catch (error) {
+    toast(`내보내기 실패: ${error.message}`);
+  }
+}
+
+async function importPostFiles(event) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = "";
+  if (!files.length) {
+    return;
+  }
+
+  try {
+    const importedPosts = [];
+    for (const file of files) {
+      importedPosts.push(...await readImportFile(file));
+    }
+    if (!importedPosts.length) {
+      toast("불러올 수 있는 글 파일이 없습니다.");
+      return;
+    }
+
+    for (const post of importedPosts) {
+      await persistPost(post);
+    }
+    await loadPosts();
+    toast(`${importedPosts.length}개의 글을 불러왔습니다.`);
+  } catch (error) {
+    toast(`불러오기 실패: ${error.message}`);
+  }
+}
+
+async function readImportFile(file) {
+  const lowerName = file.name.toLowerCase();
+  if (lowerName.endsWith(".zip")) {
+    const JSZip = await loadJSZip();
+    const zip = await JSZip.loadAsync(file);
+    const posts = [];
+    for (const entry of Object.values(zip.files)) {
+      if (entry.dir) continue;
+      if (entry.name.toLowerCase().endsWith(".txt")) {
+        posts.push(textToPost(await entry.async("text"), entry.name));
+      } else if (entry.name.toLowerCase().endsWith(".docx")) {
+        posts.push(await docxToPost(await entry.async("blob"), entry.name));
+      }
+    }
+    return posts;
+  }
+  if (lowerName.endsWith(".docx")) {
+    return [await docxToPost(file, file.name)];
+  }
+  return [textToPost(await file.text(), file.name)];
+}
+
+function postToText(post) {
+  return [
+    `Title: ${post.title || "제목 없음"}`,
+    `Category: ${post.category || DEFAULT_CATEGORY_LABEL}`,
+    `Published: ${post.published !== false ? "true" : "false"}`,
+    `Date: ${post.created_at || new Date().toISOString()}`,
+    "---",
+    htmlToText(post.content || "")
+  ].join("\n");
+}
+
+function textToPost(text, filename = "imported.txt") {
+  const normalized = text.replace(/\r\n/g, "\n");
+  const [rawMeta, ...bodyParts] = normalized.includes("\n---\n")
+    ? normalized.split("\n---\n")
+    : ["", normalized];
+  const meta = Object.fromEntries(rawMeta.split("\n")
+    .map((line) => line.match(/^([^:]+):\s*(.*)$/))
+    .filter(Boolean)
+    .map((match) => [match[1].trim().toLowerCase(), match[2].trim()]));
+  const body = bodyParts.join("\n---\n").trim() || normalized.trim();
+  return createImportedPost({
+    title: meta.title || filename.replace(/\.[^.]+$/, ""),
+    category: meta.category || DEFAULT_CATEGORY_LABEL,
+    published: meta.published !== "false",
+    content: textToHtml(body)
+  });
+}
+
+async function docxToPost(file, filename = "imported.docx") {
+  const JSZip = await loadJSZip();
+  const zip = await JSZip.loadAsync(file);
+  const documentXml = await zip.file("word/document.xml")?.async("text");
+  if (!documentXml) {
+    throw new Error(`${filename}에서 문서를 찾을 수 없습니다.`);
+  }
+  const doc = new DOMParser().parseFromString(documentXml, "application/xml");
+  const paragraphs = Array.from(doc.getElementsByTagName("w:p"))
+    .map((paragraph) => Array.from(paragraph.getElementsByTagName("w:t")).map((node) => node.textContent || "").join(""))
+    .filter((line) => line.trim());
+  return createImportedPost({
+    title: filename.replace(/\.[^.]+$/, ""),
+    content: textToHtml(paragraphs.join("\n\n"))
+  });
+}
+
+function createImportedPost({ title, category = DEFAULT_CATEGORY_LABEL, published = true, content }) {
+  const now = new Date().toISOString();
+  return {
+    ...createBlankPost(),
+    id: crypto.randomUUID(),
+    title: title || "불러온 글",
+    slug: makeSlug(title || "imported"),
+    excerpt: makeExcerpt(content),
+    category,
+    folder_id: state.activeFolderId !== "all" ? state.activeFolderId : null,
+    content,
+    published,
+    created_at: now,
+    updated_at: now
+  };
+}
+
+async function createDocxBlob(post) {
+  const JSZip = await loadJSZip();
+  const zip = new JSZip();
+  zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+  zip.folder("_rels").file(".rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+  const lines = [post.title || "제목 없음", "", ...htmlToText(post.content || "").split(/\n+/)];
+  const body = lines.map((line) => `<w:p><w:r><w:t xml:space="preserve">${escapeXml(line)}</w:t></w:r></w:p>`).join("");
+  zip.folder("word").file("document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr/></w:body></w:document>`);
+  return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+}
+
+async function loadJSZip() {
+  if (window.JSZip) {
+    return window.JSZip;
+  }
+  const module = await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm");
+  return module.default || module;
+}
+
+function textToHtml(text) {
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("") || "<p></p>";
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function safeFileName(value) {
+  return (value || "post").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 80) || "post";
+}
+
+function escapeXml(value) {
+  return String(value ?? "").replace(/[<>&'"]/g, (char) => ({
+    "<": "&lt;",
+    ">": "&gt;",
+    "&": "&amp;",
+    "'": "&apos;",
+    '"': "&quot;"
+  }[char]));
+}
+
 async function restoreCategory(id) {
   const category = state.categories.find((item) => item.id === id);
   if (!category || !state.session) return;
@@ -2420,6 +2706,8 @@ function buildFolderTree(folders) {
   map.forEach((folder) => {
     if (folder.parent_id && map.has(folder.parent_id)) {
       map.get(folder.parent_id).children.push(folder);
+    } else if (folder.parent_id) {
+      folder.parent_id = null;
     }
   });
   return Array.from(map.values());
