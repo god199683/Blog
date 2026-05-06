@@ -10,6 +10,7 @@ const POSTS_STORAGE = "skyblog.posts.v2";
 const CATEGORIES_STORAGE = "skyblog.categories.v1";
 const FOLDERS_STORAGE = "skyblog.folders.v1";
 const DRAFT_STORAGE = "skyblog.draft.v2";
+const CUSTOM_FONTS_STORAGE = "skyblog.customFonts.v1";
 const SIDEBAR_STORAGE = "skyblog.sidebarCollapsed";
 const TAXONOMY_OPEN_STORAGE = "skyblog.taxonomyOpen.v1";
 const ALL_CATEGORY_LABEL = "\uC804\uCCB4";
@@ -638,6 +639,26 @@ function renderFolderOption(folder, selectedId, depth) {
     <option value="${escapeAttr(folder.id)}" ${folder.id === selectedId ? "selected" : ""}>${escapeHtml(prefix + folder.name)}</option>
     ${folder.children.map((child) => renderFolderOption(child, selectedId, depth + 1)).join("")}
   `;
+}
+
+function renderFontOptions() {
+  const baseFonts = [
+    { label: "Carlito", value: "Carlito, 'Noto Sans KR', sans-serif" },
+    { label: "기본", value: "" },
+    { label: "Noto Sans", value: "'Noto Sans KR', sans-serif" },
+    { label: "맑은 고딕", value: "'Malgun Gothic', sans-serif" },
+    { label: "Georgia", value: "Georgia, serif" },
+    { label: "Times", value: "'Times New Roman', serif" },
+    { label: "Courier", value: "'Courier New', monospace" }
+  ];
+  const customFonts = getCustomFonts().map((font) => ({
+    label: font,
+    value: quoteFontFamily(font)
+  }));
+
+  return [...baseFonts, ...customFonts]
+    .map((font, index) => `<option value="${escapeAttr(font.value)}" ${index === 0 ? "selected" : ""}>${escapeHtml(font.label)}</option>`)
+    .join("");
 }
 
 function renderColorPalette(type) {
@@ -1469,15 +1490,10 @@ function renderEditor() {
         </div>
         <div class="tool-group style-tool-group">
           <select class="toolbar-select font-select" id="fontFamily" aria-label="글씨체" title="글씨체">
-            <option value="Carlito, 'Noto Sans KR', sans-serif" selected>Carlito</option>
-            <option value="">기본</option>
-            <option value="'Noto Sans KR', sans-serif">Noto Sans</option>
-            <option value="'Malgun Gothic', sans-serif">맑은 고딕</option>
-            <option value="Georgia, serif">Georgia</option>
-            <option value="'Times New Roman', serif">Times</option>
-            <option value="'Courier New', monospace">Courier</option>
+            ${renderFontOptions()}
           </select>
           <input class="toolbar-number" id="fontSizeInput" type="number" min="8" max="96" step="1" value="16" aria-label="글씨 크기" title="글씨 크기" />
+          <button class="tool-button" type="button" id="addFontButton" aria-label="폰트 추가" title="폰트 추가">Aa+</button>
           <select class="toolbar-select compact-select" id="lineHeightSelect" aria-label="줄 간격" title="줄 간격">
             <option value="1.2">1.2</option>
             <option value="1.5" selected>1.5</option>
@@ -1574,6 +1590,9 @@ function bindEditorEvents() {
   });
   $("#fontFamily").addEventListener("change", (event) => {
     applyInlineStyle({ fontFamily: event.target.value }, update);
+  });
+  $("#addFontButton").addEventListener("click", () => {
+    addCustomFont(update);
   });
   $("#fontSizeInput").addEventListener("input", (event) => {
     applyInlineStyle({ fontSize: `${clamp(Number(event.target.value) || 16, 8, 96)}px` }, update);
@@ -1674,6 +1693,24 @@ function updateColorPreview(type, color) {
   if (preview) {
     preview.style.setProperty("--active-color", color);
   }
+}
+
+function addCustomFont(update) {
+  const fontName = (prompt("추가할 폰트 이름을 입력하세요. 예: Pretendard, NanumSquare") || "").trim();
+  if (!fontName) {
+    return;
+  }
+
+  const fonts = getCustomFonts();
+  if (!fonts.some((font) => font.toLowerCase() === fontName.toLowerCase())) {
+    saveCustomFonts([...fonts, fontName]);
+  }
+
+  const select = $("#fontFamily");
+  select.innerHTML = renderFontOptions();
+  select.value = quoteFontFamily(fontName);
+  applyInlineStyle({ fontFamily: select.value }, update);
+  toast(`"${fontName}" 폰트를 추가했습니다.`);
 }
 
 function runEditorCommand(command, value) {
@@ -2450,6 +2487,25 @@ function getStoredOpenState() {
 
 function cacheTaxonomy(key, items) {
   localStorage.setItem(key, JSON.stringify(items));
+}
+
+function getCustomFonts() {
+  try {
+    const fonts = JSON.parse(localStorage.getItem(CUSTOM_FONTS_STORAGE) || "[]");
+    return Array.isArray(fonts) ? fonts.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomFonts(fonts) {
+  const uniqueFonts = [...new Set(fonts.map((font) => font.trim()).filter(Boolean))];
+  localStorage.setItem(CUSTOM_FONTS_STORAGE, JSON.stringify(uniqueFonts));
+}
+
+function quoteFontFamily(fontName) {
+  const escaped = fontName.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  return `'${escaped}', 'Noto Sans KR', sans-serif`;
 }
 
 function getDraft() {
