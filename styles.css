@@ -424,8 +424,9 @@ img {
 }
 
 .category-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr);
   gap: 6px;
   align-items: center;
 }
@@ -464,16 +465,38 @@ img {
 }
 
 .folder-branch {
+  position: relative;
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr);
   gap: 6px;
   margin-left: calc(var(--depth) * 14px);
 }
 
 .taxonomy-actions {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  z-index: 5;
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(20, 36, 51, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: opacity 0.14s ease;
+}
+
+.category-row:hover .taxonomy-actions,
+.category-row:focus-within .taxonomy-actions,
+.folder-branch:hover .taxonomy-actions,
+.folder-branch:focus-within .taxonomy-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .danger-button {

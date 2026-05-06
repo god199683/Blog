@@ -63,6 +63,16 @@ async function init() {
 }
 
 function bindGlobalControls() {
+  $("#brandLink")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    const targetView = state.session && (state.view === "myblog" || state.view === "editor" || isOwnSelectedPost()) ? "myblog" : "home";
+    if (state.view === targetView) {
+      await loadPosts();
+      return;
+    }
+    navigateTo(targetView);
+  });
+
   document.body.addEventListener("click", (event) => {
     const closeButton = event.target.closest("[data-close-dialog]");
     if (closeButton) {
@@ -311,6 +321,11 @@ function updateBrandTitle() {
   document.title = title;
 }
 
+function isOwnSelectedPost() {
+  const selectedPost = state.posts.find((post) => post.id === state.selectedId);
+  return Boolean(selectedPost && state.session && selectedPost.owner_id === state.session.user.id);
+}
+
 function navigateTo(view, { replace = false } = {}) {
   if ((view === "myblog" || view === "editor") && !state.session) {
     openAuth();
@@ -429,7 +444,7 @@ function renderBlogList() {
         <div class="section-head">
           <div>
             <h2>${countLabel}</h2>
-            <p>${visiblePosts.length}개의 글</p>
+            <p id="visiblePostCount">${visiblePosts.length}개의 글</p>
           </div>
           <button class="icon-button" type="button" id="refreshButton" aria-label="새로고침" title="새로고침">
             <i data-lucide="refresh-cw"></i>
@@ -474,6 +489,26 @@ function renderPostView() {
   `;
 
   bindPostViewEvents();
+}
+
+function updatePostList() {
+  const list = $(".post-list");
+  const count = $("#visiblePostCount");
+  if (!list) {
+    return;
+  }
+  const visiblePosts = getVisiblePosts();
+  const visibleFolders = getVisibleFolders();
+  list.innerHTML = state.loading
+    ? `<div class="empty-state">불러오는 중...</div>`
+    : visiblePosts.length
+      ? renderFeedPosts(visiblePosts, visibleFolders, state.view === "myblog")
+      : renderEmptyState(state.view === "myblog");
+  if (count) {
+    count.textContent = `${visiblePosts.length}개의 글`;
+  }
+  bindDynamicListEvents();
+  updateIcons();
 }
 
 function renderFeedPosts(posts, folders, isMine) {
@@ -775,9 +810,7 @@ function bindListEvents() {
 
   $("#searchInput")?.addEventListener("input", (event) => {
     state.query = event.target.value;
-    renderBlogList();
-    $("#searchInput")?.focus();
-    updateIcons();
+    updatePostList();
   });
 
   $("#refreshButton")?.addEventListener("click", loadPosts);
@@ -796,6 +829,62 @@ function bindListEvents() {
     renderBlogList();
     updateIcons();
   });
+
+  bindDynamicListEvents();
+  bindStaticListEvents();
+}
+
+function bindDynamicListEvents() {
+  $$("[data-feed-category]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const category = button.dataset.feedCategory;
+      state.category = category;
+      state.activeFolderId = "all";
+      state.taxonomyOpen[`feedCategory:${category}`] = state.taxonomyOpen[`feedCategory:${category}`] === false;
+      localStorage.setItem(TAXONOMY_OPEN_STORAGE, JSON.stringify(state.taxonomyOpen));
+      renderBlogList();
+      updateIcons();
+    });
+  });
+
+  $$("[data-feed-folder]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const folderId = button.dataset.feedFolder;
+      state.activeFolderId = folderId;
+      const folder = state.folders.find((item) => item.id === folderId);
+      if (folder) {
+        state.category = getFolderCategoryName(folder);
+      }
+      state.taxonomyOpen[`feedFolder:${folderId}`] = state.taxonomyOpen[`feedFolder:${folderId}`] === false;
+      localStorage.setItem(TAXONOMY_OPEN_STORAGE, JSON.stringify(state.taxonomyOpen));
+      renderBlogList();
+      updateIcons();
+    });
+  });
+
+  $$("[data-post-id]").forEach((card) => {
+    const select = () => {
+      navigateToPost(card.dataset.postId);
+    };
+    card.addEventListener("click", select);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        select();
+      }
+    });
+  });
+
+  $$("[data-edit-id]").forEach((button) => {
+    button.addEventListener("click", () => openEditor(button.dataset.editId));
+  });
+
+  $$("[data-delete-id]").forEach((button) => {
+    button.addEventListener("click", () => deletePost(button.dataset.deleteId));
+  });
+}
+
+function bindStaticListEvents() {
 
   $$("[data-restore-type]").forEach((button) => {
     button.addEventListener("click", () => restoreTrashItem(button.dataset.restoreType, button.dataset.restoreId));
@@ -879,47 +968,6 @@ function bindListEvents() {
     });
   });
 
-  $$("[data-feed-category]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const category = button.dataset.feedCategory;
-      state.category = category;
-      state.activeFolderId = "all";
-      toggleTaxonomy(`feedCategory:${category}`);
-    });
-  });
-
-  $$("[data-feed-folder]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const folderId = button.dataset.feedFolder;
-      state.activeFolderId = folderId;
-      const folder = state.folders.find((item) => item.id === folderId);
-      if (folder) {
-        state.category = getFolderCategoryName(folder);
-      }
-      toggleTaxonomy(`feedFolder:${folderId}`);
-    });
-  });
-
-  $$("[data-post-id]").forEach((card) => {
-    const select = () => {
-      navigateToPost(card.dataset.postId);
-    };
-    card.addEventListener("click", select);
-    card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        select();
-      }
-    });
-  });
-
-  $$("[data-edit-id]").forEach((button) => {
-    button.addEventListener("click", () => openEditor(button.dataset.editId));
-  });
-
-  $$("[data-delete-id]").forEach((button) => {
-    button.addEventListener("click", () => deletePost(button.dataset.deleteId));
-  });
 }
 
 function bindPostViewEvents() {
