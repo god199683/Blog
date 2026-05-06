@@ -3,6 +3,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.posts (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete cascade,
+  folder_id uuid,
   author_name text default '작성자',
   title text not null,
   slug text not null,
@@ -17,6 +18,7 @@ create table if not exists public.posts (
 );
 
 alter table public.posts add column if not exists owner_id uuid references auth.users(id) on delete cascade;
+alter table public.posts add column if not exists folder_id uuid;
 alter table public.posts add column if not exists author_name text default '작성자';
 alter table public.posts alter column slug set not null;
 alter table public.posts drop constraint if exists posts_slug_key;
@@ -30,6 +32,27 @@ create table if not exists public.profiles (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+create table if not exists public.categories (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  created_at timestamptz default now(),
+  unique(owner_id, name)
+);
+
+create table if not exists public.folders (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  parent_id uuid references public.folders(id) on delete cascade,
+  name text not null,
+  sort_order integer default 0,
+  created_at timestamptz default now()
+);
+
+alter table public.posts drop constraint if exists posts_folder_id_fkey;
+alter table public.posts
+  add constraint posts_folder_id_fkey foreign key (folder_id) references public.folders(id) on delete set null;
 
 create or replace function public.set_updated_at()
 returns trigger as $$
@@ -53,6 +76,8 @@ execute function public.set_updated_at();
 
 alter table public.posts enable row level security;
 alter table public.profiles enable row level security;
+alter table public.categories enable row level security;
+alter table public.folders enable row level security;
 
 drop policy if exists "Public can read published posts" on public.posts;
 drop policy if exists "Authenticated users can read public and own posts" on public.posts;
@@ -62,6 +87,14 @@ drop policy if exists "Users can delete own posts" on public.posts;
 drop policy if exists "Public can read profiles" on public.profiles;
 drop policy if exists "Users can create own profile" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Public can read categories" on public.categories;
+drop policy if exists "Users can create own categories" on public.categories;
+drop policy if exists "Users can update own categories" on public.categories;
+drop policy if exists "Users can delete own categories" on public.categories;
+drop policy if exists "Public can read folders" on public.folders;
+drop policy if exists "Users can create own folders" on public.folders;
+drop policy if exists "Users can update own folders" on public.folders;
+drop policy if exists "Users can delete own folders" on public.folders;
 
 create policy "Public can read published posts"
 on public.posts for select
@@ -102,3 +135,43 @@ on public.profiles for update
 to authenticated
 using (id = auth.uid())
 with check (id = auth.uid());
+
+create policy "Public can read categories"
+on public.categories for select
+using (true);
+
+create policy "Users can create own categories"
+on public.categories for insert
+to authenticated
+with check (owner_id = auth.uid());
+
+create policy "Users can update own categories"
+on public.categories for update
+to authenticated
+using (owner_id = auth.uid())
+with check (owner_id = auth.uid());
+
+create policy "Users can delete own categories"
+on public.categories for delete
+to authenticated
+using (owner_id = auth.uid());
+
+create policy "Public can read folders"
+on public.folders for select
+using (true);
+
+create policy "Users can create own folders"
+on public.folders for insert
+to authenticated
+with check (owner_id = auth.uid());
+
+create policy "Users can update own folders"
+on public.folders for update
+to authenticated
+using (owner_id = auth.uid())
+with check (owner_id = auth.uid());
+
+create policy "Users can delete own folders"
+on public.folders for delete
+to authenticated
+using (owner_id = auth.uid());

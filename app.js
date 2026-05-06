@@ -2,9 +2,13 @@ const CONFIG = window.BLOG_CONFIG || {};
 const SUPABASE_URL = CONFIG.supabaseUrl || "";
 const TABLE_NAME = CONFIG.tableName || "posts";
 const PROFILE_TABLE = "profiles";
+const CATEGORY_TABLE = "categories";
+const FOLDER_TABLE = "folders";
 const AUTH_EMAIL_DOMAIN = CONFIG.authEmailDomain || "blog.local";
 const SUPABASE_KEY_STORAGE = "skyblog.supabaseAnonKey";
 const POSTS_STORAGE = "skyblog.posts.v2";
+const CATEGORIES_STORAGE = "skyblog.categories.v1";
+const FOLDERS_STORAGE = "skyblog.folders.v1";
 const DRAFT_STORAGE = "skyblog.draft.v2";
 const SIDEBAR_STORAGE = "skyblog.sidebarCollapsed";
 const ROUTES = {
@@ -21,6 +25,7 @@ const state = {
   posts: [],
   selectedId: null,
   category: "전체",
+  activeFolderId: "all",
   query: "",
   view: "home",
   editingId: null,
@@ -29,6 +34,8 @@ const state = {
   supabase: null,
   session: null,
   profile: null,
+  categories: [],
+  folders: [],
   supabaseError: null,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_STORAGE) === "true",
   loading: true
@@ -231,8 +238,41 @@ async function loadPosts() {
   if (state.view !== "post") {
     state.selectedId = getVisiblePosts()[0]?.id || null;
   }
+  await loadTaxonomy();
   state.loading = false;
   render();
+}
+
+async function loadTaxonomy() {
+  if (state.supabase) {
+    try {
+      const [categoriesResult, foldersResult] = await Promise.all([
+        state.supabase.from(CATEGORY_TABLE).select("*").order("name", { ascending: true }),
+        state.supabase.from(FOLDER_TABLE).select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: true })
+      ]);
+
+      if (categoriesResult.error && categoriesResult.error.code !== "PGRST205") {
+        throw categoriesResult.error;
+      }
+      if (foldersResult.error && foldersResult.error.code !== "PGRST205") {
+        throw foldersResult.error;
+      }
+      if (!categoriesResult.error) {
+        state.categories = normalizeCategories(categoriesResult.data || []);
+        cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
+      }
+      if (!foldersResult.error) {
+        state.folders = normalizeFolders(foldersResult.data || []);
+        cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+      }
+      return;
+    } catch (error) {
+      toast(`카테고리/폴더를 불러오지 못했습니다: ${error.message}`);
+    }
+  }
+
+  state.categories = getStoredTaxonomy(CATEGORIES_STORAGE);
+  state.folders = getStoredTaxonomy(FOLDERS_STORAGE);
 }
 
 function render() {
@@ -304,6 +344,7 @@ function applyView(view, { keepSelected = false } = {}) {
     state.selectedId = null;
   }
   state.category = "전체";
+  state.activeFolderId = "all";
   render();
 }
 
@@ -311,6 +352,7 @@ function renderBlogList() {
   const isMine = state.view === "myblog";
   const visiblePosts = getVisiblePosts();
   const categories = getCategories(visiblePosts);
+  const visibleFolders = getVisibleFolders();
 
   const title = isMine ? getMyBlogTitle() : "공용 홈";
   const countLabel = isMine ? "내 글" : "공개 글";
@@ -350,7 +392,18 @@ function renderBlogList() {
             <input id="searchInput" type="search" value="${escapeAttr(state.query)}" placeholder="글 검색" />
           </label>
           <div class="category-list" aria-label="카테고리">
+            <div class="sidebar-section-head">
+              <strong>카테고리</strong>
+              ${isMine ? `<button class="icon-button mini-button" type="button" id="addCategoryButton" aria-label="카테고리 추가" title="카테고리 추가"><i data-lucide="plus"></i></button>` : ""}
+            </div>
             ${categories.map((category) => renderCategory(category, visiblePosts)).join("")}
+          </div>
+          <div class="folder-list" aria-label="폴더">
+            <div class="sidebar-section-head">
+              <strong>폴더</strong>
+              ${isMine ? `<button class="icon-button mini-button" type="button" id="addRootFolderButton" aria-label="폴더 추가" title="폴더 추가"><i data-lucide="folder-plus"></i></button>` : ""}
+            </div>
+            ${renderFolderTree(visibleFolders, isMine)}
           </div>
         </div>
       </aside>
@@ -436,6 +489,45 @@ function renderCategory(category, posts) {
       <span>${escapeHtml(category)}</span>
       <strong>${count}</strong>
     </button>
+  `;
+}
+
+function renderFolderTree(folders, canManage) {
+  const tree = buildFolderTree(folders).filter((folder) => !folder.parent_id);
+  return `
+    <button class="folder-node ${state.activeFolderId === "all" ? "is-active" : ""}" type="button" data-folder-id="all">
+      <span><i data-lucide="folder"></i>전체 폴더</span>
+      <strong>${getPostsForCurrentScope().length}</strong>
+    </button>
+    ${tree.length ? tree.map((folder) => renderFolderNode(folder, canManage, 0)).join("") : `<p class="folder-empty">폴더가 없습니다.</p>`}
+  `;
+}
+
+function renderFolderNode(folder, canManage, depth) {
+  const descendants = getFolderDescendantIds(folder.id);
+  const count = getPostsForCurrentScope().filter((post) => post.folder_id === folder.id || descendants.includes(post.folder_id)).length;
+  return `
+    <div class="folder-branch" style="--depth: ${depth}">
+      <button class="folder-node ${state.activeFolderId === folder.id ? "is-active" : ""}" type="button" data-folder-id="${escapeAttr(folder.id)}">
+        <span><i data-lucide="folder"></i>${escapeHtml(folder.name)}</span>
+        <strong>${count}</strong>
+      </button>
+      ${canManage ? `<button class="icon-button mini-button folder-add-child" type="button" data-add-child-folder="${escapeAttr(folder.id)}" aria-label="하위 폴더 추가" title="하위 폴더 추가"><i data-lucide="plus"></i></button>` : ""}
+    </div>
+    ${folder.children.map((child) => renderFolderNode(child, canManage, depth + 1)).join("")}
+  `;
+}
+
+function renderFolderOptions(selectedId) {
+  const roots = buildFolderTree(getMyFolders()).filter((folder) => !folder.parent_id);
+  return roots.map((folder) => renderFolderOption(folder, selectedId, 0)).join("");
+}
+
+function renderFolderOption(folder, selectedId, depth) {
+  const prefix = depth ? `${"--".repeat(depth)} ` : "";
+  return `
+    <option value="${escapeAttr(folder.id)}" ${folder.id === selectedId ? "selected" : ""}>${escapeHtml(prefix + folder.name)}</option>
+    ${folder.children.map((child) => renderFolderOption(child, selectedId, depth + 1)).join("")}
   `;
 }
 
@@ -544,11 +636,28 @@ function bindListEvents() {
   });
 
   $("#profileForm")?.addEventListener("submit", saveProfile);
+  $("#addCategoryButton")?.addEventListener("click", addCategory);
+  $("#addRootFolderButton")?.addEventListener("click", () => addFolder(null));
+
+  $$("[data-add-child-folder]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      addFolder(button.dataset.addChildFolder);
+    });
+  });
 
   $$("[data-category]").forEach((button) => {
     button.addEventListener("click", () => {
       state.category = button.dataset.category;
       state.selectedId = null;
+      renderBlogList();
+      updateIcons();
+    });
+  });
+
+  $$("[data-folder-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeFolderId = button.dataset.folderId;
       renderBlogList();
       updateIcons();
     });
@@ -596,6 +705,65 @@ function navigateToPost(postId) {
   applyView("post", { keepSelected: true });
 }
 
+async function addCategory() {
+  const name = prompt("추가할 카테고리 이름");
+  const normalized = (name || "").trim();
+  if (!normalized || !state.session) {
+    return;
+  }
+
+  const category = {
+    id: crypto.randomUUID(),
+    owner_id: state.session.user.id,
+    name: normalized
+  };
+
+  try {
+    const saved = await persistTaxonomy(CATEGORY_TABLE, category);
+    state.categories = normalizeCategories([...state.categories.filter((item) => item.name !== saved.name), saved]);
+    cacheTaxonomy(CATEGORIES_STORAGE, state.categories);
+    renderBlogList();
+  } catch (error) {
+    toast(`카테고리 추가 실패: ${error.message}`);
+  }
+}
+
+async function addFolder(parentId) {
+  const name = prompt(parentId ? "추가할 하위 폴더 이름" : "추가할 폴더 이름");
+  const normalized = (name || "").trim();
+  if (!normalized || !state.session) {
+    return;
+  }
+
+  const folder = {
+    id: crypto.randomUUID(),
+    owner_id: state.session.user.id,
+    parent_id: parentId || null,
+    name: normalized,
+    sort_order: state.folders.length
+  };
+
+  try {
+    const saved = await persistTaxonomy(FOLDER_TABLE, folder);
+    state.folders = normalizeFolders([...state.folders, saved]);
+    cacheTaxonomy(FOLDERS_STORAGE, state.folders);
+    renderBlogList();
+  } catch (error) {
+    toast(`폴더 추가 실패: ${error.message}`);
+  }
+}
+
+async function persistTaxonomy(table, item) {
+  if (state.supabase && state.session) {
+    const { data, error } = await state.supabase.from(table).insert(item).select().single();
+    if (error) {
+      throw error;
+    }
+    return data;
+  }
+  return item;
+}
+
 function openEditor(postId = null, { keepRoute = false } = {}) {
   if (!state.session && state.supabase) {
     openAuth();
@@ -637,7 +805,17 @@ function renderEditor() {
       <div class="editor-meta">
         <label class="meta-field">
           <span>카테고리</span>
-          <input id="editorCategory" value="${escapeAttr(post.category || "일상")}" />
+          <input id="editorCategory" list="categoryOptions" value="${escapeAttr(post.category || "일상")}" />
+          <datalist id="categoryOptions">
+            ${getCategories(state.posts).filter((category) => category !== "전체").map((category) => `<option value="${escapeAttr(category)}"></option>`).join("")}
+          </datalist>
+        </label>
+        <label class="meta-field">
+          <span>폴더</span>
+          <select id="editorFolder">
+            <option value="">폴더 없음</option>
+            ${renderFolderOptions(post.folder_id || "")}
+          </select>
         </label>
         <label class="meta-field">
           <span>태그</span>
@@ -724,7 +902,7 @@ function bindEditorEvents() {
     update();
   });
 
-  ["editorTitle", "editorCategory", "editorTags", "editorCover", "editorPublished"].forEach((id) => {
+  ["editorTitle", "editorCategory", "editorFolder", "editorTags", "editorCover", "editorPublished"].forEach((id) => {
     document.getElementById(id).addEventListener("input", update);
   });
 
@@ -821,6 +999,7 @@ function readEditorPost({ loose = false } = {}) {
     slug: base.slug || makeSlug(title || "untitled"),
     excerpt: makeExcerpt(content),
     category: $("#editorCategory").value.trim() || "일상",
+    folder_id: $("#editorFolder").value || null,
     tags,
     cover_url: $("#editorCover").value.trim(),
     content,
@@ -1122,13 +1301,58 @@ function getVisiblePosts() {
   return state.posts.filter((post) => {
     const ownerMatch = isMine ? post.owner_id === userId : post.published === true && Boolean(post.owner_id);
     const categoryMatch = state.category === "전체" || (post.category || "기타") === state.category;
+    const folderMatch = isFolderMatch(post);
     const haystack = `${post.title} ${post.excerpt || ""} ${(post.tags || []).join(" ")} ${post.author_name || ""} ${htmlToText(post.content)}`.toLowerCase();
-    return ownerMatch && categoryMatch && (!query || haystack.includes(query));
+    return ownerMatch && categoryMatch && folderMatch && (!query || haystack.includes(query));
   });
 }
 
 function getCategories(posts) {
-  return ["전체", ...new Set(posts.map((post) => post.category || "기타"))];
+  const scopeCategories = state.categories
+    .filter((category) => !category.owner_id || category.owner_id === state.session?.user?.id)
+    .map((category) => category.name);
+  return ["전체", ...new Set([...scopeCategories, ...posts.map((post) => post.category || "기타")])];
+}
+
+function isFolderMatch(post) {
+  if (state.activeFolderId === "all") {
+    return true;
+  }
+  const folderIds = [state.activeFolderId, ...getFolderDescendantIds(state.activeFolderId)];
+  return folderIds.includes(post.folder_id);
+}
+
+function getPostsForCurrentScope() {
+  const isMine = state.view === "myblog";
+  const userId = state.session?.user?.id;
+  return state.posts.filter((post) => (isMine ? post.owner_id === userId : post.published === true && Boolean(post.owner_id)));
+}
+
+function getVisibleFolders() {
+  const ownerIds = new Set(getPostsForCurrentScope().map((post) => post.owner_id).filter(Boolean));
+  if (state.view === "myblog") {
+    return getMyFolders();
+  }
+  return state.folders.filter((folder) => ownerIds.has(folder.owner_id));
+}
+
+function getMyFolders() {
+  return state.folders.filter((folder) => !folder.owner_id || folder.owner_id === state.session?.user?.id);
+}
+
+function buildFolderTree(folders) {
+  const map = new Map(folders.map((folder) => [folder.id, { ...folder, children: [] }]));
+  map.forEach((folder) => {
+    if (folder.parent_id && map.has(folder.parent_id)) {
+      map.get(folder.parent_id).children.push(folder);
+    }
+  });
+  return Array.from(map.values());
+}
+
+function getFolderDescendantIds(folderId) {
+  const children = state.folders.filter((folder) => folder.parent_id === folderId);
+  return children.flatMap((child) => [child.id, ...getFolderDescendantIds(child.id)]);
 }
 
 function getMyBlogTitle() {
@@ -1177,6 +1401,18 @@ function cacheLocalPosts(posts) {
   localStorage.setItem(POSTS_STORAGE, JSON.stringify(posts));
 }
 
+function getStoredTaxonomy(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function cacheTaxonomy(key, items) {
+  localStorage.setItem(key, JSON.stringify(items));
+}
+
 function getDraft() {
   try {
     const draft = JSON.parse(localStorage.getItem(DRAFT_STORAGE) || "null");
@@ -1191,6 +1427,7 @@ function createBlankPost() {
   return {
     id: crypto.randomUUID(),
     owner_id: state.session?.user?.id || null,
+    folder_id: state.activeFolderId !== "all" ? state.activeFolderId : null,
     author_name: getDisplayName(),
     title: "",
     slug: "",
@@ -1209,10 +1446,33 @@ function normalizePosts(posts = []) {
   return posts.map(normalizePost).sort(sortByDate);
 }
 
+function normalizeCategories(categories = []) {
+  return categories
+    .map((category) => ({
+      id: category.id,
+      owner_id: category.owner_id || null,
+      name: category.name || "기타",
+      created_at: category.created_at || new Date().toISOString()
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+}
+
+function normalizeFolders(folders = []) {
+  return folders.map((folder) => ({
+    id: folder.id,
+    owner_id: folder.owner_id || null,
+    parent_id: folder.parent_id || null,
+    name: folder.name || "새 폴더",
+    sort_order: Number(folder.sort_order || 0),
+    created_at: folder.created_at || new Date().toISOString()
+  }));
+}
+
 function normalizePost(post) {
   return {
     id: post.id,
     owner_id: post.owner_id || null,
+    folder_id: post.folder_id || null,
     author_name: post.author_name || "공개 작성자",
     title: post.title || "제목 없음",
     slug: post.slug || makeSlug(post.title || "post"),

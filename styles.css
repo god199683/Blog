@@ -344,6 +344,28 @@ img {
   margin-top: 16px;
 }
 
+.folder-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.sidebar-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.mini-button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+}
+
 .category-chip {
   display: flex;
   align-items: center;
@@ -360,6 +382,54 @@ img {
   color: var(--sky-700);
   border-color: var(--sky-200);
   background: var(--sky-50);
+}
+
+.folder-branch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 6px;
+  margin-left: calc(var(--depth) * 14px);
+}
+
+.folder-node {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.folder-node span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-node svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.folder-node.is-active {
+  color: var(--sky-700);
+  border-color: var(--sky-200);
+  background: var(--sky-50);
+}
+
+.folder-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .feed-panel {
