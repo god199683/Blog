@@ -27,6 +27,7 @@ const state = {
   supabase: null,
   session: null,
   profile: null,
+  supabaseError: null,
   loading: true
 };
 
@@ -218,13 +219,16 @@ async function loadPosts() {
       if (error) {
         throw error;
       }
+      state.supabaseError = null;
       state.posts = normalizePosts(data || []);
       cacheLocalPosts(state.posts);
     } catch (error) {
+      state.supabaseError = error;
       state.posts = getLocalPosts();
       toast(`Supabase에서 글을 불러오지 못해 로컬 글을 표시합니다: ${error.message}`);
     }
   } else {
+    state.supabaseError = null;
     state.posts = getLocalPosts();
   }
 
@@ -360,7 +364,7 @@ function renderBlogList() {
               ? `<div class="empty-state">불러오는 중...</div>`
               : visiblePosts.length
                 ? visiblePosts.map((post) => renderPostCard(post, selected?.id === post.id)).join("")
-                : `<div class="empty-state">${isMine ? "아직 내 글이 없습니다." : "아직 공개된 계정 글이 없습니다."}</div>`
+                : renderEmptyState(isMine)
           }
         </div>
       </section>
@@ -374,6 +378,29 @@ function renderBlogList() {
   `;
 
   bindListEvents();
+}
+
+function renderEmptyState(isMine) {
+  if (state.supabaseError) {
+    return `
+      <div class="empty-state">
+        <div>
+          <strong>Supabase 테이블 연결이 필요합니다.</strong>
+          <p>${escapeHtml(getSupabaseSetupMessage(state.supabaseError))}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  return `<div class="empty-state">${isMine ? "아직 내 글이 없습니다." : "아직 공개된 계정 글이 없습니다."}</div>`;
+}
+
+function getSupabaseSetupMessage(error) {
+  const message = error?.message || "";
+  if (message.includes("Could not find the table") || error?.code === "PGRST205") {
+    return "Supabase SQL Editor에서 supabase-schema.sql을 실행하면 posts/profiles 테이블이 생성됩니다.";
+  }
+  return message;
 }
 
 function renderCategory(category, posts) {

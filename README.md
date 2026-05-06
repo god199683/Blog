@@ -20,6 +20,8 @@
 
 화면에서는 이메일 대신 아이디를 받지만, Supabase Auth 내부에는 `아이디@blog.local` 형태로 저장됩니다. `anon public` key는 브라우저에 공개되는 키입니다. 쓰기 권한은 RLS와 Supabase Auth 로그인으로 보호됩니다. 계정 소유자가 있는 공개 글만 홈에 표시되고, 비공개 글은 작성자 자신의 `내 블로그`에서만 관리됩니다.
 
+`Could not find the table 'public.posts'` 또는 `public.profiles` 오류가 보이면 SQL Editor에서 `supabase-schema.sql`이 아직 실행되지 않은 상태입니다.
+
 ## GitHub Pages 배포
 
 1. GitHub 저장소에 push합니다.
