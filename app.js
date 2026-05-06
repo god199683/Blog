@@ -294,6 +294,8 @@ async function loadTaxonomy() {
 }
 
 function render() {
+  app.classList.toggle("is-editor-view", state.view === "editor");
+  document.body.classList.toggle("is-editor-view", state.view === "editor");
   updateBrandTitle();
   updateTopNav();
   updateConnectionStatus();
@@ -643,10 +645,9 @@ function renderFolderOption(folder, selectedId, depth) {
 
 function renderFontOptions() {
   const baseFonts = [
-    { label: "Carlito", value: "Carlito, 'Noto Sans KR', sans-serif" },
-    { label: "기본", value: "" },
-    { label: "Noto Sans", value: "'Noto Sans KR', sans-serif" },
     { label: "맑은 고딕", value: "'Malgun Gothic', sans-serif" },
+    { label: "Carlito", value: "Carlito, 'Noto Sans KR', sans-serif" },
+    { label: "Noto Sans", value: "'Noto Sans KR', sans-serif" },
     { label: "Georgia", value: "Georgia, serif" },
     { label: "Times", value: "'Times New Roman', serif" },
     { label: "Courier", value: "'Courier New', monospace" }
@@ -1424,36 +1425,47 @@ function renderEditor() {
         </div>
       </div>
 
-      <div class="editor-meta">
-        <label class="meta-field">
-          <span>카테고리</span>
-          <div class="inline-field">
-            <select id="editorCategory">
-              ${renderCategoryOptions(post.category || DEFAULT_CATEGORY_LABEL)}
+      <details class="editor-panel editor-meta-panel" open>
+        <summary class="editor-panel-summary">
+          <span><i data-lucide="folder-tree"></i>카테고리 설정</span>
+          <i data-lucide="chevron-down"></i>
+        </summary>
+        <div class="editor-meta">
+          <label class="meta-field">
+            <span>카테고리</span>
+            <div class="inline-field">
+              <select id="editorCategory">
+                ${renderCategoryOptions(post.category || DEFAULT_CATEGORY_LABEL)}
+              </select>
+              <button class="icon-button" type="button" id="editorAddCategoryButton" aria-label="새 카테고리" title="새 카테고리"><i data-lucide="plus"></i></button>
+            </div>
+          </label>
+          <label class="meta-field">
+            <span>폴더</span>
+            <div class="inline-field">
+              <select id="editorFolder">
+                <option value="">폴더 없음</option>
+                ${renderFolderOptions(post.folder_id || "", post.category || DEFAULT_CATEGORY_LABEL)}
+              </select>
+              <button class="icon-button" type="button" id="editorAddFolderButton" aria-label="새 폴더" title="새 폴더"><i data-lucide="folder-plus"></i></button>
+            </div>
+          </label>
+          <label class="meta-field">
+            <span>공개 상태</span>
+            <select id="editorPublished">
+              <option value="true" ${post.published !== false ? "selected" : ""}>공개</option>
+              <option value="false" ${post.published === false ? "selected" : ""}>비공개</option>
             </select>
-            <button class="icon-button" type="button" id="editorAddCategoryButton" aria-label="새 카테고리" title="새 카테고리"><i data-lucide="plus"></i></button>
-          </div>
-        </label>
-        <label class="meta-field">
-          <span>폴더</span>
-          <div class="inline-field">
-            <select id="editorFolder">
-              <option value="">폴더 없음</option>
-              ${renderFolderOptions(post.folder_id || "", post.category || DEFAULT_CATEGORY_LABEL)}
-            </select>
-            <button class="icon-button" type="button" id="editorAddFolderButton" aria-label="새 폴더" title="새 폴더"><i data-lucide="folder-plus"></i></button>
-          </div>
-        </label>
-        <label class="meta-field">
-          <span>공개 상태</span>
-          <select id="editorPublished">
-            <option value="true" ${post.published !== false ? "selected" : ""}>공개</option>
-            <option value="false" ${post.published === false ? "selected" : ""}>비공개</option>
-          </select>
-        </label>
-      </div>
+          </label>
+        </div>
+      </details>
 
-      <div class="editor-toolbar" aria-label="글 편집 도구">
+      <details class="editor-panel editor-tools-panel" open>
+        <summary class="editor-panel-summary">
+          <span><i data-lucide="sliders-horizontal"></i>편집 기능</span>
+          <i data-lucide="chevron-down"></i>
+        </summary>
+        <div class="editor-toolbar" aria-label="글 편집 도구">
         <div class="tool-group">
           <button class="tool-button" type="button" data-command="undo" aria-label="실행 취소" title="실행 취소"><i data-lucide="undo-2"></i></button>
           <button class="tool-button" type="button" data-command="redo" aria-label="다시 실행" title="다시 실행"><i data-lucide="redo-2"></i></button>
@@ -1529,7 +1541,8 @@ function renderEditor() {
           <button class="tool-button" type="button" data-command="insertHorizontalRule" aria-label="구분선" title="구분선"><i data-lucide="minus"></i></button>
           <button class="tool-button" type="button" data-command="removeFormat" aria-label="서식 지우기" title="서식 지우기"><i data-lucide="eraser"></i></button>
         </div>
-      </div>
+        </div>
+      </details>
 
       <div class="editor-workspace">
         <div class="editor-page">
