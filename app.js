@@ -257,9 +257,6 @@ function renderBlogList() {
   }
 
   const title = isMine ? getMyBlogTitle() : "공용 홈";
-  const description = isMine
-    ? getMyBlogBio()
-    : "계정별 블로그에서 공개로 발행한 글만 모아 보여줍니다.";
   const countLabel = isMine ? "내 글" : "공개 글";
 
   app.innerHTML = `
@@ -268,7 +265,6 @@ function renderBlogList() {
         <div class="profile-visual"><i data-lucide="${isMine ? "user-round" : "cloud-sun"}"></i></div>
         <p class="eyebrow">${isMine ? "My Blog" : "Public Home"}</p>
         <h1>${escapeHtml(title)}</h1>
-        <p>${escapeHtml(description)}</p>
         ${
           isMine
             ? `
@@ -411,10 +407,6 @@ function renderProfileDialog() {
         <label class="field">
           <span>작성자 이름</span>
           <input id="profileDisplayName" value="${escapeAttr(getDisplayName())}" />
-        </label>
-        <label class="field">
-          <span>소개</span>
-          <input id="profileBio" value="${escapeAttr(getMyBlogBio())}" />
         </label>
         <div class="modal-actions">
           <button class="primary-button" type="submit">저장</button>
@@ -802,7 +794,7 @@ async function saveProfile(event) {
     id: state.session.user.id,
     blog_title: $("#profileBlogTitle").value.trim() || "나의 하늘색 블로그",
     display_name: $("#profileDisplayName").value.trim() || getUserIdentifier(state.session.user) || "작성자",
-    bio: $("#profileBio").value.trim() || "오늘의 생각을 차분히 기록합니다."
+    bio: state.profile?.bio || ""
   };
 
   if (state.supabase) {
@@ -932,16 +924,12 @@ function updateConnectionStatus() {
   const syncLabel = $("#syncLabel");
   const authButton = $("#authButton");
   const myBlogNav = $("#myBlogNav");
-  const editorNav = $("#editorNav");
   if (!syncLabel || !authButton) {
     return;
   }
 
   if (myBlogNav) {
     myBlogNav.hidden = !state.session;
-  }
-  if (editorNav) {
-    editorNav.hidden = !state.session;
   }
 
   if (!getSupabaseKey()) {
@@ -982,10 +970,6 @@ function getCategories(posts) {
 
 function getMyBlogTitle() {
   return state.profile?.blog_title || `${getDisplayName()}의 하늘색 블로그`;
-}
-
-function getMyBlogBio() {
-  return state.profile?.bio || "오늘의 생각을 차분히 기록합니다.";
 }
 
 function getDisplayName() {
