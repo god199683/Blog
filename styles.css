@@ -642,6 +642,12 @@ img {
   background: var(--surface);
 }
 
+.trash-toggle.is-active {
+  color: var(--sky-700);
+  border-color: var(--sky-200);
+  background: var(--sky-50);
+}
+
 .trash-toggle span {
   display: inline-flex;
   align-items: center;
@@ -698,6 +704,22 @@ img {
 .trash-item:focus-within .taxonomy-actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+.trash-page-shell {
+  width: min(900px, calc(100% - 32px));
+  margin: 24px auto;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.trash-page-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .compact-action {

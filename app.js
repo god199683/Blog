@@ -19,6 +19,7 @@ const ETC_CATEGORY_LABEL = "\uAE30\uD0C0";
 const ROUTES = {
   home: "#home",
   myblog: "#blog/me",
+  trash: "#trash",
   editor: "#write",
   postPrefix: "#post/"
 };
@@ -308,6 +309,8 @@ function render() {
     renderEditor();
   } else if (state.view === "post") {
     renderPostView();
+  } else if (state.view === "trash") {
+    renderTrashPage();
   } else {
     renderBlogList();
   }
@@ -322,7 +325,7 @@ function updateBrandTitle() {
 
   const selectedPost = state.posts.find((post) => post.id === state.selectedId);
   const isOwnPostView = state.view === "post" && selectedPost?.owner_id === state.session?.user?.id;
-  const title = state.session && (state.view === "myblog" || state.view === "editor" || isOwnPostView)
+  const title = state.session && (state.view === "myblog" || state.view === "editor" || state.view === "trash" || isOwnPostView)
     ? getMyBlogTitle()
     : CONFIG.blogTitle || "Blog";
   brandTitle.textContent = title;
@@ -335,7 +338,7 @@ function isOwnSelectedPost() {
 }
 
 function navigateTo(view, { replace = false } = {}) {
-  if ((view === "myblog" || view === "editor") && !state.session) {
+  if ((view === "myblog" || view === "editor" || view === "trash") && !state.session) {
     openAuth();
     toast("로그인하면 내 블로그로 이동할 수 있습니다.");
     view = "home";
@@ -354,7 +357,7 @@ function navigateTo(view, { replace = false } = {}) {
 
 function applyRouteFromHash() {
   const view = viewFromHash();
-  if ((view === "myblog" || view === "editor") && !state.session) {
+  if ((view === "myblog" || view === "editor" || view === "trash") && !state.session) {
     window.history.replaceState(null, "", ROUTES.home);
     applyView("home");
     return;
@@ -378,6 +381,9 @@ function viewFromHash() {
   }
   if (window.location.hash === ROUTES.myblog) {
     return "myblog";
+  }
+  if (window.location.hash === ROUTES.trash) {
+    return "trash";
   }
   if (window.location.hash === ROUTES.editor) {
     return "editor";
@@ -613,15 +619,10 @@ function renderTrashSection() {
   const trashItems = getTrashItems();
   return `
     <div class="trash-section">
-      <button class="trash-toggle" type="button" id="trashToggle">
-        <span><i data-lucide="${state.trashOpen ? "chevron-down" : "chevron-right"}"></i>휴지통</span>
+      <button class="trash-toggle ${state.view === "trash" ? "is-active" : ""}" type="button" data-nav="trash">
+        <span><i data-lucide="trash-2"></i>휴지통</span>
         <strong>${trashItems.length}</strong>
       </button>
-      ${state.trashOpen ? `
-        <div class="trash-list">
-          ${trashItems.length ? trashItems.map(renderTrashItem).join("") : `<p class="folder-empty">휴지통이 비어 있습니다.</p>`}
-        </div>
-      ` : ""}
       ${trashItems.length ? `
         <div class="taxonomy-actions trash-actions">
           <button class="icon-button mini-button danger-button" type="button" id="emptyTrashButton" aria-label="휴지통 비우기" title="휴지통 비우기"><i data-lucide="trash"></i></button>
@@ -629,6 +630,35 @@ function renderTrashSection() {
       ` : ""}
     </div>
   `;
+}
+
+function renderTrashPage() {
+  const trashItems = getTrashItems();
+  app.innerHTML = `
+    <section class="trash-page-shell">
+      <div class="section-head">
+        <div>
+          <h2>휴지통</h2>
+          <p>${trashItems.length}개의 항목</p>
+        </div>
+        <div class="list-actions">
+          <button class="outline-button compact-action" type="button" data-nav="myblog">
+            <i data-lucide="arrow-left"></i>
+            돌아가기
+          </button>
+          <button class="outline-button compact-action danger-button" type="button" id="emptyTrashButton" ${trashItems.length ? "" : "disabled"}>
+            <i data-lucide="trash"></i>
+            비우기
+          </button>
+        </div>
+      </div>
+      <div class="trash-page-list">
+        ${trashItems.length ? trashItems.map(renderTrashItem).join("") : `<div class="empty-state">휴지통이 비어 있습니다.</div>`}
+      </div>
+    </section>
+  `;
+
+  bindStaticListEvents();
 }
 
 function renderTrashItem(item) {
@@ -931,11 +961,6 @@ function bindListEvents() {
   $("#homeLoginButton")?.addEventListener("click", openAuth);
 
   $("#addCategoryButton")?.addEventListener("click", addCategory);
-  $("#trashToggle")?.addEventListener("click", () => {
-    state.trashOpen = !state.trashOpen;
-    renderBlogList();
-    updateIcons();
-  });
 
   bindDynamicListEvents();
   bindStaticListEvents();
