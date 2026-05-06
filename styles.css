@@ -568,6 +568,7 @@ img {
 }
 
 .folder-node {
+  grid-column: 2;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
