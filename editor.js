@@ -38,6 +38,9 @@ const els = {
 };
 
 let savedEditorRange = null;
+let colorDialogTarget = "foreground";
+let colorDialogValue = "#000000";
+let colorDialogPointerActive = false;
 
 const THEME_COLOR_COLUMNS = [
   ["#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#808080", "#595959"],
@@ -63,6 +66,57 @@ const STANDARD_COLORS = [
   "#0070c0",
   "#002060",
   "#7030a0",
+];
+
+const BASIC_DIALOG_COLORS = [
+  "#000000",
+  "#1f2937",
+  "#475569",
+  "#64748b",
+  "#94a3b8",
+  "#ffffff",
+  "#7f1d1d",
+  "#b91c1c",
+  "#ef4444",
+  "#f97316",
+  "#facc15",
+  "#fef08a",
+  "#365314",
+  "#65a30d",
+  "#22c55e",
+  "#86efac",
+  "#bbf7d0",
+  "#f0fdf4",
+  "#164e63",
+  "#0891b2",
+  "#22d3ee",
+  "#7dd3fc",
+  "#bae6fd",
+  "#f0f9ff",
+  "#1e1b4b",
+  "#3730a3",
+  "#6366f1",
+  "#a78bfa",
+  "#ddd6fe",
+  "#faf5ff",
+  "#701a75",
+  "#a21caf",
+  "#d946ef",
+  "#f0abfc",
+  "#f5d0fe",
+  "#fdf4ff",
+  "#831843",
+  "#be185d",
+  "#ec4899",
+  "#f9a8d4",
+  "#fbcfe8",
+  "#fff1f2",
+  "#7c2d12",
+  "#c2410c",
+  "#ea580c",
+  "#fdba74",
+  "#fed7aa",
+  "#fff7ed",
 ];
 
 const ALLOWED_EDITOR_STYLES = new Set([
@@ -834,15 +888,192 @@ function closeAllToolbarMenus() {
   closeEditorMiniMenus();
 }
 
+function clampColorPart(value) {
+  return Math.min(255, Math.max(0, Number.parseInt(value, 10) || 0));
+}
+
+function rgbToHex(red, green, blue) {
+  return [red, green, blue]
+    .map((value) => clampColorPart(value).toString(16).padStart(2, "0"))
+    .join("")
+    .replace(/^/, "#");
+}
+
+function hexToRgb(hex) {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized) return null;
+  return {
+    red: Number.parseInt(normalized.slice(1, 3), 16),
+    green: Number.parseInt(normalized.slice(3, 5), 16),
+    blue: Number.parseInt(normalized.slice(5, 7), 16),
+  };
+}
+
+function normalizeHexColor(value = "") {
+  const trimmed = String(value).trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(trimmed)) {
+    return `#${trimmed
+      .split("")
+      .map((part) => `${part}${part}`)
+      .join("")}`.toLowerCase();
+  }
+  if (/^[0-9a-f]{6}$/i.test(trimmed)) {
+    return `#${trimmed}`.toLowerCase();
+  }
+  return "";
+}
+
+function hsvToHex(hue, saturation, value) {
+  const chroma = value * saturation;
+  const segment = hue / 60;
+  const second = chroma * (1 - Math.abs((segment % 2) - 1));
+  const match = value - chroma;
+  const channels = [
+    [chroma, second, 0],
+    [second, chroma, 0],
+    [0, chroma, second],
+    [0, second, chroma],
+    [second, 0, chroma],
+    [chroma, 0, second],
+  ][Math.min(5, Math.floor(segment))] || [chroma, 0, second];
+
+  return rgbToHex(
+    Math.round((channels[0] + match) * 255),
+    Math.round((channels[1] + match) * 255),
+    Math.round((channels[2] + match) * 255)
+  );
+}
+
+function renderColorDialog() {
+  if (document.querySelector("[data-color-dialog]")) return;
+
+  const dialog = document.createElement("div");
+  dialog.className = "color-dialog-backdrop";
+  dialog.dataset.colorDialog = "";
+  dialog.hidden = true;
+  dialog.innerHTML = `
+    <section class="color-dialog" role="dialog" aria-modal="true" aria-label="색">
+      <header class="color-dialog-titlebar">
+        <span>색</span>
+        <button type="button" data-color-dialog-close aria-label="닫기">×</button>
+      </header>
+      <div class="color-dialog-layout">
+        <div class="color-dialog-main">
+          <div class="color-dialog-tabs" role="tablist">
+            <button class="is-active" type="button" data-color-dialog-tab="basic">기본</button>
+            <button type="button" data-color-dialog-tab="custom">사용자 지정</button>
+          </div>
+          <div class="color-dialog-panel" data-color-dialog-panel="basic">
+            <p>색(C):</p>
+            <div class="color-dialog-basic-grid">
+              ${BASIC_DIALOG_COLORS.map(
+                (color) => `
+                  <button
+                    type="button"
+                    class="color-dialog-swatch"
+                    style="--dialog-swatch:${color}"
+                    data-dialog-color="${color}"
+                    aria-label="${color}"
+                  ></button>
+                `
+              ).join("")}
+            </div>
+          </div>
+          <div class="color-dialog-panel" data-color-dialog-panel="custom" hidden>
+            <p>색(C):</p>
+            <div class="color-spectrum" data-color-spectrum>
+              <i data-color-spectrum-marker></i>
+            </div>
+            <div class="color-dialog-fields">
+              <label>색 모델(D): <select aria-label="색 모델"><option>RGB</option></select></label>
+              <label>빨강(R): <input type="number" min="0" max="255" data-color-red></label>
+              <label>녹색(G): <input type="number" min="0" max="255" data-color-green></label>
+              <label>파랑(B): <input type="number" min="0" max="255" data-color-blue></label>
+              <label>16진수(H): <input type="text" data-color-hex maxlength="7"></label>
+            </div>
+          </div>
+        </div>
+        <aside class="color-dialog-side">
+          <button class="color-dialog-ok" type="button" data-color-dialog-ok>확인</button>
+          <button type="button" data-color-dialog-cancel>취소</button>
+          <div class="color-preview-block" style="--dialog-color:#000000"></div>
+          <span>새 색</span>
+          <span>현재 색</span>
+        </aside>
+      </div>
+    </section>
+  `;
+  document.body.appendChild(dialog);
+}
+
+function getColorDialog() {
+  renderColorDialog();
+  return document.querySelector("[data-color-dialog]");
+}
+
+function setColorDialogPanel(panelName) {
+  const dialog = getColorDialog();
+  dialog.querySelectorAll("[data-color-dialog-tab]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.colorDialogTab === panelName);
+  });
+  dialog.querySelectorAll("[data-color-dialog-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.colorDialogPanel !== panelName;
+  });
+}
+
+function syncColorDialogFields(color) {
+  const normalized = normalizeHexColor(color) || "#000000";
+  const rgb = hexToRgb(normalized);
+  const dialog = getColorDialog();
+
+  colorDialogValue = normalized;
+  dialog.querySelector("[data-color-red]").value = rgb.red;
+  dialog.querySelector("[data-color-green]").value = rgb.green;
+  dialog.querySelector("[data-color-blue]").value = rgb.blue;
+  dialog.querySelector("[data-color-hex]").value = normalized;
+  dialog.querySelector(".color-preview-block").style.setProperty("--dialog-color", normalized);
+}
+
+function openColorDialog(target) {
+  colorDialogTarget = target;
+  closeAllToolbarMenus();
+  const dialog = getColorDialog();
+  syncColorDialogFields(colorDialogValue);
+  setColorDialogPanel("basic");
+  dialog.hidden = false;
+}
+
+function closeColorDialog() {
+  getColorDialog().hidden = true;
+}
+
+function updateColorDialogFromRgbFields() {
+  const dialog = getColorDialog();
+  syncColorDialogFields(
+    rgbToHex(
+      dialog.querySelector("[data-color-red]").value,
+      dialog.querySelector("[data-color-green]").value,
+      dialog.querySelector("[data-color-blue]").value
+    )
+  );
+}
+
+function updateColorDialogFromSpectrum(event) {
+  const spectrum = event.currentTarget;
+  const rect = spectrum.getBoundingClientRect();
+  const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+  const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+  const marker = spectrum.querySelector("[data-color-spectrum-marker]");
+  marker.style.left = `${x * 100}%`;
+  marker.style.top = `${y * 100}%`;
+  syncColorDialogFields(hsvToHex(x * 360, 1, 1 - y));
+}
+
 function renderColorMenus() {
   els.toolbar.querySelectorAll("[data-color-menu]").forEach((menu) => {
     const target = menu.dataset.colorMenu;
     const emptyLabel = target === "foreground" ? "자동 색(A)" : "채우기 없음(N)";
     menu.innerHTML = `
-      <div class="color-menu-contrast">
-        <span>고대비 전용(H)</span>
-        <span class="color-menu-toggle" aria-hidden="true"><i></i>끔</span>
-      </div>
       <div class="color-menu-section">
         <p>테마 색</p>
         <div class="theme-color-grid">
@@ -1118,11 +1349,7 @@ els.toolbar.addEventListener("click", (event) => {
 
   const customColor = event.target.closest("[data-color-custom]");
   if (customColor) {
-    const color = window.prompt("색상 코드를 입력하세요.", "#000000");
-    if (color) {
-      applyColor(customColor.dataset.colorCustom, color);
-      closeColorMenus();
-    }
+    openColorDialog(customColor.dataset.colorCustom);
     return;
   }
 
@@ -1154,6 +1381,66 @@ document.addEventListener("click", (event) => {
   if (!event.target.closest(".editor-color-control") && !event.target.closest(".editor-table-control")) {
     closeAllToolbarMenus();
   }
+});
+
+document.addEventListener("click", (event) => {
+  const dialog = event.target.closest("[data-color-dialog]");
+  if (!dialog) return;
+
+  if (event.target.matches("[data-color-dialog]") || event.target.closest("[data-color-dialog-close], [data-color-dialog-cancel]")) {
+    closeColorDialog();
+    return;
+  }
+
+  const tab = event.target.closest("[data-color-dialog-tab]");
+  if (tab) {
+    setColorDialogPanel(tab.dataset.colorDialogTab);
+    return;
+  }
+
+  const swatch = event.target.closest("[data-dialog-color]");
+  if (swatch) {
+    syncColorDialogFields(swatch.dataset.dialogColor);
+    return;
+  }
+
+  if (event.target.closest("[data-color-dialog-ok]")) {
+    applyColor(colorDialogTarget, colorDialogValue);
+    closeColorDialog();
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if (!event.target.closest("[data-color-dialog]")) return;
+
+  if (event.target.matches("[data-color-red], [data-color-green], [data-color-blue]")) {
+    updateColorDialogFromRgbFields();
+    return;
+  }
+
+  if (event.target.matches("[data-color-hex]")) {
+    const normalized = normalizeHexColor(event.target.value);
+    if (normalized) {
+      syncColorDialogFields(normalized);
+    }
+  }
+});
+
+document.addEventListener("pointerdown", (event) => {
+  const spectrum = event.target.closest("[data-color-spectrum]");
+  if (!spectrum) return;
+  colorDialogPointerActive = true;
+  updateColorDialogFromSpectrum({ currentTarget: spectrum, clientX: event.clientX, clientY: event.clientY });
+});
+
+document.addEventListener("pointermove", (event) => {
+  if (!colorDialogPointerActive) return;
+  const spectrum = getColorDialog().querySelector("[data-color-spectrum]");
+  updateColorDialogFromSpectrum({ currentTarget: spectrum, clientX: event.clientX, clientY: event.clientY });
+});
+
+document.addEventListener("pointerup", () => {
+  colorDialogPointerActive = false;
 });
 
 els.form.addEventListener("keydown", (event) => {
