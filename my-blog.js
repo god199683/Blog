@@ -3,18 +3,29 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
 const ALL_FILTER = "all";
+const DEFAULT_CATEGORY = "카테고리";
+const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 
 const state = {
   id: "",
   posts: [],
-  activeFilter: ALL_FILTER,
+  activeNodeId: ALL_FILTER,
   error: "",
+  tree: [],
+  hiddenCategoryIds: new Set(),
+  selectionMode: false,
+  selectedIds: new Set(),
+  treePanelOpen: true,
 };
 
 const els = {
   main: document.querySelector("[data-my-blog-main]"),
   sidebar: document.querySelector("[data-sidebar]"),
   toggle: document.querySelector("[data-sidebar-toggle]"),
+  treePanel: document.querySelector("[data-tree-panel]"),
+  treePanelToggle: document.querySelector("[data-tree-panel-toggle]"),
+  selectionToggle: document.querySelector("[data-selection-toggle]"),
+  deleteSelected: document.querySelector("[data-delete-selected]"),
   nav: document.querySelector("#my-sidebar-nav"),
   title: document.querySelector("#my-post-title"),
   status: document.querySelector("#my-post-status"),
@@ -61,6 +72,10 @@ function normalizePost(raw, index) {
     title,
     excerpt,
     category,
+    folder: raw.folder || "",
+    folder_id: raw.folder_id || "",
+    folder_name: raw.folder_name || "",
+    folder_path: raw.folder_path || "",
     author: raw.author || raw.author_name || raw.writer || "",
     published_at: publishedAt,
     reading_time: raw.reading_time || raw.read_time || "",
@@ -100,41 +115,210 @@ async function fetchPosts() {
   return response.json();
 }
 
-function getFilters() {
+function createId(prefix = "folder") {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function categoryId(category) {
+  return `category-${encodeURIComponent(String(category).toLowerCase())}`;
+}
+
+function treeStorageKey() {
+  return `${TREE_STORAGE_PREFIX}${state.id || "guest"}`;
+}
+
+function safeParseJson(raw, fallback) {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function cloneNode(node) {
+  return {
+    id: node.id,
+    type: node.type || "folder",
+    label: node.label || "폴더",
+    filterCategory: node.filterCategory || "",
+    children: Array.isArray(node.children) ? node.children.map(cloneNode) : [],
+  };
+}
+
+function getStoredTreeData() {
+  const parsed = safeParseJson(localStorage.getItem(treeStorageKey()), []);
+  if (Array.isArray(parsed)) {
+    return { nodes: parsed, hiddenCategoryIds: [] };
+  }
+
+  return {
+    nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
+    hiddenCategoryIds: Array.isArray(parsed.hiddenCategoryIds) ? parsed.hiddenCategoryIds : [],
+  };
+}
+
+function saveTree() {
+  if (!state.id) return;
+  localStorage.setItem(
+    treeStorageKey(),
+    JSON.stringify({
+      nodes: state.tree,
+      hiddenCategoryIds: [...state.hiddenCategoryIds],
+    })
+  );
+}
+
+function flattenNodes(nodes, map = new Map()) {
+  nodes.forEach((node) => {
+    map.set(node.id, node);
+    flattenNodes(node.children || [], map);
+  });
+  return map;
+}
+
+function getCategories() {
   const categories = [...new Set(state.posts.map((post) => post.category).filter(Boolean))];
-  return [
-    { id: ALL_FILTER, label: "전체", count: state.posts.length },
-    ...categories.map((category) => ({
-      id: category,
-      label: category,
-      count: state.posts.filter((post) => post.category === category).length,
-    })),
-  ];
+  return categories.length ? categories : [DEFAULT_CATEGORY];
+}
+
+function createAllNode(storedNode) {
+  return {
+    id: ALL_FILTER,
+    type: "all",
+    label: storedNode?.label || "전체",
+    filterCategory: "",
+    children: Array.isArray(storedNode?.children) ? storedNode.children.map(cloneNode) : [],
+  };
+}
+
+function createCategoryNode(category, storedNode) {
+  return {
+    id: categoryId(category),
+    type: "category",
+    label: storedNode?.label || category,
+    filterCategory: storedNode?.filterCategory || category,
+    children: Array.isArray(storedNode?.children) ? storedNode.children.map(cloneNode) : [],
+  };
+}
+
+function buildTree() {
+  const stored = getStoredTreeData();
+  const storedById = flattenNodes(stored.nodes.map(cloneNode));
+  state.hiddenCategoryIds = new Set(stored.hiddenCategoryIds);
+
+  const roots = [createAllNode(storedById.get(ALL_FILTER))];
+
+  getCategories().forEach((category) => {
+    const id = categoryId(category);
+    if (state.hiddenCategoryIds.has(id)) return;
+    roots.push(createCategoryNode(category, storedById.get(id)));
+  });
+
+  state.tree = roots;
+
+  if (!findNode(state.tree, state.activeNodeId)) {
+    state.activeNodeId = ALL_FILTER;
+  }
+}
+
+function findNode(nodes, id, parent = null, path = []) {
+  for (const node of nodes) {
+    const nextPath = [...path, node];
+    if (node.id === id) {
+      return { node, parent, path: nextPath };
+    }
+
+    const found = findNode(node.children || [], id, node, nextPath);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+function getNodePathLabels(nodeId) {
+  const found = findNode(state.tree, nodeId);
+  if (!found) return [];
+  return found.path
+    .filter((node) => node.type !== "all")
+    .map((node) => node.label)
+    .filter(Boolean);
+}
+
+function postMatchesFolder(post, node) {
+  const nodePath = getNodePathLabels(node.id).join("/");
+  const targets = [node.id, node.label, nodePath].map((value) => String(value).toLowerCase());
+  return [post.folder_id, post.folder, post.folder_name, post.folder_path]
+    .filter(Boolean)
+    .some((value) => targets.includes(String(value).toLowerCase()));
+}
+
+function getNodePosts(node) {
+  if (!node || node.type === "all") return state.posts;
+  if (node.type === "category") {
+    return state.posts.filter((post) => post.category === node.filterCategory);
+  }
+
+  return state.posts.filter((post) => postMatchesFolder(post, node));
+}
+
+function getActiveNode() {
+  return findNode(state.tree, state.activeNodeId)?.node || state.tree[0];
 }
 
 function getFilteredPosts() {
-  if (state.activeFilter === ALL_FILTER) return state.posts;
-  return state.posts.filter((post) => post.category === state.activeFilter);
+  return getNodePosts(getActiveNode());
 }
 
-function renderSidebar() {
-  const filters = getFilters();
-  els.nav.innerHTML = filters
-    .map((filter) => {
-      const isActive = filter.id === state.activeFilter;
-      const shortLabel = filter.label.slice(0, 1).toUpperCase();
+function isSelectableNode(node) {
+  return node.id !== ALL_FILTER;
+}
+
+function renderTree(nodes = state.tree, depth = 0) {
+  return nodes
+    .map((node) => {
+      const isActive = node.id === state.activeNodeId;
+      const isSelected = state.selectedIds.has(node.id);
+      const children = Array.isArray(node.children) ? node.children : [];
+      const count = getNodePosts(node).length;
+      const checkbox = state.selectionMode && isSelectableNode(node)
+        ? `<input class="tree-check" type="checkbox" data-tree-check="${escapeHtml(node.id)}" ${isSelected ? "checked" : ""} aria-label="${escapeHtml(node.label)} 선택">`
+        : "";
+
       return `
-        <button class="sidebar-filter ${isActive ? "is-active" : ""}"
-          type="button"
-          data-filter="${escapeHtml(filter.id)}"
-          title="${escapeHtml(filter.label)}">
-          <span class="sidebar-filter-key">${escapeHtml(shortLabel)}</span>
-          <span class="sidebar-filter-label">${escapeHtml(filter.label)}</span>
-          <span class="sidebar-filter-count">${filter.count}</span>
-        </button>
+        <div class="tree-node" style="--tree-depth:${depth}">
+          <div class="tree-row ${isActive ? "is-active" : ""}">
+            ${checkbox}
+            <button class="tree-row-main" type="button" data-node-select="${escapeHtml(node.id)}" title="${escapeHtml(node.label)}">
+              <span class="tree-node-icon" aria-hidden="true">${node.type === "folder" ? "□" : "▤"}</span>
+              <span class="tree-node-label">${escapeHtml(node.label)}</span>
+              <span class="tree-node-count">${count}</span>
+            </button>
+            <div class="tree-row-actions">
+              <button type="button" data-add-folder="${escapeHtml(node.id)}" aria-label="폴더 추가" title="폴더 추가">+</button>
+              <button type="button" data-rename-node="${escapeHtml(node.id)}" aria-label="이름 수정" title="이름 수정">✎</button>
+            </div>
+          </div>
+          ${children.length ? `<div class="tree-children">${renderTree(children, depth + 1)}</div>` : ""}
+        </div>
       `;
     })
     .join("");
+}
+
+function renderTreePanelState() {
+  els.treePanel.classList.toggle("is-collapsed", !state.treePanelOpen);
+  els.treePanelToggle.setAttribute("aria-expanded", String(state.treePanelOpen));
+  els.treePanelToggle.setAttribute("aria-label", state.treePanelOpen ? "트리 접기" : "트리 펼치기");
+  els.treePanelToggle.textContent = state.treePanelOpen ? "▾" : "▸";
+  els.selectionToggle.classList.toggle("is-active", state.selectionMode);
+  els.selectionToggle.textContent = state.selectionMode ? "선택 해제" : "선택 모드";
+  els.deleteSelected.disabled = state.selectedIds.size === 0;
+}
+
+function renderSidebar() {
+  els.nav.innerHTML = renderTree();
+  renderTreePanelState();
 }
 
 function renderList() {
@@ -142,7 +326,7 @@ function renderList() {
   els.count.textContent = `${posts.length}개 글`;
 
   if (!state.id) {
-    els.status.innerHTML = `<a href="./login.html">로그인 후 내 블로그를 사용할 수 있습니다.</a>`;
+    els.status.innerHTML = `<a href="./login.html">로그인하면 내 블로그를 사용할 수 있습니다.</a>`;
     els.list.innerHTML = "";
     return;
   }
@@ -187,6 +371,74 @@ function toggleSidebar() {
   els.toggle.textContent = collapsed ? "›" : "‹";
 }
 
+function addFolder(parentId) {
+  const found = findNode(state.tree, parentId);
+  if (!found) return;
+
+  const name = window.prompt("새 폴더 이름을 입력해주세요.", "새 폴더");
+  const label = name?.trim();
+  if (!label) return;
+
+  found.node.children = [
+    ...(found.node.children || []),
+    {
+      id: createId(),
+      type: "folder",
+      label,
+      filterCategory: "",
+      children: [],
+    },
+  ];
+
+  saveTree();
+  render();
+}
+
+function renameNode(nodeId) {
+  const found = findNode(state.tree, nodeId);
+  if (!found) return;
+
+  const name = window.prompt("새 이름을 입력해주세요.", found.node.label);
+  const label = name?.trim();
+  if (!label) return;
+
+  found.node.label = label;
+  saveTree();
+  render();
+}
+
+function removeSelectedNodes(nodes) {
+  return nodes
+    .filter((node) => {
+      const shouldRemove = state.selectedIds.has(node.id) && isSelectableNode(node);
+      if (shouldRemove && node.type === "category") {
+        state.hiddenCategoryIds.add(node.id);
+      }
+      return !shouldRemove;
+    })
+    .map((node) => ({
+      ...node,
+      children: removeSelectedNodes(node.children || []),
+    }));
+}
+
+function deleteSelectedNodes() {
+  if (state.selectedIds.size === 0) return;
+
+  const confirmed = window.confirm("선택한 항목을 삭제할까요?");
+  if (!confirmed) return;
+
+  state.tree = removeSelectedNodes(state.tree);
+  state.selectedIds.clear();
+
+  if (!findNode(state.tree, state.activeNodeId)) {
+    state.activeNodeId = ALL_FILTER;
+  }
+
+  saveTree();
+  render();
+}
+
 async function initMyBlog() {
   const session = getSession();
   state.id = getSessionId(session);
@@ -209,16 +461,55 @@ async function initMyBlog() {
     state.posts = [];
   }
 
+  buildTree();
   render();
 }
 
 els.toggle.addEventListener("click", toggleSidebar);
 
-els.nav.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-filter]");
-  if (!button) return;
-  state.activeFilter = button.dataset.filter;
+els.treePanelToggle.addEventListener("click", () => {
+  state.treePanelOpen = !state.treePanelOpen;
+  renderTreePanelState();
+});
+
+els.selectionToggle.addEventListener("click", () => {
+  state.selectionMode = !state.selectionMode;
+  state.selectedIds.clear();
   render();
+});
+
+els.deleteSelected.addEventListener("click", deleteSelectedNodes);
+
+els.nav.addEventListener("click", (event) => {
+  const addButton = event.target.closest("[data-add-folder]");
+  if (addButton) {
+    addFolder(addButton.dataset.addFolder);
+    return;
+  }
+
+  const renameButton = event.target.closest("[data-rename-node]");
+  if (renameButton) {
+    renameNode(renameButton.dataset.renameNode);
+    return;
+  }
+
+  const selectButton = event.target.closest("[data-node-select]");
+  if (!selectButton) return;
+  state.activeNodeId = selectButton.dataset.nodeSelect;
+  render();
+});
+
+els.nav.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-tree-check]");
+  if (!checkbox) return;
+
+  if (checkbox.checked) {
+    state.selectedIds.add(checkbox.dataset.treeCheck);
+  } else {
+    state.selectedIds.delete(checkbox.dataset.treeCheck);
+  }
+
+  renderTreePanelState();
 });
 
 initMyBlog();

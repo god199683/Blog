@@ -327,6 +327,8 @@ button {
 }
 
 .my-sidebar {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   height: 100%;
   overflow: hidden;
@@ -437,6 +439,238 @@ button {
   grid-template-columns: 1fr;
   justify-items: center;
   padding: 0;
+}
+
+.sidebar-tree-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tree-panel-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.1rem;
+  padding: 0.32rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(234, 247, 255, 0.7);
+}
+
+.tree-panel-toggle {
+  display: grid;
+  flex: 0 0 auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.tree-panel-title {
+  overflow: hidden;
+  color: var(--sky-dark);
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.tree-panel-actions button {
+  min-height: 1.35rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 0.5rem;
+  font-weight: 850;
+}
+
+.tree-panel-actions button:hover,
+.tree-panel-actions button:focus-visible,
+.tree-panel-actions button.is-active {
+  border-color: var(--sky);
+  background: var(--surface-soft);
+}
+
+.tree-panel-actions button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.tree-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-tree-panel.is-collapsed {
+  flex: 0 0 auto;
+}
+
+.sidebar-tree-panel.is-collapsed .tree-panel-body {
+  display: none;
+}
+
+.sidebar-tree-panel .my-sidebar-nav {
+  display: block;
+  height: 100%;
+  padding: 0.45rem;
+  overflow: auto;
+}
+
+.tree-node {
+  min-width: 0;
+}
+
+.tree-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.22rem;
+  min-height: 1.9rem;
+  padding: 0.08rem 0.16rem 0.08rem calc(0.18rem + (var(--tree-depth) * 0.72rem));
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.tree-row:hover,
+.tree-row:focus-within,
+.tree-row.is-active {
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+.tree-row-main {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.28rem;
+  width: 100%;
+  min-width: 0;
+  min-height: 1.5rem;
+  padding: 0 0.2rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.tree-node-icon {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  color: var(--sky-dark);
+  font-size: 0.58rem;
+  font-weight: 900;
+}
+
+.tree-node-label {
+  overflow: hidden;
+  font-size: 0.62rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-node-count {
+  min-width: 1.1rem;
+  color: var(--muted);
+  font-size: 0.54rem;
+  font-weight: 850;
+  text-align: right;
+}
+
+.tree-row-actions {
+  display: flex;
+  grid-column: 3;
+  align-items: center;
+  gap: 0.16rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.tree-row:hover .tree-row-actions,
+.tree-row:focus-within .tree-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tree-row-actions button {
+  display: grid;
+  width: 1.18rem;
+  height: 1.18rem;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.tree-row-actions button:hover,
+.tree-row-actions button:focus-visible {
+  border-color: var(--sky);
+  background: #fff;
+}
+
+.tree-check {
+  grid-column: 1;
+  width: 0.78rem;
+  height: 0.78rem;
+  accent-color: var(--sky-dark);
+}
+
+.tree-children {
+  min-width: 0;
+}
+
+.my-blog-main.is-sidebar-collapsed .tree-panel-title,
+.my-blog-main.is-sidebar-collapsed .tree-panel-actions,
+.my-blog-main.is-sidebar-collapsed .tree-node-label,
+.my-blog-main.is-sidebar-collapsed .tree-node-count,
+.my-blog-main.is-sidebar-collapsed .tree-row-actions,
+.my-blog-main.is-sidebar-collapsed .tree-check {
+  display: none;
+}
+
+.my-blog-main.is-sidebar-collapsed .tree-panel-bar {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.my-blog-main.is-sidebar-collapsed .sidebar-tree-panel .my-sidebar-nav {
+  padding-inline: 0.6rem;
+}
+
+.my-blog-main.is-sidebar-collapsed .tree-row {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding-inline: 0;
+}
+
+.my-blog-main.is-sidebar-collapsed .tree-row-main {
+  grid-column: 1;
+  grid-template-columns: 1fr;
+  justify-items: center;
 }
 
 .my-post-area {
