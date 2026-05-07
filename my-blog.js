@@ -270,6 +270,18 @@ function getFilteredPosts() {
   return getNodePosts(getActiveNode());
 }
 
+function getActivePanelTitle() {
+  const node = getActiveNode();
+  if (!node || node.id === ALL_FILTER) return "전체 카테고리";
+  return node.label || "전체 카테고리";
+}
+
+function getActivePanelType() {
+  const node = getActiveNode();
+  if (!node || node.id === ALL_FILTER) return "전체";
+  return node.type === "folder" ? "폴더" : "카테고리";
+}
+
 function isSelectableNode(node) {
   return node.id !== ALL_FILTER;
 }
@@ -321,30 +333,57 @@ function renderSidebar() {
   renderTreePanelState();
 }
 
+function renderPostPanel(content, isEmpty = false) {
+  return `
+    <section class="post-panel">
+      <div class="post-panel-head">
+        <div>
+          <p class="post-panel-kicker">${escapeHtml(getActivePanelType())}</p>
+          <h2>${escapeHtml(getActivePanelTitle())}</h2>
+        </div>
+      </div>
+      <div class="post-panel-body ${isEmpty ? "is-empty" : ""}">
+        ${content}
+      </div>
+    </section>
+  `;
+}
+
 function renderList() {
   const posts = getFilteredPosts();
   els.count.textContent = `${posts.length}개 글`;
 
   if (!state.id) {
     els.status.innerHTML = `<a href="./login.html">로그인하면 내 블로그를 사용할 수 있습니다.</a>`;
-    els.list.innerHTML = "";
+    els.list.innerHTML = renderPostPanel(
+      `
+        <div class="empty-state">
+          <h3>로그인이 필요합니다</h3>
+        </div>
+      `,
+      true
+    );
     return;
   }
 
   els.status.textContent = state.error || "";
 
   if (posts.length === 0) {
-    els.list.innerHTML = `
-      <div class="empty-state">
-        <h3>표시할 글이 없습니다</h3>
-      </div>
-    `;
+    els.list.innerHTML = renderPostPanel(
+      `
+        <div class="empty-state">
+          <h3>표시할 글이 없습니다</h3>
+        </div>
+      `,
+      true
+    );
     return;
   }
 
-  els.list.innerHTML = posts
-    .map(
-      (post) => `
+  els.list.innerHTML = renderPostPanel(
+    posts
+      .map(
+        (post) => `
         <article class="my-post-item">
           <div>
             <p class="meta-line">${escapeHtml(post.category)} · ${formatDate(post.published_at)}</p>
@@ -354,8 +393,9 @@ function renderList() {
           ${post.reading_time ? `<span class="tag">${escapeHtml(post.reading_time)}</span>` : ""}
         </article>
       `
-    )
-    .join("");
+      )
+      .join("")
+  );
 }
 
 function render() {
