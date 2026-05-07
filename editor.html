@@ -26,8 +26,8 @@
             <p class="editor-kicker">글쓰기</p>
           </div>
           <div class="editor-topbar-actions">
-            <span class="editor-save-state" data-editor-save-state>초안 준비됨</span>
-            <button class="editor-ghost-button" type="button" data-editor-preview>미리보기</button>
+            <span class="editor-save-state" data-editor-save-state>임시 저장 준비</span>
+            <button class="editor-ghost-button" type="button" data-editor-draft>임시 저장</button>
             <button class="editor-primary-button" type="submit" data-editor-submit>게시</button>
             <button class="editor-icon-button" type="button" data-editor-close aria-label="내 블로그로 돌아가기">×</button>
           </div>
@@ -148,33 +148,22 @@
           </section>
 
           <aside class="editor-side-panel">
-            <div>
-              <p class="editor-side-label">상태</p>
-              <strong data-editor-status>공개 게시</strong>
+            <div class="editor-visibility-group" aria-label="공개 상태">
+              <button class="editor-visibility-button is-active" type="button" data-editor-visibility="public">공개</button>
+              <button class="editor-visibility-button" type="button" data-editor-visibility="private">비공개</button>
             </div>
-            <div>
-              <p class="editor-side-label">분량</p>
-              <strong data-editor-reading-time>0분 읽기</strong>
+            <div class="editor-count-box">
+              <p class="editor-side-label">공백 포함</p>
+              <strong data-editor-char-spaces>0자</strong>
             </div>
-            <div>
-              <p class="editor-side-label">작성자</p>
-              <strong data-editor-author>-</strong>
+            <div class="editor-count-box">
+              <p class="editor-side-label">공백 미포함</p>
+              <strong data-editor-char-nospace>0자</strong>
             </div>
-            <label class="editor-toggle-row">
-              <input type="checkbox" data-editor-published checked>
-              <span>공개 글로 게시</span>
-            </label>
+            <input type="checkbox" data-editor-published checked hidden>
             <p class="editor-message" data-editor-message aria-live="polite"></p>
           </aside>
         </div>
-
-        <section class="editor-preview-panel" data-editor-preview-panel hidden>
-          <div class="editor-preview-head">
-            <p class="editor-kicker">미리보기</p>
-            <h3 data-editor-preview-title>제목 미리보기</h3>
-          </div>
-          <div class="editor-preview-body" data-editor-preview-body></div>
-        </section>
       </form>
     </main>
 

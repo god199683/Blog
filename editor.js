@@ -14,7 +14,6 @@ const state = {
   activeNodeId: new URLSearchParams(window.location.search).get("node") || ALL_FILTER,
   hiddenCategoryIds: new Set(),
   storedTreeData: null,
-  editorPreviewOpen: false,
   editorSaving: false,
 };
 
@@ -28,17 +27,14 @@ const els = {
   toolbar: document.querySelector("[data-editor-toolbar]"),
   fontFamily: document.querySelector("[data-editor-font-family]"),
   fontSize: document.querySelector("[data-editor-font-size]"),
-  preview: document.querySelector("[data-editor-preview]"),
-  previewPanel: document.querySelector("[data-editor-preview-panel]"),
-  previewTitle: document.querySelector("[data-editor-preview-title]"),
-  previewBody: document.querySelector("[data-editor-preview-body]"),
+  draft: document.querySelector("[data-editor-draft]"),
   saveState: document.querySelector("[data-editor-save-state]"),
   submit: document.querySelector("[data-editor-submit]"),
   message: document.querySelector("[data-editor-message]"),
-  readingTime: document.querySelector("[data-editor-reading-time]"),
-  author: document.querySelector("[data-editor-author]"),
+  charWithSpaces: document.querySelector("[data-editor-char-spaces]"),
+  charWithoutSpaces: document.querySelector("[data-editor-char-nospace]"),
   published: document.querySelector("[data-editor-published]"),
-  status: document.querySelector("[data-editor-status]"),
+  visibilityButtons: document.querySelectorAll("[data-editor-visibility]"),
 };
 
 let savedEditorRange = null;
@@ -472,10 +468,22 @@ function renderEditorFolderOptions(selectedFolderId = "") {
   ].join("");
 }
 
-function getPlainTextFromHtml(html = "") {
+function getTextFromHtml(html = "") {
   const scratch = document.createElement("div");
   scratch.innerHTML = html;
-  return scratch.textContent.replace(/\s+/g, " ").trim();
+  return scratch.textContent.replace(/\u200b/g, "");
+}
+
+function getPlainTextFromHtml(html = "") {
+  return getTextFromHtml(html).replace(/\s+/g, " ").trim();
+}
+
+function getCharacterCounts(html = "") {
+  const text = getTextFromHtml(html);
+  return {
+    withSpaces: text.length,
+    withoutSpaces: text.replace(/\s/g, "").length,
+  };
 }
 
 function cleanEditorHtml(html = "") {
@@ -508,6 +516,7 @@ function getReadingTimeLabel(text = "") {
 function collectEditorValues() {
   const body = cleanEditorHtml(els.content.innerHTML);
   const plainText = getPlainTextFromHtml(body);
+  const characterCounts = getCharacterCounts(body);
   const folder = getFolderMeta(els.folder.value);
   const category = els.category.value || folder?.category || DEFAULT_CATEGORY;
 
@@ -517,6 +526,7 @@ function collectEditorValues() {
     folder,
     body,
     plainText,
+    characterCounts,
     reading_time: getReadingTimeLabel(plainText),
     published: els.published.checked,
   };
@@ -533,6 +543,17 @@ function setEditorBusy(isBusy) {
   els.submit.textContent = isBusy ? "게시 중" : "게시";
 }
 
+function setEditorSaveState(message) {
+  els.saveState.textContent = message;
+}
+
+function markEditorDirty() {
+  setEditorSaveState("변경사항 미저장");
+  if (els.message.dataset.type === "success") {
+    setEditorMessage("");
+  }
+}
+
 function saveEditorDraft() {
   if (!state.id) return;
   const draft = {
@@ -544,7 +565,8 @@ function saveEditorDraft() {
     saved_at: new Date().toISOString(),
   };
   localStorage.setItem(editorDraftKey(), JSON.stringify(draft));
-  els.saveState.textContent = "초안 자동저장됨";
+  setEditorSaveState("임시 저장됨");
+  setEditorMessage("임시 저장했습니다.", "success");
 }
 
 function loadEditorDraft() {
@@ -557,10 +579,23 @@ function clearEditorDraft() {
 
 function syncEditorStats() {
   const values = collectEditorValues();
-  els.readingTime.textContent = values.plainText ? values.reading_time : "0분 읽기";
-  els.status.textContent = values.published ? "공개 게시" : "비공개 초안";
-  els.previewTitle.textContent = values.title || "제목 미리보기";
-  els.previewBody.innerHTML = values.body || `<p>본문 미리보기</p>`;
+  els.charWithSpaces.textContent = `${values.characterCounts.withSpaces}자`;
+  els.charWithoutSpaces.textContent = `${values.characterCounts.withoutSpaces}자`;
+  syncVisibilityButtons();
+}
+
+function syncVisibilityButtons() {
+  els.visibilityButtons.forEach((button) => {
+    const isPublicButton = button.dataset.editorVisibility === "public";
+    const isActive = isPublicButton === els.published.checked;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function setPublishedValue(isPublished) {
+  els.published.checked = Boolean(isPublished);
+  syncEditorStats();
 }
 
 function nodeIsInEditor(node) {
@@ -605,22 +640,15 @@ function applyInlineStyle(property, value) {
   selection.removeAllRanges();
   selection.addRange(range);
   syncEditorStats();
-  saveEditorDraft();
+  markEditorDirty();
   saveCurrentSelection();
-}
-
-function updateEditorPreview() {
-  state.editorPreviewOpen = !state.editorPreviewOpen;
-  els.previewPanel.hidden = !state.editorPreviewOpen;
-  els.preview.textContent = state.editorPreviewOpen ? "편집" : "미리보기";
-  syncEditorStats();
 }
 
 function executeEditorCommand(command, value = null) {
   restoreEditorSelection();
   document.execCommand(command, false, value);
   syncEditorStats();
-  saveEditorDraft();
+  markEditorDirty();
   saveCurrentSelection();
 }
 
@@ -778,7 +806,6 @@ async function publishEditorPost() {
 
 function returnToBlog() {
   if (state.editorSaving) return;
-  saveEditorDraft();
   window.location.href = "./my-blog.html";
 }
 
@@ -810,8 +837,6 @@ async function initEditor() {
     return;
   }
 
-  els.author.textContent = state.id;
-
   try {
     const rows = await fetchPosts();
     state.posts = rows
@@ -833,9 +858,7 @@ async function initEditor() {
   els.folder.value = draft?.folder_id || defaults.folderId;
   els.content.innerHTML = draft?.body || "";
   els.published.checked = draft?.published ?? true;
-  els.previewPanel.hidden = true;
-  els.preview.textContent = "미리보기";
-  els.saveState.textContent = draft ? "저장된 초안 불러옴" : "초안 준비됨";
+  setEditorSaveState(draft ? "임시 저장 불러옴" : "임시 저장 준비");
   renderColorMenus();
   setEditorMessage("");
   syncEditorStats();
@@ -844,11 +867,14 @@ async function initEditor() {
 
 els.close.addEventListener("click", returnToBlog);
 els.form.addEventListener("submit", handleEditorSubmit);
-els.preview.addEventListener("click", updateEditorPreview);
+els.draft.addEventListener("click", () => {
+  saveEditorDraft();
+  saveCurrentSelection();
+});
 
 els.form.addEventListener("input", () => {
   syncEditorStats();
-  saveEditorDraft();
+  markEditorDirty();
   saveCurrentSelection();
 });
 
@@ -857,10 +883,19 @@ els.content.addEventListener("keyup", saveCurrentSelection);
 
 els.category.addEventListener("change", () => {
   renderEditorFolderOptions(els.folder.value);
-  saveEditorDraft();
+  markEditorDirty();
 });
 
-els.folder.addEventListener("change", saveEditorDraft);
+els.folder.addEventListener("change", () => {
+  markEditorDirty();
+});
+
+els.visibilityButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setPublishedValue(button.dataset.editorVisibility === "public");
+    markEditorDirty();
+  });
+});
 
 els.fontFamily.addEventListener("change", (event) => {
   applyInlineStyle("fontFamily", event.target.value);
