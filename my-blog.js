@@ -16,6 +16,8 @@ const state = {
   hiddenCategoryIds: new Set(),
   selectionMode: false,
   selectedIds: new Set(),
+  panelSelectionMode: false,
+  panelSelectedIds: new Set(),
   treeCollapsedIds: new Set(),
   panelCollapsedIds: new Set(),
   deleteBusy: false,
@@ -465,12 +467,55 @@ function toggleSelectionMode() {
   render();
 }
 
+function togglePanelSelectionMode() {
+  state.panelSelectionMode = !state.panelSelectionMode;
+  state.panelSelectedIds.clear();
+  renderList();
+}
+
 function isSelectableNode(node) {
   return node.id !== ALL_FILTER;
 }
 
+function panelSelectionKey(type, id) {
+  return `${type}:${id}`;
+}
+
+function togglePanelSelection(key) {
+  if (state.panelSelectedIds.has(key)) {
+    state.panelSelectedIds.delete(key);
+  } else {
+    state.panelSelectedIds.add(key);
+  }
+}
+
 function getExportPosts() {
-  return getFilteredPosts();
+  if (!state.panelSelectionMode || state.panelSelectedIds.size === 0) {
+    return getFilteredPosts();
+  }
+
+  const byId = new Map();
+  state.panelSelectedIds.forEach((key) => {
+    const [type, ...idParts] = key.split(":");
+    const id = idParts.join(":");
+    if (!id) return;
+
+    if (type === "post") {
+      const post = state.posts.find((item) => String(item.id) === id);
+      if (post?.id) byId.set(String(post.id), post);
+      return;
+    }
+
+    if (type === "folder") {
+      const found = findNode(state.tree, id);
+      if (!found) return;
+      getNodeDeletionPosts(found.node).forEach((post) => {
+        if (post.id) byId.set(String(post.id), post);
+      });
+    }
+  });
+
+  return [...byId.values()];
 }
 
 function safeFileName(value = "blog") {
@@ -814,7 +859,9 @@ async function importBlogDataFile(file) {
     state.storedTreeData = imported;
     state.activeNodeId = ALL_FILTER;
     state.selectedIds.clear();
+    state.panelSelectedIds.clear();
     state.selectionMode = false;
+    state.panelSelectionMode = false;
     buildTree();
     saveTree();
     render();
@@ -913,19 +960,19 @@ function renderSidebar() {
 function renderPostPanel(content, isEmpty = false) {
   const activeNode = getActiveNode();
   const canRenameActiveNode = activeNode && isSelectableNode(activeNode);
-  const selectionLabel = state.selectionMode ? "선택 해제" : "선택 모드";
+  const selectionLabel = state.panelSelectionMode ? "선택 해제" : "선택 모드";
 
   return `
-    <section class="post-panel">
+    <section class="post-panel ${state.panelSelectionMode ? "is-panel-selecting" : ""}">
       <div class="post-panel-head">
         <h2>${escapeHtml(getActivePanelTitle())}</h2>
         <div class="post-panel-actions" aria-label="본문 관리">
           <button
-            class="post-panel-icon-button ${state.selectionMode ? "is-active" : ""}"
+            class="post-panel-icon-button ${state.panelSelectionMode ? "is-active" : ""}"
             type="button"
             data-panel-selection-toggle
             aria-label="${selectionLabel}"
-            aria-pressed="${String(state.selectionMode)}"
+            aria-pressed="${String(state.panelSelectionMode)}"
             title="${selectionLabel}"
           >
             <span class="panel-action-icon icon-select" aria-hidden="true"></span>
@@ -976,15 +1023,24 @@ function renderPostPanel(content, isEmpty = false) {
 function renderPostItems(posts) {
   return posts
     .map(
-      (post) => `
-        <article class="my-post-item">
-          <div>
+      (post) => {
+        const key = panelSelectionKey("post", post.id);
+        const isSelected = state.panelSelectedIds.has(key);
+        const checkbox = state.panelSelectionMode
+          ? `<input class="panel-check" type="checkbox" data-panel-check="${escapeHtml(key)}" ${isSelected ? "checked" : ""} aria-label="${escapeHtml(post.title)} 선택">`
+          : "";
+
+        return `
+        <article class="my-post-item ${isSelected ? "is-selected" : ""}" data-panel-post-select="${escapeHtml(key)}">
+          ${checkbox}
+          <div class="my-post-item-content">
             <p class="meta-line">${escapeHtml(post.category)} · ${formatDate(post.published_at)}</p>
             <h3>${escapeHtml(post.title)}</h3>
             ${post.excerpt ? `<p>${escapeHtml(post.excerpt)}</p>` : ""}
           </div>
         </article>
-      `
+      `;
+      }
     )
     .join("");
 }
@@ -999,13 +1055,19 @@ function renderPanelFolders(nodes = [], depth = 0) {
         .map((node) => {
           const isOpen = !state.panelCollapsedIds.has(node.id);
           const isActive = state.activeNodeId === node.id;
+          const key = panelSelectionKey("folder", node.id);
+          const isSelected = state.panelSelectedIds.has(key);
+          const checkbox = state.panelSelectionMode
+            ? `<input class="panel-check" type="checkbox" data-panel-check="${escapeHtml(key)}" ${isSelected ? "checked" : ""} aria-label="${escapeHtml(node.label)} 선택">`
+            : "";
           const childFolders = renderPanelFolders(node.children || [], depth + 1);
           const posts = renderPostItems(getNodePosts(node));
           const content = [childFolders, posts].filter(Boolean).join("");
 
           return `
-            <section class="panel-folder ${isActive ? "is-active" : ""}" style="--panel-depth:${depth}">
+            <section class="panel-folder ${isActive ? "is-active" : ""} ${isSelected ? "is-selected" : ""}" style="--panel-depth:${depth}">
               <div class="panel-folder-row">
+                ${checkbox}
                 <button
                   class="panel-folder-toggle"
                   type="button"
@@ -1242,6 +1304,7 @@ async function deleteSelectedNodes() {
     state.selectedIds.forEach((id) => state.panelCollapsedIds.delete(id));
     state.selectedIds.forEach((id) => state.treeCollapsedIds.delete(id));
     state.selectedIds.clear();
+    state.panelSelectedIds.clear();
 
     if (!findNode(state.tree, state.activeNodeId)) {
       state.activeNodeId = ALL_FILTER;
@@ -1327,6 +1390,7 @@ els.nav.addEventListener("click", (event) => {
   const selectButton = event.target.closest("[data-node-select]");
   if (!selectButton) return;
   state.activeNodeId = selectButton.dataset.nodeSelect;
+  state.panelSelectedIds.clear();
   render();
 });
 
@@ -1366,9 +1430,13 @@ els.nav.addEventListener("keydown", (event) => {
 });
 
 els.list.addEventListener("click", (event) => {
+  if (event.target.closest("[data-panel-check]")) {
+    return;
+  }
+
   const selectionButton = event.target.closest("[data-panel-selection-toggle]");
   if (selectionButton) {
-    toggleSelectionMode();
+    togglePanelSelectionMode();
     return;
   }
 
@@ -1412,10 +1480,36 @@ els.list.addEventListener("click", (event) => {
     return;
   }
 
+  const postSelect = event.target.closest("[data-panel-post-select]");
+  if (postSelect && state.panelSelectionMode) {
+    togglePanelSelection(postSelect.dataset.panelPostSelect);
+    renderList();
+    return;
+  }
+
   const selectButton = event.target.closest("[data-panel-folder-select]");
   if (!selectButton) return;
+  if (state.panelSelectionMode) {
+    togglePanelSelection(panelSelectionKey("folder", selectButton.dataset.panelFolderSelect));
+    renderList();
+    return;
+  }
   state.activeNodeId = selectButton.dataset.panelFolderSelect;
+  state.panelSelectedIds.clear();
   render();
+});
+
+els.list.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-panel-check]");
+  if (!checkbox) return;
+
+  if (checkbox.checked) {
+    state.panelSelectedIds.add(checkbox.dataset.panelCheck);
+  } else {
+    state.panelSelectedIds.delete(checkbox.dataset.panelCheck);
+  }
+
+  renderList();
 });
 
 document.addEventListener("click", (event) => {
