@@ -1305,21 +1305,26 @@ h3 {
   line-height: 1.55;
 }
 
-.editor-dialog {
-  width: min(1180px, calc(100vw - 2rem));
-  height: min(820px, calc(100svh - 2rem));
-  max-height: calc(100svh - 2rem);
-  padding: 0;
+.editor-page {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.editor-page-main {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  padding: 10px clamp(1rem, 4vw, 3rem);
+  overflow: hidden;
+}
+
+.editor-page .editor-shell {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
-  color: var(--ink);
   box-shadow: var(--shadow);
-}
-
-.editor-dialog::backdrop {
-  background: rgba(15, 23, 42, 0.42);
-  backdrop-filter: blur(4px);
 }
 
 .editor-shell {
@@ -1348,6 +1353,7 @@ h3 {
   font-weight: 900;
 }
 
+.editor-topbar h1,
 .editor-topbar h2,
 .editor-preview-head h3 {
   max-width: none;
@@ -1769,9 +1775,8 @@ h3 {
     --sidebar-width: 100%;
   }
 
-  .editor-dialog {
-    width: calc(100vw - 1rem);
-    height: calc(100svh - 1rem);
+  .editor-page-main {
+    padding: 0.5rem;
   }
 
   .editor-grid {

@@ -34,7 +34,7 @@ function syncBrand(id) {
   const brandText = brand.querySelector("[data-brand-text]");
   const currentPage = getCurrentPage();
 
-  if (currentPage === "my-blog.html") {
+  if (currentPage === "my-blog.html" || currentPage === "editor.html") {
     brand.href = "./my-blog.html";
     brand.setAttribute("aria-label", "My blog home");
     if (brandText && id) {
@@ -76,6 +76,9 @@ function renderSignedInHeader() {
     homeLink.setAttribute("aria-current", "page");
   }
   if (currentPage === "my-blog.html") {
+    blogLink.setAttribute("aria-current", "page");
+  }
+  if (currentPage === "editor.html") {
     blogLink.setAttribute("aria-current", "page");
   }
 

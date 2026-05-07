@@ -5,7 +5,6 @@ const SUPABASE_ANON_KEY =
 const ALL_FILTER = "all";
 const DEFAULT_CATEGORY = "카테고리";
 const TREE_STORAGE_PREFIX = "blog.categoryTree.";
-const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 
 const state = {
   id: "",
@@ -18,8 +17,6 @@ const state = {
   selectedIds: new Set(),
   treeCollapsedIds: new Set(),
   panelCollapsedIds: new Set(),
-  editorPreviewOpen: false,
-  editorSaving: false,
   deleteBusy: false,
   editingNodeId: "",
 };
@@ -37,27 +34,6 @@ const els = {
   count: document.querySelector("#my-post-count"),
   list: document.querySelector("#my-post-list"),
   writeButton: document.querySelector("[data-write-post]"),
-  editorDialog: document.querySelector("[data-editor-dialog]"),
-  editorForm: document.querySelector("[data-editor-form]"),
-  editorClose: document.querySelector("[data-editor-close]"),
-  editorTitle: document.querySelector("[data-editor-title]"),
-  editorCategory: document.querySelector("[data-editor-category]"),
-  editorFolder: document.querySelector("[data-editor-folder]"),
-  editorCover: document.querySelector("[data-editor-cover]"),
-  editorExcerpt: document.querySelector("[data-editor-excerpt]"),
-  editorContent: document.querySelector("[data-editor-content]"),
-  editorBlock: document.querySelector("[data-editor-block]"),
-  editorPreview: document.querySelector("[data-editor-preview]"),
-  editorPreviewPanel: document.querySelector("[data-editor-preview-panel]"),
-  editorPreviewTitle: document.querySelector("[data-editor-preview-title]"),
-  editorPreviewBody: document.querySelector("[data-editor-preview-body]"),
-  editorSaveState: document.querySelector("[data-editor-save-state]"),
-  editorSubmit: document.querySelector("[data-editor-submit]"),
-  editorMessage: document.querySelector("[data-editor-message]"),
-  editorReadingTime: document.querySelector("[data-editor-reading-time]"),
-  editorAuthor: document.querySelector("[data-editor-author]"),
-  editorPublished: document.querySelector("[data-editor-published]"),
-  editorStatus: document.querySelector("[data-editor-status]"),
 };
 
 function escapeHtml(value = "") {
@@ -145,32 +121,6 @@ async function fetchPosts() {
   }
 
   return response.json();
-}
-
-async function insertPost(payload) {
-  const session = getSession();
-  const token = session?.access_token || SUPABASE_ANON_KEY;
-  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    const message = data?.message || data?.hint || data?.details || "글을 저장하지 못했습니다.";
-    throw new Error(message);
-  }
-
-  return Array.isArray(data) ? data[0] : data;
 }
 
 async function deletePostFromSupabase(id) {
@@ -389,175 +339,10 @@ function getFilteredPosts() {
   return getNodePosts(getActiveNode());
 }
 
-function editorDraftKey() {
-  return `${EDITOR_DRAFT_PREFIX}${state.id || "guest"}`;
-}
-
 function getActivePanelTitle() {
   const node = getActiveNode();
   if (!node || node.id === ALL_FILTER) return "전체";
   return node.label || "전체";
-}
-
-function getActiveCategoryNode() {
-  const found = findNode(state.tree, state.activeNodeId);
-  if (!found) return null;
-  return [...found.path].reverse().find((node) => node.type === "category") || null;
-}
-
-function getActiveFolderNode() {
-  const node = getActiveNode();
-  return node?.type === "folder" ? node : null;
-}
-
-function collectFolderOptions(nodes = state.tree, path = [], category = "") {
-  return nodes.flatMap((node) => {
-    const nextCategory = node.type === "category" ? node.filterCategory || node.label : category;
-    const nextPath = node.type === "all" ? path : [...path, node.label];
-    const children = collectFolderOptions(node.children || [], nextPath, nextCategory);
-
-    if (node.type !== "folder") return children;
-
-    return [
-      {
-        id: node.id,
-        label: node.label,
-        category: nextCategory,
-        path: nextPath.join(" / "),
-      },
-      ...children,
-    ];
-  });
-}
-
-function getFolderMeta(folderId) {
-  if (!folderId) return null;
-  return collectFolderOptions().find((folder) => folder.id === folderId) || null;
-}
-
-function getEditorDefaults() {
-  const categoryNode = getActiveCategoryNode();
-  const folderNode = getActiveFolderNode();
-  const category = categoryNode?.filterCategory || categoryNode?.label || DEFAULT_CATEGORY;
-
-  return {
-    category,
-    folderId: folderNode?.id || "",
-  };
-}
-
-function renderEditorFolderOptions(selectedFolderId = "") {
-  const category = els.editorCategory.value.trim();
-  const folders = collectFolderOptions().filter(
-    (folder) => !category || !folder.category || folder.category === category
-  );
-
-  els.editorFolder.innerHTML = [
-    `<option value="">폴더 없음</option>`,
-    ...folders.map(
-      (folder) => `
-        <option value="${escapeHtml(folder.id)}" ${folder.id === selectedFolderId ? "selected" : ""}>
-          ${escapeHtml(folder.path || folder.label)}
-        </option>
-      `
-    ),
-  ].join("");
-}
-
-function getPlainTextFromHtml(html = "") {
-  const scratch = document.createElement("div");
-  scratch.innerHTML = html;
-  return scratch.textContent.replace(/\s+/g, " ").trim();
-}
-
-function cleanEditorHtml(html = "") {
-  const template = document.createElement("template");
-  template.innerHTML = html;
-  template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
-    node.remove();
-  });
-  template.content.querySelectorAll("*").forEach((node) => {
-    [...node.attributes].forEach((attr) => {
-      const name = attr.name.toLowerCase();
-      const value = attr.value.trim().toLowerCase();
-      if (name.startsWith("on") || name === "style") {
-        node.removeAttribute(attr.name);
-      }
-      if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
-        node.removeAttribute(attr.name);
-      }
-    });
-  });
-  return template.innerHTML.trim();
-}
-
-function getReadingTimeLabel(text = "") {
-  const words = text.split(/\s+/).filter(Boolean).length;
-  const minutes = Math.max(1, Math.ceil(words / 350));
-  return `${minutes}분 읽기`;
-}
-
-function setEditorMessage(message = "", type = "info") {
-  els.editorMessage.textContent = message;
-  els.editorMessage.dataset.type = type;
-}
-
-function setEditorBusy(isBusy) {
-  state.editorSaving = isBusy;
-  els.editorSubmit.disabled = isBusy;
-  els.editorSubmit.textContent = isBusy ? "게시 중" : "게시";
-}
-
-function collectEditorValues() {
-  const body = cleanEditorHtml(els.editorContent.innerHTML);
-  const plainText = getPlainTextFromHtml(body);
-  const folder = getFolderMeta(els.editorFolder.value);
-  const category = els.editorCategory.value.trim() || folder?.category || DEFAULT_CATEGORY;
-  const excerpt = els.editorExcerpt.value.trim() || plainText.slice(0, 120);
-
-  return {
-    title: els.editorTitle.value.trim(),
-    category,
-    folder,
-    cover_image: els.editorCover.value.trim(),
-    excerpt,
-    body,
-    plainText,
-    reading_time: getReadingTimeLabel(plainText),
-    published: els.editorPublished.checked,
-  };
-}
-
-function saveEditorDraft() {
-  if (!state.id) return;
-  const draft = {
-    title: els.editorTitle.value,
-    category: els.editorCategory.value,
-    folder_id: els.editorFolder.value,
-    cover_image: els.editorCover.value,
-    excerpt: els.editorExcerpt.value,
-    body: els.editorContent.innerHTML,
-    published: els.editorPublished.checked,
-    saved_at: new Date().toISOString(),
-  };
-  localStorage.setItem(editorDraftKey(), JSON.stringify(draft));
-  els.editorSaveState.textContent = "초안 자동저장됨";
-}
-
-function loadEditorDraft() {
-  return safeParseJson(localStorage.getItem(editorDraftKey()), null);
-}
-
-function clearEditorDraft() {
-  localStorage.removeItem(editorDraftKey());
-}
-
-function syncEditorStats() {
-  const values = collectEditorValues();
-  els.editorReadingTime.textContent = values.plainText ? values.reading_time : "0분 읽기";
-  els.editorStatus.textContent = values.published ? "공개 게시" : "비공개 초안";
-  els.editorPreviewTitle.textContent = values.title || "제목 미리보기";
-  els.editorPreviewBody.innerHTML = values.body || `<p>본문 미리보기</p>`;
 }
 
 function openEditor() {
@@ -566,109 +351,12 @@ function openEditor() {
     return;
   }
 
-  const defaults = getEditorDefaults();
-  const draft = loadEditorDraft();
-  els.editorTitle.value = draft?.title || "";
-  els.editorCategory.value = draft?.category || defaults.category;
-  renderEditorFolderOptions(draft?.folder_id || defaults.folderId);
-  els.editorFolder.value = draft?.folder_id || defaults.folderId;
-  els.editorCover.value = draft?.cover_image || "";
-  els.editorExcerpt.value = draft?.excerpt || "";
-  els.editorContent.innerHTML = draft?.body || "";
-  els.editorPublished.checked = draft?.published ?? true;
-  els.editorAuthor.textContent = state.id;
-  state.editorPreviewOpen = false;
-  els.editorPreviewPanel.hidden = true;
-  els.editorPreview.textContent = "미리보기";
-  els.editorSaveState.textContent = draft ? "저장된 초안 불러옴" : "초안 준비됨";
-  setEditorMessage("");
-  syncEditorStats();
-  els.editorDialog.showModal();
-  window.setTimeout(() => els.editorTitle.focus(), 0);
-}
-
-function closeEditor() {
-  if (state.editorSaving) return;
-  els.editorDialog.close();
-}
-
-function updateEditorPreview() {
-  state.editorPreviewOpen = !state.editorPreviewOpen;
-  els.editorPreviewPanel.hidden = !state.editorPreviewOpen;
-  els.editorPreview.textContent = state.editorPreviewOpen ? "편집" : "미리보기";
-  syncEditorStats();
-}
-
-function executeEditorCommand(command, value = null) {
-  els.editorContent.focus();
-  document.execCommand(command, false, value);
-  syncEditorStats();
-  saveEditorDraft();
-}
-
-async function publishEditorPost() {
-  const session = getSession();
-  const values = collectEditorValues();
-
-  if (!session?.access_token) {
-    throw new Error("로그인이 필요합니다.");
+  const params = new URLSearchParams();
+  if (state.activeNodeId && state.activeNodeId !== ALL_FILTER) {
+    params.set("node", state.activeNodeId);
   }
-  if (!values.title) {
-    throw new Error("제목을 입력해주세요.");
-  }
-  if (!values.plainText) {
-    throw new Error("본문을 입력해주세요.");
-  }
-
-  const payload = {
-    title: values.title,
-    excerpt: values.excerpt,
-    body: values.body,
-    category: values.category,
-    author: state.id,
-    login_id: state.id,
-    user_id: session.user?.id,
-    cover_image: values.cover_image || null,
-    reading_time: values.reading_time,
-    published: values.published,
-    published_at: new Date().toISOString(),
-    folder: values.folder?.label || null,
-    folder_id: values.folder?.id || null,
-    folder_name: values.folder?.label || null,
-    folder_path: values.folder?.path || null,
-  };
-
-  Object.keys(payload).forEach((key) => {
-    if (payload[key] === undefined || payload[key] === "") {
-      delete payload[key];
-    }
-  });
-
-  try {
-    return await insertPost(payload);
-  } catch (error) {
-    if (!/column|schema cache|Could not find/i.test(error.message)) {
-      throw error;
-    }
-
-    const fallbackPayload = {
-      title: payload.title,
-      excerpt: payload.excerpt,
-      body: payload.body,
-      category: payload.category,
-      author: payload.author,
-      cover_image: payload.cover_image,
-      reading_time: payload.reading_time,
-      published: payload.published,
-      published_at: payload.published_at,
-    };
-    Object.keys(fallbackPayload).forEach((key) => {
-      if (fallbackPayload[key] === undefined || fallbackPayload[key] === "") {
-        delete fallbackPayload[key];
-      }
-    });
-    return insertPost(fallbackPayload);
-  }
+  const query = params.toString();
+  window.location.href = `./editor.html${query ? `?${query}` : ""}`;
 }
 
 function isSelectableNode(node) {
@@ -1060,54 +748,6 @@ async function deleteSelectedNodes() {
   }
 }
 
-async function handleEditorSubmit(event) {
-  event.preventDefault();
-
-  try {
-    setEditorBusy(true);
-    setEditorMessage("게시 중입니다...");
-    const values = collectEditorValues();
-    const saved = await publishEditorPost();
-    const savedAt = saved?.published_at || saved?.created_at || new Date().toISOString();
-    const row = {
-      ...saved,
-      title: saved?.title || values.title,
-      excerpt: saved?.excerpt || values.excerpt,
-      body: saved?.body || values.body,
-      category: saved?.category || values.category,
-      author: saved?.author || state.id,
-      login_id: saved?.login_id || state.id,
-      cover_image: saved?.cover_image || values.cover_image,
-      reading_time: saved?.reading_time || values.reading_time,
-      published: saved?.published ?? values.published,
-      published_at: savedAt,
-      folder: saved?.folder || values.folder?.label || "",
-      folder_id: saved?.folder_id || values.folder?.id || "",
-      folder_name: saved?.folder_name || values.folder?.label || "",
-      folder_path: saved?.folder_path || values.folder?.path || "",
-    };
-
-    if (row.published !== false) {
-      const normalized = normalizePost(row, 0);
-      state.posts = [normalized, ...state.posts.filter((post) => String(post.id) !== String(normalized.id))];
-      buildTree();
-      state.activeNodeId = values.folder?.id || categoryId(values.category);
-      if (!findNode(state.tree, state.activeNodeId)) {
-        state.activeNodeId = ALL_FILTER;
-      }
-      render();
-    }
-
-    clearEditorDraft();
-    setEditorMessage("게시가 완료되었습니다.", "success");
-    window.setTimeout(closeEditor, 450);
-  } catch (error) {
-    setEditorMessage(error.message, "error");
-  } finally {
-    setEditorBusy(false);
-  }
-}
-
 async function initMyBlog() {
   const session = getSession();
   state.id = getSessionId(session);
@@ -1146,57 +786,6 @@ els.categoryAdd.addEventListener("click", addCategory);
 els.deleteSelected.addEventListener("click", deleteSelectedNodes);
 
 els.writeButton.addEventListener("click", openEditor);
-els.editorClose.addEventListener("click", closeEditor);
-els.editorForm.addEventListener("submit", handleEditorSubmit);
-els.editorPreview.addEventListener("click", updateEditorPreview);
-
-els.editorDialog.addEventListener("click", (event) => {
-  if (event.target === els.editorDialog) {
-    saveEditorDraft();
-    closeEditor();
-  }
-});
-
-els.editorForm.addEventListener("input", () => {
-  syncEditorStats();
-  saveEditorDraft();
-});
-
-els.editorCategory.addEventListener("input", () => {
-  renderEditorFolderOptions(els.editorFolder.value);
-  saveEditorDraft();
-});
-
-els.editorBlock.addEventListener("change", (event) => {
-  executeEditorCommand("formatBlock", event.target.value);
-  event.target.value = "p";
-});
-
-els.editorForm.addEventListener("click", (event) => {
-  const commandButton = event.target.closest("[data-editor-command]");
-  if (commandButton) {
-    executeEditorCommand(commandButton.dataset.editorCommand, commandButton.dataset.value || null);
-    return;
-  }
-
-  if (event.target.closest("[data-editor-link]")) {
-    const url = window.prompt("연결할 주소를 입력하세요.", "https://");
-    if (url) executeEditorCommand("createLink", url);
-    return;
-  }
-
-  if (event.target.closest("[data-editor-image]")) {
-    const url = window.prompt("이미지 주소를 입력하세요.", "https://");
-    if (url) executeEditorCommand("insertImage", url);
-  }
-});
-
-els.editorForm.addEventListener("keydown", (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    saveEditorDraft();
-  }
-});
 
 els.nav.addEventListener("click", (event) => {
   const treeToggle = event.target.closest("[data-tree-toggle]");
