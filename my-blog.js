@@ -20,6 +20,7 @@ const state = {
   treePanelOpen: true,
   editorPreviewOpen: false,
   editorSaving: false,
+  deleteBusy: false,
 };
 
 const els = {
@@ -170,6 +171,51 @@ async function insertPost(payload) {
   }
 
   return Array.isArray(data) ? data[0] : data;
+}
+
+async function deletePostFromSupabase(id) {
+  const session = getSession();
+  const token = session?.access_token;
+
+  if (!token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
+  endpoint.searchParams.set("id", `eq.${id}`);
+
+  const response = await fetch(endpoint, {
+    method: "DELETE",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      Prefer: "return=representation",
+    },
+  });
+
+  const data = await response.json().catch(() => []);
+
+  if (!response.ok) {
+    const message = data?.message || data?.hint || data?.details || "Supabase에서 글을 삭제하지 못했습니다.";
+    throw new Error(message);
+  }
+
+  return Array.isArray(data) ? data.length : 0;
+}
+
+async function deletePostsFromSupabase(postIds) {
+  if (postIds.length === 0) return 0;
+
+  let deletedCount = 0;
+  for (const id of postIds) {
+    deletedCount += await deletePostFromSupabase(id);
+  }
+
+  if (deletedCount < postIds.length) {
+    throw new Error("일부 글을 Supabase에서 삭제하지 못했습니다. 권한 또는 SQL 정책을 확인해주세요.");
+  }
+
+  return deletedCount;
 }
 
 function createId(prefix = "folder") {
@@ -333,8 +379,8 @@ function editorDraftKey() {
 
 function getActivePanelTitle() {
   const node = getActiveNode();
-  if (!node || node.id === ALL_FILTER) return "전체 카테고리";
-  return node.label || "전체 카테고리";
+  if (!node || node.id === ALL_FILTER) return "전체";
+  return node.label || "전체";
 }
 
 function getActiveCategoryNode() {
@@ -652,7 +698,8 @@ function renderTreePanelState() {
   els.treePanelToggle.textContent = state.treePanelOpen ? "▾" : "▸";
   els.selectionToggle.classList.toggle("is-active", state.selectionMode);
   els.selectionToggle.textContent = state.selectionMode ? "선택 해제" : "선택 모드";
-  els.deleteSelected.disabled = state.selectedIds.size === 0;
+  els.deleteSelected.disabled = state.selectedIds.size === 0 || state.deleteBusy;
+  els.deleteSelected.textContent = state.deleteBusy ? "삭제 중" : "삭제";
 }
 
 function renderSidebar() {
@@ -843,22 +890,62 @@ function removeSelectedNodes(nodes) {
     }));
 }
 
-function deleteSelectedNodes() {
+function getSelectedNodes(nodes = state.tree) {
+  return nodes.flatMap((node) => {
+    const children = getSelectedNodes(node.children || []);
+    if (state.selectedIds.has(node.id) && isSelectableNode(node)) {
+      return [node, ...children];
+    }
+    return children;
+  });
+}
+
+function getNodeDeletionPosts(node) {
+  const posts = getNodePosts(node);
+  const childPosts = (node.children || []).flatMap(getNodeDeletionPosts);
+  const byId = new Map();
+  [...posts, ...childPosts].forEach((post) => {
+    if (post.id) byId.set(String(post.id), post);
+  });
+  return [...byId.values()];
+}
+
+async function deleteSelectedNodes() {
   if (state.selectedIds.size === 0) return;
 
-  const confirmed = window.confirm("선택한 항목을 삭제할까요?");
+  const selectedNodes = getSelectedNodes();
+  const postsToDelete = selectedNodes.flatMap(getNodeDeletionPosts);
+  const postIds = [...new Set(postsToDelete.map((post) => String(post.id)).filter(Boolean))];
+  const confirmed = window.confirm(
+    postIds.length > 0
+      ? `선택한 항목과 연결된 글 ${postIds.length}개를 Supabase에서도 완전히 삭제할까요?`
+      : "선택한 항목을 삭제할까요?"
+  );
   if (!confirmed) return;
 
-  state.tree = removeSelectedNodes(state.tree);
-  state.selectedIds.forEach((id) => state.panelCollapsedIds.delete(id));
-  state.selectedIds.clear();
+  try {
+    state.deleteBusy = true;
+    renderTreePanelState();
+    const deletedCount = await deletePostsFromSupabase(postIds);
+    const deletedIdSet = new Set(postIds);
+    state.posts = state.posts.filter((post) => !deletedIdSet.has(String(post.id)));
+    state.tree = removeSelectedNodes(state.tree);
+    state.selectedIds.forEach((id) => state.panelCollapsedIds.delete(id));
+    state.selectedIds.clear();
 
-  if (!findNode(state.tree, state.activeNodeId)) {
-    state.activeNodeId = ALL_FILTER;
+    if (!findNode(state.tree, state.activeNodeId)) {
+      state.activeNodeId = ALL_FILTER;
+    }
+
+    saveTree();
+    render();
+    els.status.textContent = deletedCount > 0 ? `${deletedCount}개 글을 완전히 삭제했습니다.` : "";
+  } catch (error) {
+    els.status.textContent = error.message;
+  } finally {
+    state.deleteBusy = false;
+    renderTreePanelState();
   }
-
-  saveTree();
-  render();
 }
 
 async function handleEditorSubmit(event) {
