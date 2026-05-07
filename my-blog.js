@@ -5,6 +5,7 @@ const SUPABASE_ANON_KEY =
 const ALL_FILTER = "all";
 const DEFAULT_CATEGORY = "전체";
 const TREE_STORAGE_PREFIX = "blog.categoryTree.";
+const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const state = {
   id: "",
@@ -468,33 +469,326 @@ function isSelectableNode(node) {
   return node.id !== ALL_FILTER;
 }
 
-function exportBlogData() {
-  const treeData = normalizeTreeData({
-    nodes: state.tree,
-    hiddenCategoryIds: [...state.hiddenCategoryIds],
-    treeCollapsedIds: [...state.treeCollapsedIds],
+function getExportPosts() {
+  return getFilteredPosts();
+}
+
+function safeFileName(value = "blog") {
+  const cleaned = String(value || "blog")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+  return cleaned || "blog";
+}
+
+function getExportFileName(format) {
+  const date = new Date().toISOString().slice(0, 10);
+  return `${safeFileName(state.id || "blog")}-${safeFileName(getActivePanelTitle())}-${date}.${format}`;
+}
+
+function textFromHtml(html = "") {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  container.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  container.querySelectorAll("p,div,h1,h2,h3,h4,h5,h6,li,blockquote,tr").forEach((element) => {
+    element.append(document.createTextNode("\n"));
   });
-  const payload = {
-    version: 1,
-    exported_at: new Date().toISOString(),
-    login_id: state.id,
-    tree: treeData.nodes,
-    hidden_category_ids: treeData.hiddenCategoryIds,
-    tree_collapsed_ids: treeData.treeCollapsedIds,
-    posts: state.posts,
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  return container.textContent
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function getPostPlainBody(post) {
+  return textFromHtml(post.body || post.excerpt || "");
+}
+
+function formatPostAsText(post, index) {
+  const body = getPostPlainBody(post) || post.excerpt || "";
+  const lines = [
+    `${index + 1}. ${post.title}`,
+    `${post.category || DEFAULT_CATEGORY} · ${formatDate(post.published_at)}`,
+  ];
+  if (body) {
+    lines.push("", body);
+  }
+  return lines.join("\n");
+}
+
+function createTextExport(posts) {
+  return [
+    getActivePanelTitle(),
+    `내보낸 날짜: ${formatDate(new Date().toISOString())}`,
+    `글 수: ${posts.length}`,
+    "",
+    posts.map(formatPostAsText).join("\n\n---\n\n"),
+    "",
+  ].join("\n");
+}
+
+function createTextExportBlob(posts) {
+  return new Blob(["\uFEFF", createTextExport(posts)], { type: "text/plain;charset=utf-8" });
+}
+
+function escapeXml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function docxRunProperties({ bold = false, size = 22, color = "" } = {}) {
+  return [
+    bold ? "<w:b/>" : "",
+    size ? `<w:sz w:val="${size}"/>` : "",
+    color ? `<w:color w:val="${color}"/>` : "",
+  ]
+    .filter(Boolean)
+    .join("");
+}
+
+function docxParagraph(text = "", options = {}) {
+  const runProperties = docxRunProperties(options);
+  return `<w:p><w:r>${runProperties ? `<w:rPr>${runProperties}</w:rPr>` : ""}<w:t xml:space="preserve">${escapeXml(
+    text
+  )}</w:t></w:r></w:p>`;
+}
+
+function docxParagraphsFromText(text = "", options = {}) {
+  const lines = String(text || "").split(/\r?\n/);
+  return (lines.length ? lines : [""]).map((line) => docxParagraph(line, options)).join("");
+}
+
+function createDocxDocumentXml(posts) {
+  const body = [
+    docxParagraph(getActivePanelTitle(), { bold: true, size: 32, color: "0F6F96" }),
+    docxParagraph(`내보낸 날짜: ${formatDate(new Date().toISOString())}`, { size: 20, color: "6B7280" }),
+    docxParagraph(`글 수: ${posts.length}`, { size: 20, color: "6B7280" }),
+    docxParagraph(""),
+    ...posts.flatMap((post, index) => [
+      docxParagraph(`${index + 1}. ${post.title}`, { bold: true, size: 28 }),
+      docxParagraph(`${post.category || DEFAULT_CATEGORY} · ${formatDate(post.published_at)}`, {
+        size: 20,
+        color: "6B7280",
+      }),
+      docxParagraphsFromText(getPostPlainBody(post) || post.excerpt || "", { size: 22 }),
+      docxParagraph(""),
+    ]),
+  ].join("");
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${body}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+}
+
+function zipUint16(value) {
+  return new Uint8Array([value & 0xff, (value >>> 8) & 0xff]);
+}
+
+function zipUint32(value) {
+  return new Uint8Array([value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff]);
+}
+
+function concatZipParts(parts) {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const merged = new Uint8Array(totalLength);
+  let offset = 0;
+  parts.forEach((part) => {
+    merged.set(part, offset);
+    offset += part.length;
+  });
+  return merged;
+}
+
+let crcTable = null;
+
+function getCrcTable() {
+  if (crcTable) return crcTable;
+  crcTable = Array.from({ length: 256 }, (_, index) => {
+    let crc = index;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+    }
+    return crc >>> 0;
+  });
+  return crcTable;
+}
+
+function crc32(bytes) {
+  const table = getCrcTable();
+  let crc = 0xffffffff;
+  bytes.forEach((byte) => {
+    crc = table[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  });
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function getDosDateTime(date = new Date()) {
+  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const dosDate = ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+  return { time, date: dosDate };
+}
+
+function createZipBlob(files, type) {
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  const { time, date } = getDosDateTime();
+  let offset = 0;
+
+  files.forEach((file) => {
+    const nameBytes = encoder.encode(file.name);
+    const dataBytes = file.data instanceof Uint8Array ? file.data : encoder.encode(file.data);
+    const checksum = crc32(dataBytes);
+    const localHeader = concatZipParts([
+      zipUint32(0x04034b50),
+      zipUint16(20),
+      zipUint16(0x0800),
+      zipUint16(0),
+      zipUint16(time),
+      zipUint16(date),
+      zipUint32(checksum),
+      zipUint32(dataBytes.length),
+      zipUint32(dataBytes.length),
+      zipUint16(nameBytes.length),
+      zipUint16(0),
+    ]);
+    const centralHeader = concatZipParts([
+      zipUint32(0x02014b50),
+      zipUint16(20),
+      zipUint16(20),
+      zipUint16(0x0800),
+      zipUint16(0),
+      zipUint16(time),
+      zipUint16(date),
+      zipUint32(checksum),
+      zipUint32(dataBytes.length),
+      zipUint32(dataBytes.length),
+      zipUint16(nameBytes.length),
+      zipUint16(0),
+      zipUint16(0),
+      zipUint16(0),
+      zipUint16(0),
+      zipUint32(0),
+      zipUint32(offset),
+    ]);
+
+    localParts.push(localHeader, nameBytes, dataBytes);
+    centralParts.push(centralHeader, nameBytes);
+    offset += localHeader.length + nameBytes.length + dataBytes.length;
+  });
+
+  const centralOffset = offset;
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const endRecord = concatZipParts([
+    zipUint32(0x06054b50),
+    zipUint16(0),
+    zipUint16(0),
+    zipUint16(files.length),
+    zipUint16(files.length),
+    zipUint32(centralSize),
+    zipUint32(centralOffset),
+    zipUint16(0),
+  ]);
+
+  return new Blob([...localParts, ...centralParts, endRecord], { type });
+}
+
+function createDocxExportBlob(posts) {
+  return createZipBlob(
+    [
+      {
+        name: "[Content_Types].xml",
+        data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`,
+      },
+      {
+        name: "_rels/.rels",
+        data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`,
+      },
+      {
+        name: "word/document.xml",
+        data: createDocxDocumentXml(posts),
+      },
+    ],
+    DOCX_MIME_TYPE
+  );
+}
+
+function downloadBlob(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const safeId = (state.id || "blog").replace(/[^\w-]+/g, "-");
 
   link.href = url;
-  link.download = `${safeId}-blog-export.json`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  els.status.textContent = "내보내기 파일을 만들었습니다.";
+}
+
+async function saveBlobToSelectedFolder(blob, fileName) {
+  if (window.showDirectoryPicker && window.isSecureContext) {
+    const directory = await window.showDirectoryPicker({ mode: "readwrite" });
+    const fileHandle = await directory.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return true;
+  }
+
+  downloadBlob(blob, fileName);
+  return false;
+}
+
+function closeExportFormatMenu() {
+  document.querySelector("[data-export-format-menu]")?.setAttribute("hidden", "");
+}
+
+function toggleExportFormatMenu() {
+  const menu = document.querySelector("[data-export-format-menu]");
+  if (!menu) return;
+  menu.toggleAttribute("hidden");
+}
+
+async function exportPostsAs(format) {
+  const normalizedFormat = format === "docx" ? "docx" : "txt";
+  const posts = getExportPosts();
+
+  if (posts.length === 0) {
+    els.status.textContent = "내보낼 글이 없습니다.";
+    return;
+  }
+
+  const blob = normalizedFormat === "docx" ? createDocxExportBlob(posts) : createTextExportBlob(posts);
+  const fileName = getExportFileName(normalizedFormat);
+
+  try {
+    const savedToFolder = await saveBlobToSelectedFolder(blob, fileName);
+    els.status.textContent = savedToFolder
+      ? `${fileName} 파일을 선택한 폴더에 저장했습니다.`
+      : `${fileName} 파일을 다운로드했습니다.`;
+  } catch (error) {
+    els.status.textContent = error?.name === "AbortError" ? "내보내기를 취소했습니다." : "내보내기에 실패했습니다.";
+  }
 }
 
 function triggerBlogImport() {
@@ -655,15 +949,21 @@ function renderPostPanel(content, isEmpty = false) {
           >
             <span class="panel-action-icon icon-import" aria-hidden="true"></span>
           </button>
-          <button
-            class="post-panel-icon-button"
-            type="button"
-            data-panel-export
-            aria-label="내보내기"
-            title="내보내기"
-          >
-            <span class="panel-action-icon icon-export" aria-hidden="true"></span>
-          </button>
+          <div class="export-format-wrap" data-export-format-wrap>
+            <button
+              class="post-panel-icon-button"
+              type="button"
+              data-panel-export
+              aria-label="내보내기"
+              title="내보내기"
+            >
+              <span class="panel-action-icon icon-export" aria-hidden="true"></span>
+            </button>
+            <div class="export-format-menu" data-export-format-menu hidden>
+              <button type="button" data-export-format="txt">.txt</button>
+              <button type="button" data-export-format="docx">.docx</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="post-panel-body ${isEmpty ? "is-empty" : ""}">
@@ -1088,8 +1388,15 @@ els.list.addEventListener("click", (event) => {
     return;
   }
 
+  const exportFormatButton = event.target.closest("[data-export-format]");
+  if (exportFormatButton) {
+    closeExportFormatMenu();
+    exportPostsAs(exportFormatButton.dataset.exportFormat);
+    return;
+  }
+
   if (event.target.closest("[data-panel-export]")) {
-    exportBlogData();
+    toggleExportFormatMenu();
     return;
   }
 
@@ -1109,6 +1416,12 @@ els.list.addEventListener("click", (event) => {
   if (!selectButton) return;
   state.activeNodeId = selectButton.dataset.panelFolderSelect;
   render();
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-export-format-wrap]")) {
+    closeExportFormatMenu();
+  }
 });
 
 initMyBlog();

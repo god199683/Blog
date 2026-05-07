@@ -855,6 +855,51 @@ button {
   opacity: 0.42;
 }
 
+.export-format-wrap {
+  position: relative;
+  display: grid;
+}
+
+.export-format-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 5.6rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 16px 32px rgba(14, 116, 144, 0.16);
+}
+
+.export-format-menu[hidden] {
+  display: none;
+}
+
+.export-format-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.55rem;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.export-format-menu button:hover,
+.export-format-menu button:focus-visible {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--sky-dark);
+}
+
 .panel-action-icon {
   position: relative;
   display: block;
