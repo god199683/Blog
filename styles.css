@@ -125,6 +125,24 @@ button {
   color: #fff;
 }
 
+.auth-actions.is-signed-in {
+  justify-content: flex-end;
+}
+
+.welcome-message {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.45rem;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--sky-dark);
+  font-size: 0.95rem;
+  font-weight: 850;
+  box-shadow: 0 10px 24px rgba(14, 116, 144, 0.08);
+}
+
 .auth-main {
   width: min(1040px, calc(100% - 2rem));
   margin: 0 auto;
