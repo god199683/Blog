@@ -683,7 +683,6 @@ function renderPostItems(posts) {
             <h3>${escapeHtml(post.title)}</h3>
             ${post.excerpt ? `<p>${escapeHtml(post.excerpt)}</p>` : ""}
           </div>
-          ${post.reading_time ? `<span class="tag">${escapeHtml(post.reading_time)}</span>` : ""}
         </article>
       `
     )
