@@ -949,6 +949,11 @@ button {
   font-size: 0.5rem;
 }
 
+.my-blog-main .my-sidebar-title .section-kicker,
+.my-blog-main .my-post-header h1 {
+  font-size: 0.66rem;
+}
+
 .my-blog-main .my-post-header .result-count {
   font-size: 0.66rem;
 }
