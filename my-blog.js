@@ -173,6 +173,34 @@ async function deletePostsFromSupabase(postIds) {
   return deletedCount;
 }
 
+async function insertPostToSupabase(payload) {
+  const session = getSession();
+
+  if (!session?.access_token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => []);
+
+  if (!response.ok) {
+    const message = data?.message || data?.hint || data?.details || "Supabase에 글을 저장하지 못했습니다.";
+    throw new Error(message);
+  }
+
+  return Array.isArray(data) ? data[0] : data;
+}
+
 function createId(prefix = "folder") {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -546,6 +574,31 @@ function textFromHtml(html = "") {
     .trim();
 }
 
+function stripFileExtension(name = "불러온 글") {
+  return String(name || "불러온 글").replace(/\.[^/.]+$/, "").trim() || "불러온 글";
+}
+
+function getFileExtension(name = "") {
+  return String(name).split(".").pop()?.toLowerCase() || "";
+}
+
+function estimateReadingTime(text = "") {
+  const words = String(text).trim().split(/\s+/).filter(Boolean).length;
+  return `${Math.max(1, Math.ceil(words / 350))}분 읽기`;
+}
+
+function plainTextToHtml(text = "") {
+  const paragraphs = String(text)
+    .replace(/\r\n/g, "\n")
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return paragraphs
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
 function getPostPlainBody(post) {
   return textFromHtml(post.body || post.excerpt || "");
 }
@@ -841,11 +894,200 @@ function triggerBlogImport() {
   els.importInput.click();
 }
 
+async function inflateZipEntry(bytes) {
+  if (!("DecompressionStream" in window)) {
+    throw new Error("이 브라우저에서는 압축된 docx를 불러올 수 없습니다.");
+  }
+
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+function findZipCentralEntry(bytes, targetName, decoder) {
+  for (let offset = 0; offset + 46 < bytes.length; offset += 1) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset + offset);
+    if (view.getUint32(0, true) !== 0x02014b50) continue;
+
+    const fileNameLength = view.getUint16(28, true);
+    const extraLength = view.getUint16(30, true);
+    const commentLength = view.getUint16(32, true);
+    const nameStart = offset + 46;
+    const nameEnd = nameStart + fileNameLength;
+    const fileName = decoder.decode(bytes.slice(nameStart, nameEnd));
+
+    if (fileName === targetName) {
+      return {
+        method: view.getUint16(10, true),
+        compressedSize: view.getUint32(20, true),
+        localOffset: view.getUint32(42, true),
+      };
+    }
+
+    offset = nameEnd + extraLength + commentLength - 1;
+  }
+
+  return null;
+}
+
+async function readZipEntryAt(bytes, entry, decoder) {
+  const localView = new DataView(bytes.buffer, bytes.byteOffset + entry.localOffset);
+  if (localView.getUint32(0, true) !== 0x04034b50) {
+    throw new Error("docx 파일 구조를 읽지 못했습니다.");
+  }
+
+  const fileNameLength = localView.getUint16(26, true);
+  const extraLength = localView.getUint16(28, true);
+  const dataStart = entry.localOffset + 30 + fileNameLength + extraLength;
+  const dataEnd = dataStart + entry.compressedSize;
+  const data = bytes.slice(dataStart, dataEnd);
+  const output = entry.method === 0 ? data : await inflateZipEntry(data);
+  return decoder.decode(output);
+}
+
+async function readZipTextEntry(file, targetName) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const decoder = new TextDecoder();
+  const centralEntry = findZipCentralEntry(bytes, targetName, decoder);
+  if (centralEntry) {
+    return readZipEntryAt(bytes, centralEntry, decoder);
+  }
+
+  let offset = 0;
+
+  while (offset + 30 < bytes.length) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset + offset);
+    const signature = view.getUint32(0, true);
+    if (signature !== 0x04034b50) break;
+
+    const method = view.getUint16(8, true);
+    const compressedSize = view.getUint32(18, true);
+    const fileNameLength = view.getUint16(26, true);
+    const extraLength = view.getUint16(28, true);
+    const nameStart = offset + 30;
+    const nameEnd = nameStart + fileNameLength;
+    const dataStart = nameEnd + extraLength;
+    const dataEnd = dataStart + compressedSize;
+    const fileName = decoder.decode(bytes.slice(nameStart, nameEnd));
+
+    if (fileName === targetName) {
+      const data = bytes.slice(dataStart, dataEnd);
+      const output = method === 0 ? data : await inflateZipEntry(data);
+      return decoder.decode(output);
+    }
+
+    offset = dataEnd;
+  }
+
+  throw new Error("docx 본문을 찾지 못했습니다.");
+}
+
+async function readDocxPlainText(file) {
+  const xml = await readZipTextEntry(file, "word/document.xml");
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  const paragraphs = [...doc.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "p")];
+
+  return paragraphs
+    .map((paragraph) =>
+      [...paragraph.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "t")]
+        .map((node) => node.textContent || "")
+        .join("")
+        .trim()
+    )
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildImportedPostPayload({ title, text }) {
+  const session = getSession();
+  const body = plainTextToHtml(text);
+
+  return {
+    title: title || "불러온 글",
+    excerpt: text.slice(0, 160),
+    body,
+    category: DEFAULT_CATEGORY,
+    author: state.id,
+    login_id: state.id,
+    user_id: session?.user?.id,
+    reading_time: estimateReadingTime(text),
+    published: true,
+    published_at: new Date().toISOString(),
+    folder: null,
+    folder_id: null,
+    folder_name: null,
+    folder_path: null,
+  };
+}
+
+async function importPostPayloadsToAll(payloads) {
+  if (!state.id) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  const inserted = [];
+  for (const payload of payloads) {
+    const saved = await insertPostToSupabase(payload);
+    inserted.push(normalizePost(saved || payload, state.posts.length + inserted.length));
+  }
+
+  state.posts = [...inserted, ...state.posts].sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+  state.activeNodeId = ALL_FILTER;
+  state.panelSelectedIds.clear();
+  state.panelSelectionMode = false;
+  buildTree();
+  render();
+  return inserted.length;
+}
+
+async function importPostFileToAll(file) {
+  const extension = getFileExtension(file.name);
+  const text = extension === "docx" ? await readDocxPlainText(file) : await file.text();
+  const cleaned = text.trim();
+
+  if (!cleaned) {
+    throw new Error("불러올 본문이 없습니다.");
+  }
+
+  const payload = buildImportedPostPayload({
+    title: stripFileExtension(file.name),
+    text: cleaned,
+  });
+  const count = await importPostPayloadsToAll([payload]);
+  els.status.textContent = `${count}개 파일을 전체에 불러왔습니다.`;
+}
+
+function getImportedPostPayloadsFromJson(parsed) {
+  if (!Array.isArray(parsed?.posts)) return [];
+
+  return parsed.posts
+    .map((post, index) => {
+      const normalized = normalizePost(post, index);
+      const text = textFromHtml(normalized.body || "") || normalized.excerpt || normalized.title;
+      return buildImportedPostPayload({
+        title: normalized.title,
+        text,
+      });
+    })
+    .filter((post) => post.title && post.body);
+}
+
 async function importBlogDataFile(file) {
   if (!file) return;
 
   try {
+    const extension = getFileExtension(file.name);
+    if (extension === "txt" || extension === "docx" || file.type === "text/plain") {
+      await importPostFileToAll(file);
+      return;
+    }
+
     const parsed = safeParseJson(await file.text(), null);
+    const importedPosts = getImportedPostPayloadsFromJson(parsed);
+    if (importedPosts.length > 0) {
+      const count = await importPostPayloadsToAll(importedPosts);
+      els.status.textContent = `${count}개 글을 전체에 불러왔습니다.`;
+    }
+
     const imported = normalizeTreeData({
       nodes: parsed?.tree || parsed?.nodes,
       hiddenCategoryIds: parsed?.hidden_category_ids || parsed?.hiddenCategoryIds,
@@ -853,7 +1095,8 @@ async function importBlogDataFile(file) {
     });
 
     if (!Array.isArray(imported.nodes) || imported.nodes.length === 0) {
-      throw new Error("불러올 카테고리/폴더 데이터가 없습니다.");
+      if (importedPosts.length > 0) return;
+      throw new Error("불러올 글이나 카테고리/폴더 데이터가 없습니다.");
     }
 
     state.storedTreeData = imported;
@@ -865,7 +1108,10 @@ async function importBlogDataFile(file) {
     buildTree();
     saveTree();
     render();
-    els.status.textContent = "카테고리와 폴더를 불러왔습니다.";
+    els.status.textContent =
+      importedPosts.length > 0
+        ? `${importedPosts.length}개 글을 전체에 불러오고 카테고리와 폴더를 불러왔습니다.`
+        : "카테고리와 폴더를 불러왔습니다.";
   } catch (error) {
     els.status.textContent = error.message || "불러오지 못했습니다.";
   }
