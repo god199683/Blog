@@ -349,7 +349,7 @@ button {
 }
 
 .my-sidebar-title .section-kicker {
-  font-size: 1.16rem;
+  font-size: 0.66rem;
 }
 
 .sidebar-toggle {
@@ -712,12 +712,12 @@ button {
   max-width: none;
   margin-top: 0;
   margin-bottom: 0;
-  font-size: clamp(0.62rem, 1.5vw, 1.1rem);
+  font-size: 0.66rem;
   line-height: 1.05;
 }
 
 .my-post-header .result-count {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   line-height: 1.05;
 }
 
@@ -794,7 +794,7 @@ button {
   max-width: none;
   margin: 0;
   color: var(--sky-dark);
-  font-size: 1.05rem;
+  font-size: 0.66rem;
   font-weight: 900;
   line-height: 1.15;
 }
@@ -935,7 +935,7 @@ button {
 }
 
 .my-blog-main .my-post-header .result-count {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
 }
 
 main {
