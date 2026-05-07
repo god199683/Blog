@@ -688,8 +688,9 @@ button {
 }
 
 .my-post-area {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-width: 0;
   min-height: 0;
   padding: 10px clamp(1rem, 4vw, 3rem);
@@ -748,7 +749,7 @@ button {
 }
 
 .my-post-status {
-  margin: 1rem 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 0.5rem;
   font-weight: 800;
@@ -764,10 +765,11 @@ button {
 
 .my-post-list {
   display: block;
-  height: 100%;
-  margin-top: 10px;
+  flex: 1 1 auto;
+  height: auto;
+  margin-top: 0;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .post-panel {
@@ -810,6 +812,7 @@ button {
   gap: 0.75rem;
   min-height: 0;
   padding: 0.75rem;
+  overflow: auto;
 }
 
 .post-panel-body.is-empty {
