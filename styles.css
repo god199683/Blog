@@ -530,7 +530,7 @@ button {
 .tree-row-main {
   display: grid;
   grid-column: 3;
-  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.28rem;
   width: 100%;
@@ -541,6 +541,10 @@ button {
   background: transparent;
   color: var(--ink);
   text-align: left;
+}
+
+.tree-row-main.has-node-icon {
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
 }
 
 .tree-node-toggle,
@@ -874,7 +878,7 @@ button {
 
 .panel-folder-title {
   display: grid;
-  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.32rem;
   min-width: 0;
@@ -884,16 +888,6 @@ button {
   background: transparent;
   color: var(--ink);
   text-align: left;
-}
-
-.panel-folder-icon {
-  display: grid;
-  width: 1rem;
-  height: 1rem;
-  place-items: center;
-  color: var(--sky-dark);
-  font-size: 0.58rem;
-  font-weight: 900;
 }
 
 .panel-folder-name {

@@ -684,6 +684,9 @@ function renderTree(nodes = state.tree, depth = 0) {
       const children = Array.isArray(node.children) ? node.children : [];
       const canToggle = children.length > 0 && node.type !== "all";
       const isOpen = !state.treeCollapsedIds.has(node.id);
+      const hasNodeIcon = node.type !== "folder";
+      const nodeIcon = hasNodeIcon ? `<span class="tree-node-icon" aria-hidden="true">▤</span>` : "";
+      const rowMainClass = `tree-row-main${hasNodeIcon ? " has-node-icon" : ""}`;
       const treeToggle = canToggle
         ? `
             <button
@@ -704,8 +707,8 @@ function renderTree(nodes = state.tree, depth = 0) {
         : "";
       const rowMain = isEditing
         ? `
-            <div class="tree-row-main is-editing">
-              <span class="tree-node-icon" aria-hidden="true">${node.type === "folder" ? "□" : "▤"}</span>
+            <div class="${rowMainClass} is-editing">
+              ${nodeIcon}
               <input
                 class="tree-rename-input"
                 type="text"
@@ -717,8 +720,8 @@ function renderTree(nodes = state.tree, depth = 0) {
             </div>
           `
         : `
-            <button class="tree-row-main" type="button" data-node-select="${escapeHtml(node.id)}" title="${escapeHtml(node.label)}">
-              <span class="tree-node-icon" aria-hidden="true">${node.type === "folder" ? "□" : "▤"}</span>
+            <button class="${rowMainClass}" type="button" data-node-select="${escapeHtml(node.id)}" title="${escapeHtml(node.label)}">
+              ${nodeIcon}
               <span class="tree-node-label">${escapeHtml(node.label)}</span>
               <span class="tree-node-count">${count}</span>
             </button>
@@ -820,7 +823,6 @@ function renderPanelFolders(nodes = [], depth = 0) {
                   data-panel-folder-select="${escapeHtml(node.id)}"
                   title="${escapeHtml(node.label)}"
                 >
-                  <span class="panel-folder-icon" aria-hidden="true">□</span>
                   <span class="panel-folder-name">${escapeHtml(node.label)}</span>
                   <span class="panel-folder-count">${getNodePosts(node).length}개 글</span>
                 </button>
