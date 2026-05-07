@@ -21,6 +21,7 @@ const state = {
   editorPreviewOpen: false,
   editorSaving: false,
   deleteBusy: false,
+  editingNodeId: "",
 };
 
 const els = {
@@ -664,21 +665,39 @@ function renderTree(nodes = state.tree, depth = 0) {
     .map((node) => {
       const isActive = node.id === state.activeNodeId;
       const isSelected = state.selectedIds.has(node.id);
+      const isEditing = node.id === state.editingNodeId;
       const children = Array.isArray(node.children) ? node.children : [];
       const count = getNodePosts(node).length;
       const checkbox = state.selectionMode && isSelectableNode(node)
         ? `<input class="tree-check" type="checkbox" data-tree-check="${escapeHtml(node.id)}" ${isSelected ? "checked" : ""} aria-label="${escapeHtml(node.label)} 선택">`
         : "";
-
-      return `
-        <div class="tree-node" style="--tree-depth:${depth}">
-          <div class="tree-row ${isActive ? "is-active" : ""}">
-            ${checkbox}
+      const rowMain = isEditing
+        ? `
+            <div class="tree-row-main is-editing">
+              <span class="tree-node-icon" aria-hidden="true">${node.type === "folder" ? "□" : "▤"}</span>
+              <input
+                class="tree-rename-input"
+                type="text"
+                value="${escapeHtml(node.label)}"
+                data-rename-input="${escapeHtml(node.id)}"
+                aria-label="이름 수정"
+              >
+              <span class="tree-node-count">${count}</span>
+            </div>
+          `
+        : `
             <button class="tree-row-main" type="button" data-node-select="${escapeHtml(node.id)}" title="${escapeHtml(node.label)}">
               <span class="tree-node-icon" aria-hidden="true">${node.type === "folder" ? "□" : "▤"}</span>
               <span class="tree-node-label">${escapeHtml(node.label)}</span>
               <span class="tree-node-count">${count}</span>
             </button>
+          `;
+
+      return `
+        <div class="tree-node" style="--tree-depth:${depth}">
+          <div class="tree-row ${isActive ? "is-active" : ""}">
+            ${checkbox}
+            ${rowMain}
             <div class="tree-row-actions">
               <button type="button" data-add-folder="${escapeHtml(node.id)}" aria-label="폴더 추가" title="폴더 추가">+</button>
               <button type="button" data-rename-node="${escapeHtml(node.id)}" aria-label="이름 수정" title="이름 수정">✎</button>
@@ -862,17 +881,44 @@ function addFolder(parentId) {
   render();
 }
 
-function renameNode(nodeId) {
-  const found = findNode(state.tree, nodeId);
-  if (!found) return;
+function startInlineRename(nodeId) {
+  state.editingNodeId = nodeId;
+  renderSidebar();
 
-  const name = window.prompt("새 이름을 입력해주세요.", found.node.label);
-  const label = name?.trim();
-  if (!label) return;
+  window.setTimeout(() => {
+    const input = [...els.nav.querySelectorAll("[data-rename-input]")].find(
+      (item) => item.dataset.renameInput === nodeId
+    );
+    input?.focus();
+    input?.select();
+  }, 0);
+}
+
+function saveInlineRename(nodeId, value) {
+  if (state.editingNodeId !== nodeId) return;
+
+  const found = findNode(state.tree, nodeId);
+  if (!found) {
+    state.editingNodeId = "";
+    render();
+    return;
+  }
+
+  const label = value.trim();
+  state.editingNodeId = "";
+  if (!label) {
+    render();
+    return;
+  }
 
   found.node.label = label;
   saveTree();
   render();
+}
+
+function cancelInlineRename() {
+  state.editingNodeId = "";
+  renderSidebar();
 }
 
 function removeSelectedNodes(nodes) {
@@ -1098,7 +1144,7 @@ els.nav.addEventListener("click", (event) => {
 
   const renameButton = event.target.closest("[data-rename-node]");
   if (renameButton) {
-    renameNode(renameButton.dataset.renameNode);
+    startInlineRename(renameButton.dataset.renameNode);
     return;
   }
 
@@ -1119,6 +1165,28 @@ els.nav.addEventListener("change", (event) => {
   }
 
   renderTreePanelState();
+});
+
+els.nav.addEventListener("focusout", (event) => {
+  const input = event.target.closest("[data-rename-input]");
+  if (!input) return;
+  if (state.editingNodeId !== input.dataset.renameInput) return;
+  saveInlineRename(input.dataset.renameInput, input.value);
+});
+
+els.nav.addEventListener("keydown", (event) => {
+  const input = event.target.closest("[data-rename-input]");
+  if (!input) return;
+
+  if (event.key === "Enter") {
+    event.preventDefault();
+    saveInlineRename(input.dataset.renameInput, input.value);
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    cancelInlineRename();
+  }
 });
 
 els.list.addEventListener("click", (event) => {
