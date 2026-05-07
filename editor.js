@@ -72,6 +72,7 @@ const ALLOWED_EDITOR_STYLES = new Set([
   "font-size",
   "font-style",
   "font-weight",
+  "line-height",
   "text-align",
   "text-decoration",
 ]);
@@ -676,6 +677,59 @@ function applyInlineStyle(property, value) {
   saveCurrentSelection();
 }
 
+function normalizeFontSize(value) {
+  const size = Number.parseInt(value, 10);
+  if (!Number.isFinite(size)) return "";
+  return `${Math.min(96, Math.max(8, size))}px`;
+}
+
+function applyFontSizeFromInput() {
+  const size = normalizeFontSize(els.fontSize.value);
+  if (!size) return;
+  els.fontSize.value = size.replace("px", "");
+  applyInlineStyle("fontSize", size);
+}
+
+function getClosestEditorBlock(node) {
+  const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+  return element?.closest?.("p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th") || null;
+}
+
+function getSelectedEditorBlocks() {
+  restoreEditorSelection();
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return [];
+
+  const range = selection.getRangeAt(0);
+  const blocks = new Set();
+  const startBlock = getClosestEditorBlock(range.startContainer);
+  const endBlock = getClosestEditorBlock(range.endContainer);
+
+  if (startBlock && els.content.contains(startBlock)) blocks.add(startBlock);
+  if (endBlock && els.content.contains(endBlock)) blocks.add(endBlock);
+
+  els.content
+    .querySelectorAll("p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th")
+    .forEach((block) => {
+      if (range.intersectsNode(block)) blocks.add(block);
+    });
+
+  if (blocks.size === 0) {
+    blocks.add(els.content);
+  }
+
+  return [...blocks].filter((block) => block === els.content || els.content.contains(block));
+}
+
+function applyBlockStyle(property, value) {
+  getSelectedEditorBlocks().forEach((block) => {
+    block.style[property] = value;
+  });
+  syncEditorStats();
+  markEditorDirty();
+  saveCurrentSelection();
+}
+
 function executeEditorCommand(command, value = null) {
   restoreEditorSelection();
   document.execCommand(command, false, value);
@@ -699,9 +753,64 @@ function applyColor(target, color) {
 }
 
 function insertEditorTable() {
-  const cells = Array.from({ length: 3 }, () => "<td><br></td>").join("");
-  const rows = Array.from({ length: 3 }, () => `<tr>${cells}</tr>`).join("");
+  const rowCount = Math.min(12, Math.max(1, Number.parseInt(els.toolbar.querySelector("[data-table-rows]")?.value, 10) || 3));
+  const colCount = Math.min(12, Math.max(1, Number.parseInt(els.toolbar.querySelector("[data-table-cols]")?.value, 10) || 3));
+  const cells = Array.from({ length: colCount }, () => "<td><br></td>").join("");
+  const rows = Array.from({ length: rowCount }, () => `<tr>${cells}</tr>`).join("");
   executeEditorCommand("insertHTML", `<table><tbody>${rows}</tbody></table><p><br></p>`);
+}
+
+function getActiveTableCell() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return null;
+  const node = selection.anchorNode;
+  const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+  const cell = element?.closest?.("td, th");
+  return cell && els.content.contains(cell) ? cell : null;
+}
+
+function addTableRow() {
+  restoreEditorSelection();
+  const cell = getActiveTableCell();
+  const row = cell?.closest("tr");
+  if (!row) {
+    setEditorMessage("행을 추가할 표 안을 클릭해주세요.", "error");
+    return;
+  }
+
+  const newRow = row.cloneNode(true);
+  newRow.querySelectorAll("td, th").forEach((item) => {
+    item.innerHTML = "<br>";
+  });
+  row.after(newRow);
+  syncEditorStats();
+  markEditorDirty();
+}
+
+function addTableColumn() {
+  restoreEditorSelection();
+  const cell = getActiveTableCell();
+  const row = cell?.closest("tr");
+  const table = cell?.closest("table");
+  if (!cell || !row || !table) {
+    setEditorMessage("열을 추가할 표 안을 클릭해주세요.", "error");
+    return;
+  }
+
+  const index = [...row.children].indexOf(cell);
+  table.querySelectorAll("tr").forEach((tableRow) => {
+    const cells = [...tableRow.children];
+    const reference = cells[index] || cells[cells.length - 1];
+    const newCell = document.createElement(reference?.tagName?.toLowerCase() || "td");
+    newCell.innerHTML = "<br>";
+    if (reference) {
+      reference.after(newCell);
+    } else {
+      tableRow.appendChild(newCell);
+    }
+  });
+  syncEditorStats();
+  markEditorDirty();
 }
 
 function closeColorMenus(exceptTarget = "") {
@@ -710,6 +819,19 @@ function closeColorMenus(exceptTarget = "") {
       menu.hidden = true;
     }
   });
+}
+
+function closeEditorMiniMenus(exceptMenu = null) {
+  els.toolbar.querySelectorAll("[data-line-menu], [data-table-menu]").forEach((menu) => {
+    if (menu !== exceptMenu) {
+      menu.hidden = true;
+    }
+  });
+}
+
+function closeAllToolbarMenus() {
+  closeColorMenus();
+  closeEditorMiniMenus();
 }
 
 function renderColorMenus() {
@@ -934,8 +1056,12 @@ els.fontFamily.addEventListener("change", (event) => {
   applyInlineStyle("fontFamily", event.target.value);
 });
 
-els.fontSize.addEventListener("change", (event) => {
-  applyInlineStyle("fontSize", event.target.value);
+els.fontSize.addEventListener("change", applyFontSizeFromInput);
+
+els.fontSize.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  applyFontSizeFromInput();
 });
 
 els.toolbar.addEventListener("mousedown", (event) => {
@@ -950,7 +1076,35 @@ els.toolbar.addEventListener("click", (event) => {
     const target = colorToggle.dataset.colorMenuToggle;
     const menu = els.toolbar.querySelector(`[data-color-menu="${target}"]`);
     const willOpen = menu.hidden;
+    closeEditorMiniMenus();
     closeColorMenus(target);
+    menu.hidden = !willOpen;
+    return;
+  }
+
+  const lineToggle = event.target.closest("[data-line-menu-toggle]");
+  if (lineToggle) {
+    const menu = els.toolbar.querySelector("[data-line-menu]");
+    const willOpen = menu.hidden;
+    closeColorMenus();
+    closeEditorMiniMenus(menu);
+    menu.hidden = !willOpen;
+    return;
+  }
+
+  const lineHeightButton = event.target.closest("[data-line-height]");
+  if (lineHeightButton) {
+    applyBlockStyle("lineHeight", lineHeightButton.dataset.lineHeight);
+    closeEditorMiniMenus();
+    return;
+  }
+
+  const tableToggle = event.target.closest("[data-table-menu-toggle]");
+  if (tableToggle) {
+    const menu = els.toolbar.querySelector("[data-table-menu]");
+    const willOpen = menu.hidden;
+    closeColorMenus();
+    closeEditorMiniMenus(menu);
     menu.hidden = !willOpen;
     return;
   }
@@ -972,8 +1126,21 @@ els.toolbar.addEventListener("click", (event) => {
     return;
   }
 
-  if (event.target.closest("[data-editor-table]")) {
+  if (event.target.closest("[data-table-insert]")) {
     insertEditorTable();
+    closeEditorMiniMenus();
+    return;
+  }
+
+  if (event.target.closest("[data-table-add-row]")) {
+    addTableRow();
+    closeEditorMiniMenus();
+    return;
+  }
+
+  if (event.target.closest("[data-table-add-col]")) {
+    addTableColumn();
+    closeEditorMiniMenus();
     return;
   }
 
@@ -984,8 +1151,8 @@ els.toolbar.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (event) => {
-  if (!event.target.closest(".editor-color-control")) {
-    closeColorMenus();
+  if (!event.target.closest(".editor-color-control") && !event.target.closest(".editor-table-control")) {
+    closeAllToolbarMenus();
   }
 });
 

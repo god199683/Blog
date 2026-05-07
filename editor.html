@@ -63,22 +63,23 @@
             <div class="editor-toolbar" data-editor-toolbar role="toolbar" aria-label="글 편집 도구">
               <div class="editor-toolbar-row">
                 <select class="editor-font-select" data-editor-font-family aria-label="글꼴">
+                  <option value="'a시네마'">a시네마</option>
                   <option value="Carlito">Carlito</option>
                   <option value="Arial">Arial</option>
                   <option value="'Noto Sans KR'">Noto Sans KR</option>
                   <option value="Georgia">Georgia</option>
                   <option value="'Courier New'">Courier New</option>
                 </select>
-                <select class="editor-size-select" data-editor-font-size aria-label="글자 크기">
-                  <option value="12px">12</option>
-                  <option value="14px">14</option>
-                  <option value="16px" selected>16</option>
-                  <option value="18px">18</option>
-                  <option value="20px">20</option>
-                  <option value="24px">24</option>
-                  <option value="28px">28</option>
-                  <option value="32px">32</option>
-                </select>
+                <input
+                  class="editor-size-select"
+                  type="number"
+                  min="8"
+                  max="96"
+                  step="1"
+                  value="16"
+                  data-editor-font-size
+                  aria-label="글자 크기"
+                >
               </div>
               <div class="editor-toolbar-row">
                 <button class="editor-tool-button" type="button" data-editor-command="bold" title="굵게" aria-label="굵게">
@@ -93,6 +94,12 @@
                 <button class="editor-tool-button" type="button" data-editor-command="strikeThrough" title="취소선" aria-label="취소선">
                   <span class="tool-letter tool-strike">가</span>
                 </button>
+                <button class="editor-tool-button" type="button" data-editor-command="superscript" title="위첨자" aria-label="위첨자">
+                  <span class="script-icon script-super" aria-hidden="true">가</span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="subscript" title="아래첨자" aria-label="아래첨자">
+                  <span class="script-icon script-sub" aria-hidden="true">가</span>
+                </button>
 
                 <span class="editor-tool-divider" aria-hidden="true"></span>
 
@@ -105,12 +112,34 @@
                 <button class="editor-tool-button" type="button" data-editor-command="justifyRight" title="오른쪽 정렬" aria-label="오른쪽 정렬">
                   <span class="align-icon align-right" aria-hidden="true"><i></i><i></i><i></i></span>
                 </button>
+                <button class="editor-tool-button" type="button" data-editor-command="justifyFull" title="양쪽 정렬" aria-label="양쪽 정렬">
+                  <span class="align-icon align-justify" aria-hidden="true"><i></i><i></i><i></i></span>
+                </button>
                 <button class="editor-tool-button" type="button" data-editor-command="insertUnorderedList" title="글머리표" aria-label="글머리표">
                   <span class="list-icon" aria-hidden="true"><i></i><i></i><i></i></span>
                 </button>
                 <button class="editor-tool-button" type="button" data-editor-command="insertOrderedList" title="번호 목록" aria-label="번호 목록">
                   <span class="ordered-icon" aria-hidden="true">1</span>
                 </button>
+                <button class="editor-tool-button" type="button" data-editor-command="outdent" title="내어쓰기" aria-label="내어쓰기">
+                  <span class="indent-icon indent-out" aria-hidden="true"><i></i><i></i><i></i></span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="indent" title="들여쓰기" aria-label="들여쓰기">
+                  <span class="indent-icon indent-in" aria-hidden="true"><i></i><i></i><i></i></span>
+                </button>
+
+                <div class="editor-color-control">
+                  <button class="editor-tool-button editor-color-button" type="button" data-line-menu-toggle title="줄 간격" aria-label="줄 간격">
+                    <span class="line-height-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="tool-caret" aria-hidden="true"></span>
+                  </button>
+                  <div class="editor-mini-menu" data-line-menu hidden>
+                    <button type="button" data-line-height="1">1.0</button>
+                    <button type="button" data-line-height="1.15">1.15</button>
+                    <button type="button" data-line-height="1.5">1.5</button>
+                    <button type="button" data-line-height="2">2.0</button>
+                  </div>
+                </div>
 
                 <span class="editor-tool-divider" aria-hidden="true"></span>
 
@@ -130,10 +159,25 @@
                   <div class="editor-color-menu" data-color-menu="foreground" hidden></div>
                 </div>
 
-                <button class="editor-table-button" type="button" data-editor-table title="표 삽입" aria-label="표 삽입">
-                  <span class="table-icon" aria-hidden="true"></span>
-                  <span>표</span>
-                </button>
+                <div class="editor-table-control">
+                  <button class="editor-table-button" type="button" data-table-menu-toggle title="표" aria-label="표">
+                    <span class="table-icon" aria-hidden="true"></span>
+                    <span>표</span>
+                  </button>
+                  <div class="editor-table-menu" data-table-menu hidden>
+                    <label>
+                      <span>열</span>
+                      <input type="number" min="1" max="12" value="3" data-table-cols>
+                    </label>
+                    <label>
+                      <span>행</span>
+                      <input type="number" min="1" max="12" value="3" data-table-rows>
+                    </label>
+                    <button type="button" data-table-insert>표 삽입</button>
+                    <button type="button" data-table-add-row>행 추가</button>
+                    <button type="button" data-table-add-col>열 추가</button>
+                  </div>
+                </div>
               </div>
             </div>
 
