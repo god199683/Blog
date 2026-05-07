@@ -46,7 +46,7 @@ function syncBrand(id) {
   brand.href = "./";
   brand.setAttribute("aria-label", "Blog home");
   if (brandText) {
-    brandText.textContent = "Blog";
+    brandText.textContent = "홈";
   }
 }
 

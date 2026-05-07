@@ -7,7 +7,7 @@ const DEFAULT_POST = {
   title: "제목 없는 글",
   excerpt: "요약이 아직 작성되지 않았습니다.",
   category: "일반",
-  author: "Blog",
+  author: "블로그",
   published_at: "",
   reading_time: "",
   cover_image: "",
@@ -203,7 +203,7 @@ function renderFeatured(posts) {
   if (!post) {
     els.featured.innerHTML = `
       <div class="featured-empty">
-        <p class="meta-line">Ready</p>
+        <p class="meta-line">준비 중</p>
         <h2>아직 공개된 글이 없습니다</h2>
         <p>새 글이 등록되면 이곳에 가장 먼저 표시됩니다.</p>
       </div>
@@ -230,7 +230,7 @@ function renderPosts() {
   if (posts.length === 0) {
     els.grid.innerHTML = `
       <div class="empty-state">
-        <p class="meta-line">Empty</p>
+        <p class="meta-line">비어 있음</p>
         <h3>저장된 글이 없습니다</h3>
       </div>
     `;
@@ -264,7 +264,7 @@ function renderStatus() {
   if (state.posts.length === 0) {
     els.dataStatus.textContent = "글 목록이 비어 있습니다";
     els.statusCopy.textContent =
-      "내부 샘플 글을 삭제했습니다. 공개 글을 추가하면 홈 피드가 자동으로 채워집니다.";
+      "공개 글을 추가하면 홈 피드가 자동으로 채워집니다.";
     return;
   }
 

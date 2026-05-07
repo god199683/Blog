@@ -4,14 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="모두에게 열린 블로그 홈">
-    <title>Blog</title>
+    <title>블로그 홈</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="./" aria-label="Blog home">
         <span class="brand-mark" aria-hidden="true">B</span>
-        <span data-brand-text>Blog</span>
+        <span data-brand-text>홈</span>
       </a>
       <div class="auth-actions" aria-label="계정 메뉴" data-auth-actions>
         <a class="auth-button auth-login" href="./login.html">로그인</a>
@@ -22,7 +22,7 @@
     <main>
       <section class="hero-section" id="featured" aria-labelledby="home-title">
         <div class="hero-copy">
-          <p class="eyebrow">Public Journal</p>
+          <p class="eyebrow">공개 저널</p>
           <h1 id="home-title">블로그 홈</h1>
           <p class="lede">
             생각, 기록, 작업 노트를 한곳에서 가볍게 훑어보고 깊게 읽을 수 있는 공개 피드입니다.
@@ -46,7 +46,7 @@
 
       <section class="toolbar-section" id="topics" aria-label="주제 필터">
         <div>
-          <p class="section-kicker">Topics</p>
+          <p class="section-kicker">주제</p>
           <h2>주제별로 빠르게 보기</h2>
         </div>
         <div class="topic-tabs" id="topic-tabs" role="list"></div>
@@ -56,7 +56,7 @@
         <div>
           <div class="section-heading">
             <div>
-              <p class="section-kicker">Latest</p>
+              <p class="section-kicker">최신 글</p>
               <h2>새로 올라온 글</h2>
             </div>
             <p class="result-count" id="result-count">0개 글</p>
@@ -66,13 +66,13 @@
 
         <aside class="side-panel" aria-label="블로그 정보">
           <div class="status-panel">
-            <p class="section-kicker">Feed</p>
+            <p class="section-kicker">피드</p>
             <h2 id="data-status">콘텐츠 준비 중</h2>
             <p id="status-copy">공개된 글을 확인하고 있습니다.</p>
           </div>
 
           <div class="note-panel">
-            <p class="section-kicker">Today</p>
+            <p class="section-kicker">TODAY</p>
             <h2>읽는 흐름</h2>
             <ol class="reading-list" id="reading-list"></ol>
           </div>
@@ -86,8 +86,8 @@
     </dialog>
 
     <footer class="site-footer">
-      <p>© <span id="year"></span> Blog. 모두에게 열린 기록 공간.</p>
-      <a href="https://github.com/god199683/Blog" target="_blank" rel="noreferrer">GitHub</a>
+      <p>© <span id="year"></span> 블로그. 모두에게 열린 기록 공간.</p>
+      <a href="https://github.com/god199683/Blog" target="_blank" rel="noreferrer">깃허브</a>
     </footer>
 
     <script src="./session.js" defer></script>
