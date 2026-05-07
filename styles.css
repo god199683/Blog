@@ -692,6 +692,13 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
+.my-post-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .my-post-header h1 {
   max-width: none;
   margin-top: 0;
@@ -703,6 +710,27 @@ button {
 .my-post-header .result-count {
   font-size: 0.72rem;
   line-height: 1.05;
+}
+
+.write-post-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.7rem;
+  padding: 0 0.72rem;
+  border: 1px solid var(--sky-dark);
+  border-radius: 999px;
+  background: var(--sky-dark);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.write-post-button:hover,
+.write-post-button:focus-visible {
+  border-color: var(--sky);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
 }
 
 .my-post-status {
@@ -1389,7 +1417,6 @@ h3 {
     order: 1;
   }
 
-  .my-post-header,
   .my-post-item {
     align-items: flex-start;
     flex-direction: column;
