@@ -25,7 +25,9 @@ const els = {
   category: document.querySelector("[data-editor-category]"),
   folder: document.querySelector("[data-editor-folder]"),
   content: document.querySelector("[data-editor-content]"),
-  block: document.querySelector("[data-editor-block]"),
+  toolbar: document.querySelector("[data-editor-toolbar]"),
+  fontFamily: document.querySelector("[data-editor-font-family]"),
+  fontSize: document.querySelector("[data-editor-font-size]"),
   preview: document.querySelector("[data-editor-preview]"),
   previewPanel: document.querySelector("[data-editor-preview-panel]"),
   previewTitle: document.querySelector("[data-editor-preview-title]"),
@@ -38,6 +40,34 @@ const els = {
   published: document.querySelector("[data-editor-published]"),
   status: document.querySelector("[data-editor-status]"),
 };
+
+let savedEditorRange = null;
+
+const THEME_COLOR_COLUMNS = [
+  ["#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#808080", "#595959"],
+  ["#000000", "#7f7f7f", "#595959", "#404040", "#262626", "#0d0d0d"],
+  ["#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#808080", "#595959"],
+  ["#111827", "#6b7280", "#4b5563", "#374151", "#1f2937", "#111827"],
+  ["#155e75", "#cffafe", "#67e8f9", "#22d3ee", "#0e7490", "#164e63"],
+  ["#ea580c", "#ffedd5", "#fdba74", "#fb923c", "#c2410c", "#7c2d12"],
+  ["#166534", "#dcfce7", "#86efac", "#4ade80", "#15803d", "#14532d"],
+  ["#0ea5e9", "#e0f2fe", "#7dd3fc", "#38bdf8", "#0284c7", "#075985"],
+  ["#a21caf", "#fce7f3", "#f0abfc", "#e879f9", "#a21caf", "#701a75"],
+  ["#4d7c0f", "#dcfce7", "#bbf7d0", "#86efac", "#65a30d", "#3f6212"],
+];
+
+const STANDARD_COLORS = [
+  "#dc2626",
+  "#ff0000",
+  "#facc15",
+  "#ffff00",
+  "#84cc16",
+  "#00a651",
+  "#0ea5e9",
+  "#0070c0",
+  "#002060",
+  "#7030a0",
+];
 
 function escapeHtml(value = "") {
   return String(value)
@@ -533,6 +563,52 @@ function syncEditorStats() {
   els.previewBody.innerHTML = values.body || `<p>본문 미리보기</p>`;
 }
 
+function nodeIsInEditor(node) {
+  if (!node) return false;
+  return node === els.content || els.content.contains(node);
+}
+
+function saveCurrentSelection() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !nodeIsInEditor(selection.anchorNode)) return;
+  savedEditorRange = selection.getRangeAt(0).cloneRange();
+}
+
+function restoreEditorSelection() {
+  els.content.focus();
+  if (!savedEditorRange) return;
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(savedEditorRange);
+}
+
+function applyInlineStyle(property, value) {
+  restoreEditorSelection();
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return;
+
+  const range = selection.getRangeAt(0);
+  const span = document.createElement("span");
+  span.style[property] = value;
+
+  if (range.collapsed) {
+    span.appendChild(document.createTextNode("\u200b"));
+    range.insertNode(span);
+    range.setStart(span.firstChild, 1);
+    range.collapse(true);
+  } else {
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+    range.selectNodeContents(span);
+  }
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+  syncEditorStats();
+  saveEditorDraft();
+  saveCurrentSelection();
+}
+
 function updateEditorPreview() {
   state.editorPreviewOpen = !state.editorPreviewOpen;
   els.previewPanel.hidden = !state.editorPreviewOpen;
@@ -541,10 +617,102 @@ function updateEditorPreview() {
 }
 
 function executeEditorCommand(command, value = null) {
-  els.content.focus();
+  restoreEditorSelection();
   document.execCommand(command, false, value);
   syncEditorStats();
   saveEditorDraft();
+  saveCurrentSelection();
+}
+
+function applyColor(target, color) {
+  if (target === "foreground") {
+    executeEditorCommand("foreColor", color);
+    return;
+  }
+
+  if (color === "transparent") {
+    executeEditorCommand("backColor", "#ffffff");
+    return;
+  }
+
+  executeEditorCommand("hiliteColor", color);
+}
+
+function insertEditorTable() {
+  const cells = Array.from({ length: 3 }, () => "<td><br></td>").join("");
+  const rows = Array.from({ length: 3 }, () => `<tr>${cells}</tr>`).join("");
+  executeEditorCommand("insertHTML", `<table><tbody>${rows}</tbody></table><p><br></p>`);
+}
+
+function closeColorMenus(exceptTarget = "") {
+  els.toolbar.querySelectorAll("[data-color-menu]").forEach((menu) => {
+    if (menu.dataset.colorMenu !== exceptTarget) {
+      menu.hidden = true;
+    }
+  });
+}
+
+function renderColorMenus() {
+  els.toolbar.querySelectorAll("[data-color-menu]").forEach((menu) => {
+    const target = menu.dataset.colorMenu;
+    const emptyLabel = target === "foreground" ? "자동 색(A)" : "채우기 없음(N)";
+    menu.innerHTML = `
+      <div class="color-menu-contrast">
+        <span>고대비 전용(H)</span>
+        <span class="color-menu-toggle" aria-hidden="true"><i></i>끔</span>
+      </div>
+      <div class="color-menu-section">
+        <p>테마 색</p>
+        <div class="theme-color-grid">
+          ${THEME_COLOR_COLUMNS.map(
+            (column) => `
+              <div class="theme-color-column">
+                ${column
+                  .map(
+                    (color) => `
+                      <button
+                        type="button"
+                        class="color-swatch"
+                        style="--swatch:${color}"
+                        data-color-target="${target}"
+                        data-color-value="${color}"
+                        aria-label="${color}"
+                      ></button>
+                    `
+                  )
+                  .join("")}
+              </div>
+            `
+          ).join("")}
+        </div>
+      </div>
+      <div class="color-menu-section">
+        <p>표준 색</p>
+        <div class="standard-color-grid">
+          ${STANDARD_COLORS.map(
+            (color) => `
+              <button
+                type="button"
+                class="color-swatch"
+                style="--swatch:${color}"
+                data-color-target="${target}"
+                data-color-value="${color}"
+                aria-label="${color}"
+              ></button>
+            `
+          ).join("")}
+        </div>
+      </div>
+      <button type="button" class="color-menu-option" data-color-target="${target}" data-color-value="transparent">
+        <span class="empty-swatch" aria-hidden="true"></span>
+        ${emptyLabel}
+      </button>
+      <button type="button" class="color-menu-option" data-color-custom="${target}">
+        <span class="palette-dot" aria-hidden="true"></span>
+        다른 색(M)...
+      </button>
+    `;
+  });
 }
 
 async function publishEditorPost() {
@@ -668,6 +836,7 @@ async function initEditor() {
   els.previewPanel.hidden = true;
   els.preview.textContent = "미리보기";
   els.saveState.textContent = draft ? "저장된 초안 불러옴" : "초안 준비됨";
+  renderColorMenus();
   setEditorMessage("");
   syncEditorStats();
   window.setTimeout(() => els.title.focus(), 0);
@@ -680,7 +849,11 @@ els.preview.addEventListener("click", updateEditorPreview);
 els.form.addEventListener("input", () => {
   syncEditorStats();
   saveEditorDraft();
+  saveCurrentSelection();
 });
+
+els.content.addEventListener("mouseup", saveCurrentSelection);
+els.content.addEventListener("keyup", saveCurrentSelection);
 
 els.category.addEventListener("change", () => {
   renderEditorFolderOptions(els.folder.value);
@@ -689,27 +862,62 @@ els.category.addEventListener("change", () => {
 
 els.folder.addEventListener("change", saveEditorDraft);
 
-els.block.addEventListener("change", (event) => {
-  executeEditorCommand("formatBlock", event.target.value);
-  event.target.value = "p";
+els.fontFamily.addEventListener("change", (event) => {
+  applyInlineStyle("fontFamily", event.target.value);
 });
 
-els.form.addEventListener("click", (event) => {
+els.fontSize.addEventListener("change", (event) => {
+  applyInlineStyle("fontSize", event.target.value);
+});
+
+els.toolbar.addEventListener("mousedown", (event) => {
+  if (event.target.closest("button")) {
+    event.preventDefault();
+  }
+});
+
+els.toolbar.addEventListener("click", (event) => {
+  const colorToggle = event.target.closest("[data-color-menu-toggle]");
+  if (colorToggle) {
+    const target = colorToggle.dataset.colorMenuToggle;
+    const menu = els.toolbar.querySelector(`[data-color-menu="${target}"]`);
+    const willOpen = menu.hidden;
+    closeColorMenus(target);
+    menu.hidden = !willOpen;
+    return;
+  }
+
+  const swatch = event.target.closest("[data-color-value]");
+  if (swatch) {
+    applyColor(swatch.dataset.colorTarget, swatch.dataset.colorValue);
+    closeColorMenus();
+    return;
+  }
+
+  const customColor = event.target.closest("[data-color-custom]");
+  if (customColor) {
+    const color = window.prompt("색상 코드를 입력하세요.", "#000000");
+    if (color) {
+      applyColor(customColor.dataset.colorCustom, color);
+      closeColorMenus();
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-editor-table]")) {
+    insertEditorTable();
+    return;
+  }
+
   const commandButton = event.target.closest("[data-editor-command]");
   if (commandButton) {
     executeEditorCommand(commandButton.dataset.editorCommand, commandButton.dataset.value || null);
-    return;
   }
+});
 
-  if (event.target.closest("[data-editor-link]")) {
-    const url = window.prompt("연결할 주소를 입력하세요.", "https://");
-    if (url) executeEditorCommand("createLink", url);
-    return;
-  }
-
-  if (event.target.closest("[data-editor-image]")) {
-    const url = window.prompt("이미지 주소를 입력하세요.", "https://");
-    if (url) executeEditorCommand("insertImage", url);
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".editor-color-control")) {
+    closeColorMenus();
   }
 });
 

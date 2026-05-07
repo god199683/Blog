@@ -60,22 +60,81 @@
               </label>
             </div>
 
-            <div class="editor-toolbar" role="toolbar" aria-label="글 편집 도구">
-              <select data-editor-block aria-label="문단 형식">
-                <option value="p">본문</option>
-                <option value="h2">제목 2</option>
-                <option value="h3">제목 3</option>
-                <option value="blockquote">인용</option>
-              </select>
-              <button type="button" data-editor-command="bold" title="굵게">B</button>
-              <button type="button" data-editor-command="italic" title="기울임">I</button>
-              <button type="button" data-editor-command="underline" title="밑줄">U</button>
-              <button type="button" data-editor-command="insertUnorderedList" title="목록">•</button>
-              <button type="button" data-editor-command="insertOrderedList" title="번호 목록">1.</button>
-              <button type="button" data-editor-command="formatBlock" data-value="blockquote" title="인용">“</button>
-              <button type="button" data-editor-link title="링크">링크</button>
-              <button type="button" data-editor-image title="이미지">이미지</button>
-              <button type="button" data-editor-command="removeFormat" title="서식 제거">지우기</button>
+            <div class="editor-toolbar" data-editor-toolbar role="toolbar" aria-label="글 편집 도구">
+              <div class="editor-toolbar-row">
+                <select class="editor-font-select" data-editor-font-family aria-label="글꼴">
+                  <option value="Carlito">Carlito</option>
+                  <option value="Arial">Arial</option>
+                  <option value="'Noto Sans KR'">Noto Sans KR</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="'Courier New'">Courier New</option>
+                </select>
+                <select class="editor-size-select" data-editor-font-size aria-label="글자 크기">
+                  <option value="12px">12</option>
+                  <option value="14px">14</option>
+                  <option value="16px" selected>16</option>
+                  <option value="18px">18</option>
+                  <option value="20px">20</option>
+                  <option value="24px">24</option>
+                  <option value="28px">28</option>
+                  <option value="32px">32</option>
+                </select>
+              </div>
+              <div class="editor-toolbar-row">
+                <button class="editor-tool-button" type="button" data-editor-command="bold" title="굵게" aria-label="굵게">
+                  <span class="tool-letter tool-bold">가</span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="italic" title="기울임" aria-label="기울임">
+                  <span class="tool-letter tool-italic">가</span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="underline" title="밑줄" aria-label="밑줄">
+                  <span class="tool-letter tool-underline">가</span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="strikeThrough" title="취소선" aria-label="취소선">
+                  <span class="tool-letter tool-strike">가</span>
+                </button>
+
+                <span class="editor-tool-divider" aria-hidden="true"></span>
+
+                <button class="editor-tool-button" type="button" data-editor-command="justifyLeft" title="왼쪽 정렬" aria-label="왼쪽 정렬">
+                  <span class="align-icon align-left" aria-hidden="true"><i></i><i></i><i></i></span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="justifyCenter" title="가운데 정렬" aria-label="가운데 정렬">
+                  <span class="align-icon align-center" aria-hidden="true"><i></i><i></i><i></i></span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="justifyRight" title="오른쪽 정렬" aria-label="오른쪽 정렬">
+                  <span class="align-icon align-right" aria-hidden="true"><i></i><i></i><i></i></span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="insertUnorderedList" title="글머리표" aria-label="글머리표">
+                  <span class="list-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+                </button>
+                <button class="editor-tool-button" type="button" data-editor-command="insertOrderedList" title="번호 목록" aria-label="번호 목록">
+                  <span class="ordered-icon" aria-hidden="true">1</span>
+                </button>
+
+                <span class="editor-tool-divider" aria-hidden="true"></span>
+
+                <div class="editor-color-control">
+                  <button class="editor-tool-button editor-color-button" type="button" data-color-menu-toggle="background" title="강조 색" aria-label="강조 색">
+                    <span class="paint-icon" aria-hidden="true"></span>
+                    <span class="tool-caret" aria-hidden="true"></span>
+                  </button>
+                  <div class="editor-color-menu" data-color-menu="background" hidden></div>
+                </div>
+
+                <div class="editor-color-control">
+                  <button class="editor-tool-button editor-color-button" type="button" data-color-menu-toggle="foreground" title="글자 색" aria-label="글자 색">
+                    <span class="font-color-icon" aria-hidden="true">가</span>
+                    <span class="tool-caret" aria-hidden="true"></span>
+                  </button>
+                  <div class="editor-color-menu" data-color-menu="foreground" hidden></div>
+                </div>
+
+                <button class="editor-table-button" type="button" data-editor-table title="표 삽입" aria-label="표 삽입">
+                  <span class="table-icon" aria-hidden="true"></span>
+                  <span>표</span>
+                </button>
+              </div>
             </div>
 
             <div
