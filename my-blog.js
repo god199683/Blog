@@ -15,6 +15,7 @@ const state = {
   hiddenCategoryIds: new Set(),
   selectionMode: false,
   selectedIds: new Set(),
+  panelCollapsedIds: new Set(),
   treePanelOpen: true,
 };
 
@@ -349,6 +350,76 @@ function renderPostPanel(content, isEmpty = false) {
   `;
 }
 
+function renderPostItems(posts) {
+  return posts
+    .map(
+      (post) => `
+        <article class="my-post-item">
+          <div>
+            <p class="meta-line">${escapeHtml(post.category)} · ${formatDate(post.published_at)}</p>
+            <h3>${escapeHtml(post.title)}</h3>
+            ${post.excerpt ? `<p>${escapeHtml(post.excerpt)}</p>` : ""}
+          </div>
+          ${post.reading_time ? `<span class="tag">${escapeHtml(post.reading_time)}</span>` : ""}
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderPanelFolders(nodes = [], depth = 0) {
+  const folders = nodes.filter((node) => node.type === "folder");
+  if (folders.length === 0) return "";
+
+  return `
+    <div class="panel-folder-tree">
+      ${folders
+        .map((node) => {
+          const isOpen = !state.panelCollapsedIds.has(node.id);
+          const isActive = state.activeNodeId === node.id;
+          const childFolders = renderPanelFolders(node.children || [], depth + 1);
+          const posts = renderPostItems(getNodePosts(node));
+          const content = [childFolders, posts].filter(Boolean).join("");
+
+          return `
+            <section class="panel-folder ${isActive ? "is-active" : ""}" style="--panel-depth:${depth}">
+              <div class="panel-folder-row">
+                <button
+                  class="panel-folder-toggle"
+                  type="button"
+                  data-panel-folder-toggle="${escapeHtml(node.id)}"
+                  aria-label="${escapeHtml(node.label)} ${isOpen ? "접기" : "펼치기"}"
+                  aria-expanded="${String(isOpen)}"
+                >
+                  ${isOpen ? "▾" : "▸"}
+                </button>
+                <button
+                  class="panel-folder-title"
+                  type="button"
+                  data-panel-folder-select="${escapeHtml(node.id)}"
+                  title="${escapeHtml(node.label)}"
+                >
+                  <span class="panel-folder-icon" aria-hidden="true">□</span>
+                  <span class="panel-folder-name">${escapeHtml(node.label)}</span>
+                  <span class="panel-folder-count">${getNodePosts(node).length}개 글</span>
+                </button>
+              </div>
+              ${isOpen ? `<div class="panel-folder-content">${content}</div>` : ""}
+            </section>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderActiveNodeContent(posts) {
+  const activeNode = getActiveNode();
+  const folders = renderPanelFolders(activeNode?.children || []);
+  const postItems = renderPostItems(posts);
+  return [folders, postItems].filter(Boolean).join("");
+}
+
 function renderList() {
   const posts = getFilteredPosts();
   els.count.textContent = `${posts.length}개 글`;
@@ -368,7 +439,9 @@ function renderList() {
 
   els.status.textContent = state.error || "";
 
-  if (posts.length === 0) {
+  const content = renderActiveNodeContent(posts);
+
+  if (!content) {
     els.list.innerHTML = renderPostPanel(
       `
         <div class="empty-state">
@@ -380,22 +453,7 @@ function renderList() {
     return;
   }
 
-  els.list.innerHTML = renderPostPanel(
-    posts
-      .map(
-        (post) => `
-        <article class="my-post-item">
-          <div>
-            <p class="meta-line">${escapeHtml(post.category)} · ${formatDate(post.published_at)}</p>
-            <h3>${escapeHtml(post.title)}</h3>
-            ${post.excerpt ? `<p>${escapeHtml(post.excerpt)}</p>` : ""}
-          </div>
-          ${post.reading_time ? `<span class="tag">${escapeHtml(post.reading_time)}</span>` : ""}
-        </article>
-      `
-      )
-      .join("")
-  );
+  els.list.innerHTML = renderPostPanel(content);
 }
 
 function render() {
@@ -469,6 +527,7 @@ function deleteSelectedNodes() {
   if (!confirmed) return;
 
   state.tree = removeSelectedNodes(state.tree);
+  state.selectedIds.forEach((id) => state.panelCollapsedIds.delete(id));
   state.selectedIds.clear();
 
   if (!findNode(state.tree, state.activeNodeId)) {
@@ -550,6 +609,25 @@ els.nav.addEventListener("change", (event) => {
   }
 
   renderTreePanelState();
+});
+
+els.list.addEventListener("click", (event) => {
+  const toggleButton = event.target.closest("[data-panel-folder-toggle]");
+  if (toggleButton) {
+    const id = toggleButton.dataset.panelFolderToggle;
+    if (state.panelCollapsedIds.has(id)) {
+      state.panelCollapsedIds.delete(id);
+    } else {
+      state.panelCollapsedIds.add(id);
+    }
+    renderList();
+    return;
+  }
+
+  const selectButton = event.target.closest("[data-panel-folder-select]");
+  if (!selectButton) return;
+  state.activeNodeId = selectButton.dataset.panelFolderSelect;
+  render();
 });
 
 initMyBlog();
