@@ -44,7 +44,7 @@ let colorDialogTarget = "foreground";
 let colorDialogValue = "#000000";
 let colorDialogPointerActive = false;
 
-const BUILTIN_EDITOR_FONTS = ["a시네마", "Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
+const BUILTIN_EDITOR_FONTS = ["Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
 
 const THEME_COLOR_COLUMNS = [
   ["#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#808080", "#595959"],
@@ -507,11 +507,22 @@ function normalizeFontName(value = "") {
 
 function getStoredEditorFonts() {
   const fonts = safeParseJson(localStorage.getItem(editorFontKey()), []);
-  return Array.isArray(fonts) ? fonts.map(normalizeFontName).filter(Boolean) : [];
+  const cleaned = Array.isArray(fonts)
+    ? fonts
+        .map(normalizeFontName)
+        .filter((font) => font && font !== "a시네마")
+    : [];
+  if (Array.isArray(fonts) && cleaned.length !== fonts.length) {
+    saveStoredEditorFonts(cleaned);
+  }
+  return cleaned;
 }
 
 function saveStoredEditorFonts(fonts) {
-  localStorage.setItem(editorFontKey(), JSON.stringify([...new Set(fonts.map(normalizeFontName).filter(Boolean))]));
+  localStorage.setItem(
+    editorFontKey(),
+    JSON.stringify([...new Set(fonts.map(normalizeFontName).filter((font) => font && font !== "a시네마"))])
+  );
 }
 
 function getEditorFonts() {
