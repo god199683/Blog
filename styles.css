@@ -304,14 +304,21 @@ button {
   padding: 1rem 0 4rem;
 }
 
+.my-blog-page {
+  height: 100svh;
+  overflow: hidden;
+}
+
 .my-blog-main {
   --sidebar-width: 280px;
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   width: 100%;
-  min-height: calc(100svh - 4.5rem);
+  height: calc(100svh - 4.45rem);
+  min-height: 0;
   margin: 0;
   font-size: 0.5rem;
+  overflow: hidden;
   transition: grid-template-columns 180ms ease;
 }
 
@@ -320,10 +327,8 @@ button {
 }
 
 .my-sidebar {
-  position: sticky;
-  top: 4.45rem;
-  align-self: start;
-  height: calc(100svh - 4.45rem);
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
   border-right: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.86);
@@ -340,7 +345,7 @@ button {
 }
 
 .my-sidebar-title .section-kicker {
-  font-size: 0.58rem;
+  font-size: 1.16rem;
 }
 
 .sidebar-toggle {
@@ -359,8 +364,11 @@ button {
 
 .my-sidebar-nav {
   display: grid;
+  align-content: start;
   gap: 0.35rem;
   padding: 0.75rem;
+  height: calc(100% - 2.4rem);
+  overflow: auto;
 }
 
 .sidebar-filter {
@@ -432,8 +440,12 @@ button {
 }
 
 .my-post-area {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
-  padding: clamp(1rem, 4vw, 3rem);
+  min-height: 0;
+  padding: clamp(1rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem) 0;
+  overflow: hidden;
 }
 
 .my-post-header {
@@ -470,10 +482,18 @@ button {
   color: var(--sky-dark);
 }
 
+.my-post-status:empty {
+  display: none;
+}
+
 .my-post-list {
   display: grid;
+  align-content: start;
   gap: 0.75rem;
   margin-top: 1.25rem;
+  min-height: 0;
+  padding-bottom: clamp(1rem, 4vw, 3rem);
+  overflow: auto;
 }
 
 .my-post-item {
@@ -957,9 +977,8 @@ h3 {
   }
 
   .my-sidebar {
-    position: relative;
-    top: auto;
     height: auto;
+    max-height: 36svh;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }

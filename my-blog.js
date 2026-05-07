@@ -94,7 +94,7 @@ async function fetchPosts() {
   });
 
   if (!response.ok) {
-    throw new Error("글을 불러오지 못했습니다.");
+    throw new Error("");
   }
 
   return response.json();
@@ -147,12 +147,11 @@ function renderList() {
     return;
   }
 
-  els.status.textContent = state.error || `${state.id}'s Blog`;
+  els.status.textContent = state.error || "";
 
   if (posts.length === 0) {
     els.list.innerHTML = `
       <div class="empty-state">
-        <p class="meta-line">Empty</p>
         <h3>표시할 글이 없습니다</h3>
       </div>
     `;
