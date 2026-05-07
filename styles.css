@@ -438,17 +438,25 @@ button {
 
 .my-post-header {
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 1rem;
+  min-height: 2.35rem;
+  padding-bottom: 0.55rem;
   border-bottom: 1px solid var(--line);
 }
 
 .my-post-header h1 {
   max-width: none;
+  margin-top: 0;
   margin-bottom: 0;
-  font-size: clamp(1.15rem, 3vw, 2.2rem);
+  font-size: clamp(0.62rem, 1.5vw, 1.1rem);
+  line-height: 1.05;
+}
+
+.my-post-header .result-count {
+  font-size: 0.72rem;
+  line-height: 1.05;
 }
 
 .my-post-status {
@@ -494,9 +502,12 @@ button {
 
 .my-blog-main .section-kicker,
 .my-blog-main .meta-line,
-.my-blog-main .result-count,
 .my-blog-main .tag {
   font-size: 0.5rem;
+}
+
+.my-blog-main .my-post-header .result-count {
+  font-size: 0.72rem;
 }
 
 main {
