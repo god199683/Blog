@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
 const ALL_FILTER = "all";
-const DEFAULT_CATEGORY = "카테고리";
+const DEFAULT_CATEGORY = "전체";
 const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 
@@ -307,8 +307,9 @@ function flattenNodes(nodes, map = new Map()) {
 }
 
 function getCategories() {
-  const categories = [...new Set(state.posts.map((post) => post.category).filter(Boolean))];
-  return categories.length ? categories : [DEFAULT_CATEGORY];
+  return [...new Set(state.posts.map((post) => post.category).filter(Boolean))].filter(
+    (category) => category !== DEFAULT_CATEGORY
+  );
 }
 
 function createAllNode(storedNode) {
@@ -353,7 +354,8 @@ function buildTree() {
         node.type === "category" &&
         node.id !== ALL_FILTER &&
         !categoryIds.has(node.id) &&
-        !state.hiddenCategoryIds.has(node.id)
+        !state.hiddenCategoryIds.has(node.id) &&
+        (node.filterCategory || node.label) !== DEFAULT_CATEGORY
     )
     .forEach((node) => roots.push(node));
 
@@ -421,8 +423,7 @@ function getFolderMeta(folderId) {
 function getEditorDefaults() {
   const categoryNode = getActiveCategoryNode();
   const folderNode = getActiveFolderNode();
-  const firstCategory = getCategoryOptions()[0]?.value || DEFAULT_CATEGORY;
-  const category = categoryNode?.filterCategory || categoryNode?.label || firstCategory;
+  const category = categoryNode?.filterCategory || categoryNode?.label || "";
 
   return {
     category,
@@ -435,30 +436,29 @@ function editorDraftKey() {
 }
 
 function getCategoryOptions() {
-  const categories = state.tree
+  return state.tree
     .filter((node) => node.type === "category")
     .map((node) => ({
       label: node.label,
       value: node.filterCategory || node.label,
     }));
-
-  return categories.length ? categories : [{ label: DEFAULT_CATEGORY, value: DEFAULT_CATEGORY }];
 }
 
 function renderEditorCategoryOptions(selectedCategory = "") {
   const categories = getCategoryOptions();
   const values = new Set(categories.map((category) => category.value));
-  const selected = selectedCategory && values.has(selectedCategory) ? selectedCategory : categories[0]?.value || "";
+  const selected = selectedCategory && values.has(selectedCategory) ? selectedCategory : "";
 
-  els.category.innerHTML = categories
-    .map(
+  els.category.innerHTML = [
+    `<option value="" ${selected ? "" : "selected"}>${DEFAULT_CATEGORY}</option>`,
+    ...categories.map(
       (category) => `
         <option value="${escapeHtml(category.value)}" ${category.value === selected ? "selected" : ""}>
           ${escapeHtml(category.label)}
         </option>
       `
-    )
-    .join("");
+    ),
+  ].join("");
 }
 
 function renderEditorFolderOptions(selectedFolderId = "") {
@@ -541,7 +541,7 @@ function collectEditorValues() {
   const plainText = getPlainTextFromHtml(body);
   const characterCounts = getCharacterCounts(body);
   const folder = getFolderMeta(els.folder.value);
-  const category = els.category.value || folder?.category || DEFAULT_CATEGORY;
+  const category = folder?.category || els.category.value || DEFAULT_CATEGORY;
 
   return {
     title: els.title.value.trim(),

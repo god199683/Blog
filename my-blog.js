@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
 const ALL_FILTER = "all";
-const DEFAULT_CATEGORY = "카테고리";
+const DEFAULT_CATEGORY = "전체";
 const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 
 const state = {
@@ -330,8 +330,9 @@ function flattenNodes(nodes, map = new Map()) {
 }
 
 function getCategories() {
-  const categories = [...new Set(state.posts.map((post) => post.category).filter(Boolean))];
-  return categories.length ? categories : [DEFAULT_CATEGORY];
+  return [...new Set(state.posts.map((post) => post.category).filter(Boolean))].filter(
+    (category) => category !== DEFAULT_CATEGORY
+  );
 }
 
 function createAllNode(storedNode) {
@@ -377,7 +378,8 @@ function buildTree() {
         node.type === "category" &&
         node.id !== ALL_FILTER &&
         !categoryIds.has(node.id) &&
-        !state.hiddenCategoryIds.has(node.id)
+        !state.hiddenCategoryIds.has(node.id) &&
+        (node.filterCategory || node.label) !== DEFAULT_CATEGORY
     )
     .forEach((node) => roots.push(node));
 
