@@ -365,11 +365,11 @@ button {
 }
 
 .my-sidebar-nav {
-  display: grid;
-  align-content: start;
-  gap: 0.35rem;
-  padding: 0.75rem;
-  height: calc(100% - 2.4rem);
+  display: block;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  padding: 0.45rem;
   overflow: auto;
 }
 
@@ -441,9 +441,9 @@ button {
   padding: 0;
 }
 
-.sidebar-tree-panel {
+.sidebar-tool-panel {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
   min-height: 0;
   border-bottom: 1px solid var(--line);
@@ -512,25 +512,12 @@ button {
   opacity: 0.45;
 }
 
-.tree-panel-body {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.sidebar-tree-panel.is-collapsed {
-  flex: 0 0 auto;
-}
-
-.sidebar-tree-panel.is-collapsed .tree-panel-body {
+.sidebar-tool-panel.is-collapsed .tree-panel-actions {
   display: none;
 }
 
-.sidebar-tree-panel .my-sidebar-nav {
-  display: block;
-  height: 100%;
-  padding: 0.45rem;
-  overflow: auto;
+.sidebar-tool-panel.is-collapsed .tree-panel-bar {
+  border-bottom: 0;
 }
 
 .tree-node {
@@ -657,7 +644,7 @@ button {
   padding-inline: 0;
 }
 
-.my-blog-main.is-sidebar-collapsed .sidebar-tree-panel .my-sidebar-nav {
+.my-blog-main.is-sidebar-collapsed .my-sidebar-nav {
   padding-inline: 0.6rem;
 }
 

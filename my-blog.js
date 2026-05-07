@@ -322,7 +322,7 @@ function renderTree(nodes = state.tree, depth = 0) {
 function renderTreePanelState() {
   els.treePanel.classList.toggle("is-collapsed", !state.treePanelOpen);
   els.treePanelToggle.setAttribute("aria-expanded", String(state.treePanelOpen));
-  els.treePanelToggle.setAttribute("aria-label", state.treePanelOpen ? "트리 접기" : "트리 펼치기");
+  els.treePanelToggle.setAttribute("aria-label", state.treePanelOpen ? "관리 영역 접기" : "관리 영역 펼치기");
   els.treePanelToggle.textContent = state.treePanelOpen ? "▾" : "▸";
   els.selectionToggle.classList.toggle("is-active", state.selectionMode);
   els.selectionToggle.textContent = state.selectionMode ? "선택 해제" : "선택 모드";
