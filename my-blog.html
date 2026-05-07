@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="계정별 블로그 홈">
+    <title>내 블로그 | Blog</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Blog home">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>Blog</span>
+      </a>
+      <div class="auth-actions" aria-label="계정 메뉴" data-auth-actions>
+        <a class="auth-button auth-login" href="./login.html">로그인</a>
+        <a class="auth-button auth-signup" href="./signup.html">회원가입</a>
+      </div>
+    </header>
+
+    <main class="account-main">
+      <section class="account-hero" aria-labelledby="account-title">
+        <div>
+          <p class="eyebrow">My Blog</p>
+          <h1 id="account-title">내 블로그 홈</h1>
+          <p class="lede" id="account-lede">로그인한 계정의 글을 모아 보여줍니다.</p>
+        </div>
+
+        <div class="account-summary">
+          <p class="section-kicker">Account</p>
+          <h2 id="account-name">확인 중</h2>
+          <p id="account-status">계정 정보를 불러오고 있습니다.</p>
+        </div>
+      </section>
+
+      <section class="account-section" aria-labelledby="account-post-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Posts</p>
+            <h2 id="account-post-title">내 글</h2>
+          </div>
+          <p class="result-count" id="account-count">0개 글</p>
+        </div>
+        <div class="post-grid" id="account-posts" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script src="./session.js" defer></script>
+    <script src="./my-blog.js" defer></script>
+  </body>
+</html>

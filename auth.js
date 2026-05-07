@@ -136,7 +136,7 @@ async function handleSubmit(event) {
 
     setMessage(form, mode === "signup" ? "회원가입이 완료되었습니다." : "로그인되었습니다.", "success");
     window.setTimeout(() => {
-      window.location.href = "./";
+      window.location.href = "./my-blog.html";
     }, 800);
   } catch (error) {
     setMessage(form, error.message, "error");

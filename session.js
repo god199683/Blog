@@ -31,12 +31,39 @@ function renderSignedInHeader() {
   const id = getSessionId(session);
   if (!id) return;
 
+  const nav = document.createElement("nav");
+  nav.className = "account-nav";
+  nav.setAttribute("aria-label", "계정 네비게이션");
+
+  const homeLink = document.createElement("a");
+  homeLink.href = "./";
+  homeLink.textContent = "홈";
+
+  const blogLink = document.createElement("a");
+  blogLink.href = "./my-blog.html";
+  blogLink.textContent = "내 블로그";
+
+  const currentPage = window.location.pathname.split("/").pop() || "index.html";
+  if (currentPage === "index.html") {
+    homeLink.setAttribute("aria-current", "page");
+  }
+  if (currentPage === "my-blog.html") {
+    blogLink.setAttribute("aria-current", "page");
+  }
+
+  nav.append(homeLink, blogLink);
+
   const welcome = document.createElement("span");
   welcome.className = "welcome-message";
   welcome.textContent = `${id} 님 환영합니다.`;
 
   actions.classList.add("is-signed-in");
-  actions.replaceChildren(welcome);
+  actions.replaceChildren(nav, welcome);
 }
 
 renderSignedInHeader();
+
+window.blogSession = {
+  read: readBlogSession,
+  getId: getSessionId,
+};

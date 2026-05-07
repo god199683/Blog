@@ -129,6 +129,34 @@ button {
   justify-content: flex-end;
 }
 
+.account-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.22rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.account-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.account-nav a:hover,
+.account-nav a:focus-visible,
+.account-nav a[aria-current="page"] {
+  background: var(--surface-soft);
+  color: var(--sky-dark);
+}
+
 .welcome-message {
   display: inline-flex;
   align-items: center;
@@ -235,6 +263,45 @@ button {
 .auth-link a {
   color: var(--sky-dark);
   font-weight: 850;
+}
+
+.account-main {
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.account-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+  padding: clamp(2rem, 7vw, 5rem) 0 2rem;
+}
+
+.account-hero h1 {
+  max-width: 12ch;
+}
+
+.account-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 1.25rem;
+  box-shadow: 0 14px 36px rgba(14, 116, 144, 0.08);
+}
+
+.account-summary p:not(.section-kicker) {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.account-summary a {
+  color: var(--sky-dark);
+  font-weight: 850;
+}
+
+.account-section {
+  padding: 1rem 0 4rem;
 }
 
 main {
@@ -667,7 +734,8 @@ h3 {
 @media (max-width: 900px) {
   .hero-section,
   .content-layout,
-  .auth-shell {
+  .auth-shell,
+  .account-hero {
     grid-template-columns: 1fr;
   }
 
@@ -695,6 +763,10 @@ h3 {
     width: 100%;
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+
+  .auth-actions.is-signed-in {
+    justify-content: flex-start;
   }
 
   h1 {
