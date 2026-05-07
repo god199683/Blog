@@ -17,7 +17,6 @@ const state = {
   selectionMode: false,
   selectedIds: new Set(),
   panelCollapsedIds: new Set(),
-  treePanelOpen: true,
   editorPreviewOpen: false,
   editorSaving: false,
   deleteBusy: false,
@@ -28,8 +27,6 @@ const els = {
   main: document.querySelector("[data-my-blog-main]"),
   sidebar: document.querySelector("[data-sidebar]"),
   toggle: document.querySelector("[data-sidebar-toggle]"),
-  treePanel: document.querySelector("[data-tree-panel]"),
-  treePanelToggle: document.querySelector("[data-tree-panel-toggle]"),
   categoryAdd: document.querySelector("[data-add-category]"),
   selectionToggle: document.querySelector("[data-selection-toggle]"),
   deleteSelected: document.querySelector("[data-delete-selected]"),
@@ -725,10 +722,6 @@ function renderTree(nodes = state.tree, depth = 0) {
 }
 
 function renderTreePanelState() {
-  els.treePanel.classList.toggle("is-collapsed", !state.treePanelOpen);
-  els.treePanelToggle.setAttribute("aria-expanded", String(state.treePanelOpen));
-  els.treePanelToggle.setAttribute("aria-label", state.treePanelOpen ? "관리 영역 접기" : "관리 영역 펼치기");
-  els.treePanelToggle.textContent = state.treePanelOpen ? "▾" : "▸";
   els.selectionToggle.classList.toggle("is-active", state.selectionMode);
   els.selectionToggle.textContent = state.selectionMode ? "✓" : "□";
   els.selectionToggle.setAttribute("aria-label", state.selectionMode ? "선택 해제" : "선택 모드");
@@ -1117,11 +1110,6 @@ async function initMyBlog() {
 }
 
 els.toggle.addEventListener("click", toggleSidebar);
-
-els.treePanelToggle.addEventListener("click", () => {
-  state.treePanelOpen = !state.treePanelOpen;
-  renderTreePanelState();
-});
 
 els.selectionToggle.addEventListener("click", () => {
   state.selectionMode = !state.selectionMode;

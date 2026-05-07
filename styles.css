@@ -461,20 +461,6 @@ button {
   background: rgba(234, 247, 255, 0.7);
 }
 
-.tree-panel-toggle {
-  display: grid;
-  flex: 0 0 auto;
-  width: 1.35rem;
-  height: 1.35rem;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: #fff;
-  color: var(--sky-dark);
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
 .tree-panel-title {
   overflow: hidden;
   color: var(--sky-dark);
@@ -517,14 +503,6 @@ button {
 .tree-panel-actions button:disabled {
   cursor: default;
   opacity: 0.45;
-}
-
-.sidebar-tool-panel.is-collapsed .tree-panel-actions {
-  display: none;
-}
-
-.sidebar-tool-panel.is-collapsed .tree-panel-bar {
-  border-bottom: 0;
 }
 
 .tree-node {
@@ -669,6 +647,10 @@ button {
 .my-blog-main.is-sidebar-collapsed .tree-panel-bar {
   justify-content: center;
   padding-inline: 0;
+}
+
+.my-blog-main.is-sidebar-collapsed .sidebar-tool-panel {
+  display: none;
 }
 
 .my-blog-main.is-sidebar-collapsed .my-sidebar-nav {
