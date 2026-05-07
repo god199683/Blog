@@ -678,7 +678,7 @@ button {
   grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-  padding: clamp(1rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem) 0;
+  padding: clamp(1rem, 4vw, 3rem);
   overflow: hidden;
 }
 
@@ -726,8 +726,11 @@ button {
   gap: 0.75rem;
   margin-top: 1.25rem;
   min-height: 0;
-  padding-bottom: clamp(1rem, 4vw, 3rem);
   overflow: auto;
+}
+
+.my-post-list .empty-state {
+  min-height: 100%;
 }
 
 .my-post-item {
