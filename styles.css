@@ -823,6 +823,129 @@ button {
   line-height: 1.15;
 }
 
+.post-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.22rem;
+  margin-left: auto;
+}
+
+.post-panel-icon-button {
+  display: grid;
+  width: 1.45rem;
+  height: 1.45rem;
+  min-height: 1.45rem;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--sky-dark);
+}
+
+.post-panel-icon-button:hover,
+.post-panel-icon-button:focus-visible,
+.post-panel-icon-button.is-active {
+  border-color: var(--sky);
+  background: var(--surface-soft);
+}
+
+.post-panel-icon-button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.panel-action-icon {
+  position: relative;
+  display: block;
+  width: 0.82rem;
+  height: 0.82rem;
+}
+
+.icon-select {
+  border: 1.6px solid currentColor;
+  border-radius: 2px;
+}
+
+.post-panel-icon-button.is-active .icon-select::after {
+  position: absolute;
+  left: 0.15rem;
+  top: -0.05rem;
+  width: 0.34rem;
+  height: 0.62rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.icon-edit::before {
+  position: absolute;
+  left: 0.15rem;
+  top: 0.34rem;
+  width: 0.62rem;
+  height: 0.16rem;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  transform: rotate(-38deg);
+}
+
+.icon-edit::after {
+  position: absolute;
+  left: 0.02rem;
+  bottom: 0.04rem;
+  width: 0.68rem;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.icon-import,
+.icon-export {
+  border-bottom: 1.6px solid currentColor;
+}
+
+.icon-import::before,
+.icon-export::before {
+  position: absolute;
+  left: 50%;
+  width: 1.6px;
+  height: 0.58rem;
+  background: currentColor;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.icon-import::before {
+  top: 0.08rem;
+}
+
+.icon-export::before {
+  top: 0.2rem;
+}
+
+.icon-import::after,
+.icon-export::after {
+  position: absolute;
+  left: 50%;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  content: "";
+}
+
+.icon-import::after {
+  top: 0.34rem;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.icon-export::after {
+  top: -0.04rem;
+  transform: translateX(-50%) rotate(225deg);
+}
+
 .post-panel-body {
   display: grid;
   align-content: start;

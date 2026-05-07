@@ -35,6 +35,7 @@ const els = {
   count: document.querySelector("#my-post-count"),
   list: document.querySelector("#my-post-list"),
   writeButton: document.querySelector("[data-write-post]"),
+  importInput: document.querySelector("[data-blog-import]"),
 };
 
 function escapeHtml(value = "") {
@@ -455,8 +456,76 @@ function openEditor() {
   window.location.href = `./editor.html${query ? `?${query}` : ""}`;
 }
 
+function toggleSelectionMode() {
+  state.selectionMode = !state.selectionMode;
+  state.selectedIds.clear();
+  render();
+}
+
 function isSelectableNode(node) {
   return node.id !== ALL_FILTER;
+}
+
+function exportBlogData() {
+  const treeData = normalizeTreeData({
+    nodes: state.tree,
+    hiddenCategoryIds: [...state.hiddenCategoryIds],
+    treeCollapsedIds: [...state.treeCollapsedIds],
+  });
+  const payload = {
+    version: 1,
+    exported_at: new Date().toISOString(),
+    login_id: state.id,
+    tree: treeData.nodes,
+    hidden_category_ids: treeData.hiddenCategoryIds,
+    tree_collapsed_ids: treeData.treeCollapsedIds,
+    posts: state.posts,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const safeId = (state.id || "blog").replace(/[^\w-]+/g, "-");
+
+  link.href = url;
+  link.download = `${safeId}-blog-export.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  els.status.textContent = "내보내기 파일을 만들었습니다.";
+}
+
+function triggerBlogImport() {
+  els.importInput.value = "";
+  els.importInput.click();
+}
+
+async function importBlogDataFile(file) {
+  if (!file) return;
+
+  try {
+    const parsed = safeParseJson(await file.text(), null);
+    const imported = normalizeTreeData({
+      nodes: parsed?.tree || parsed?.nodes,
+      hiddenCategoryIds: parsed?.hidden_category_ids || parsed?.hiddenCategoryIds,
+      treeCollapsedIds: parsed?.tree_collapsed_ids || parsed?.treeCollapsedIds,
+    });
+
+    if (!Array.isArray(imported.nodes) || imported.nodes.length === 0) {
+      throw new Error("불러올 카테고리/폴더 데이터가 없습니다.");
+    }
+
+    state.storedTreeData = imported;
+    state.activeNodeId = ALL_FILTER;
+    state.selectedIds.clear();
+    state.selectionMode = false;
+    buildTree();
+    saveTree();
+    render();
+    els.status.textContent = "카테고리와 폴더를 불러왔습니다.";
+  } catch (error) {
+    els.status.textContent = error.message || "불러오지 못했습니다.";
+  }
 }
 
 function renderTree(nodes = state.tree, depth = 0) {
@@ -546,10 +615,54 @@ function renderSidebar() {
 }
 
 function renderPostPanel(content, isEmpty = false) {
+  const activeNode = getActiveNode();
+  const canRenameActiveNode = activeNode && isSelectableNode(activeNode);
+  const selectionLabel = state.selectionMode ? "선택 해제" : "선택 모드";
+
   return `
     <section class="post-panel">
       <div class="post-panel-head">
         <h2>${escapeHtml(getActivePanelTitle())}</h2>
+        <div class="post-panel-actions" aria-label="본문 관리">
+          <button
+            class="post-panel-icon-button ${state.selectionMode ? "is-active" : ""}"
+            type="button"
+            data-panel-selection-toggle
+            aria-label="${selectionLabel}"
+            aria-pressed="${String(state.selectionMode)}"
+            title="${selectionLabel}"
+          >
+            <span class="panel-action-icon icon-select" aria-hidden="true"></span>
+          </button>
+          <button
+            class="post-panel-icon-button"
+            type="button"
+            data-panel-edit
+            aria-label="수정"
+            title="수정"
+            ${canRenameActiveNode ? "" : "disabled"}
+          >
+            <span class="panel-action-icon icon-edit" aria-hidden="true"></span>
+          </button>
+          <button
+            class="post-panel-icon-button"
+            type="button"
+            data-panel-import
+            aria-label="불러오기"
+            title="불러오기"
+          >
+            <span class="panel-action-icon icon-import" aria-hidden="true"></span>
+          </button>
+          <button
+            class="post-panel-icon-button"
+            type="button"
+            data-panel-export
+            aria-label="내보내기"
+            title="내보내기"
+          >
+            <span class="panel-action-icon icon-export" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
       <div class="post-panel-body ${isEmpty ? "is-empty" : ""}">
         ${content}
@@ -872,17 +985,17 @@ async function initMyBlog() {
 
 els.toggle.addEventListener("click", toggleSidebar);
 
-els.selectionToggle.addEventListener("click", () => {
-  state.selectionMode = !state.selectionMode;
-  state.selectedIds.clear();
-  render();
-});
+els.selectionToggle.addEventListener("click", toggleSelectionMode);
 
 els.categoryAdd.addEventListener("click", addCategory);
 
 els.deleteSelected.addEventListener("click", deleteSelectedNodes);
 
 els.writeButton.addEventListener("click", openEditor);
+
+els.importInput.addEventListener("change", (event) => {
+  importBlogDataFile(event.target.files?.[0]);
+});
 
 els.nav.addEventListener("click", (event) => {
   const treeToggle = event.target.closest("[data-tree-toggle]");
@@ -952,6 +1065,33 @@ els.nav.addEventListener("keydown", (event) => {
 });
 
 els.list.addEventListener("click", (event) => {
+  const selectionButton = event.target.closest("[data-panel-selection-toggle]");
+  if (selectionButton) {
+    toggleSelectionMode();
+    return;
+  }
+
+  const editButton = event.target.closest("[data-panel-edit]");
+  if (editButton) {
+    const activeNode = getActiveNode();
+    if (activeNode && isSelectableNode(activeNode)) {
+      startInlineRename(activeNode.id);
+    } else {
+      els.status.textContent = "수정할 카테고리나 폴더를 선택해주세요.";
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-panel-import]")) {
+    triggerBlogImport();
+    return;
+  }
+
+  if (event.target.closest("[data-panel-export]")) {
+    exportBlogData();
+    return;
+  }
+
   const toggleButton = event.target.closest("[data-panel-folder-toggle]");
   if (toggleButton) {
     const id = toggleButton.dataset.panelFolderToggle;

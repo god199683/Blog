@@ -65,6 +65,17 @@ const STANDARD_COLORS = [
   "#7030a0",
 ];
 
+const ALLOWED_EDITOR_STYLES = new Set([
+  "background-color",
+  "color",
+  "font-family",
+  "font-size",
+  "font-style",
+  "font-weight",
+  "text-align",
+  "text-decoration",
+]);
+
 function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -493,6 +504,14 @@ function cleanEditorHtml(html = "") {
     node.remove();
   });
   template.content.querySelectorAll("*").forEach((node) => {
+    const safeStyles = [];
+
+    ALLOWED_EDITOR_STYLES.forEach((property) => {
+      const value = node.style.getPropertyValue(property).trim();
+      if (!value || /expression|javascript:|url\s*\(/i.test(value)) return;
+      safeStyles.push(`${property}: ${value}`);
+    });
+
     [...node.attributes].forEach((attr) => {
       const name = attr.name.toLowerCase();
       const value = attr.value.trim().toLowerCase();
@@ -503,6 +522,10 @@ function cleanEditorHtml(html = "") {
         node.removeAttribute(attr.name);
       }
     });
+
+    if (safeStyles.length > 0) {
+      node.setAttribute("style", safeStyles.join("; "));
+    }
   });
   return template.innerHTML.trim();
 }
@@ -611,10 +634,19 @@ function saveCurrentSelection() {
 
 function restoreEditorSelection() {
   els.content.focus();
-  if (!savedEditorRange) return;
   const selection = window.getSelection();
   selection.removeAllRanges();
-  selection.addRange(savedEditorRange);
+
+  if (savedEditorRange) {
+    selection.addRange(savedEditorRange);
+    return;
+  }
+
+  const range = document.createRange();
+  range.selectNodeContents(els.content);
+  range.collapse(false);
+  selection.addRange(range);
+  savedEditorRange = range.cloneRange();
 }
 
 function applyInlineStyle(property, value) {
@@ -880,6 +912,7 @@ els.form.addEventListener("input", () => {
 
 els.content.addEventListener("mouseup", saveCurrentSelection);
 els.content.addEventListener("keyup", saveCurrentSelection);
+document.addEventListener("selectionchange", saveCurrentSelection);
 
 els.category.addEventListener("change", () => {
   renderEditorFolderOptions(els.folder.value);
