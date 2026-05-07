@@ -349,7 +349,7 @@ button {
 }
 
 .my-sidebar-title .section-kicker {
-  font-size: 1.32rem;
+  font-size: 0.88rem;
 }
 
 .sidebar-toggle {
@@ -464,7 +464,7 @@ button {
 .tree-panel-title {
   overflow: hidden;
   color: var(--sky-dark);
-  font-size: 1.32rem;
+  font-size: 0.88rem;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -588,7 +588,7 @@ button {
 
 .tree-node-label {
   overflow: hidden;
-  font-size: 1.24rem;
+  font-size: 0.83rem;
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -607,7 +607,7 @@ button {
   border-radius: 6px;
   background: #fff;
   color: var(--ink);
-  font-size: 1.24rem;
+  font-size: 0.83rem;
   font-weight: 850;
   outline: none;
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
@@ -818,7 +818,7 @@ button {
   max-width: none;
   margin: 0;
   color: var(--sky-dark);
-  font-size: 1.32rem;
+  font-size: 0.88rem;
   font-weight: 900;
   line-height: 1.15;
 }
@@ -1015,7 +1015,7 @@ button {
 
 .panel-folder-name {
   overflow: hidden;
-  font-size: 1.24rem;
+  font-size: 0.83rem;
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1072,7 +1072,10 @@ button {
   font-size: 0.5rem;
 }
 
-.my-blog-main .my-sidebar-title .section-kicker,
+.my-blog-main .my-sidebar-title .section-kicker {
+  font-size: 0.88rem;
+}
+
 .my-blog-main .my-post-header h1 {
   font-size: 1.32rem;
 }
