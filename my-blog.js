@@ -30,6 +30,7 @@ const els = {
   toggle: document.querySelector("[data-sidebar-toggle]"),
   treePanel: document.querySelector("[data-tree-panel]"),
   treePanelToggle: document.querySelector("[data-tree-panel-toggle]"),
+  categoryAdd: document.querySelector("[data-add-category]"),
   selectionToggle: document.querySelector("[data-selection-toggle]"),
   deleteSelected: document.querySelector("[data-delete-selected]"),
   nav: document.querySelector("#my-sidebar-nav"),
@@ -312,12 +313,25 @@ function buildTree() {
   state.hiddenCategoryIds = new Set(stored.hiddenCategoryIds);
 
   const roots = [createAllNode(storedById.get(ALL_FILTER))];
+  const categoryIds = new Set();
 
   getCategories().forEach((category) => {
     const id = categoryId(category);
+    categoryIds.add(id);
     if (state.hiddenCategoryIds.has(id)) return;
     roots.push(createCategoryNode(category, storedById.get(id)));
   });
+
+  stored.nodes
+    .map(cloneNode)
+    .filter(
+      (node) =>
+        node.type === "category" &&
+        node.id !== ALL_FILTER &&
+        !categoryIds.has(node.id) &&
+        !state.hiddenCategoryIds.has(node.id)
+    )
+    .forEach((node) => roots.push(node));
 
   state.tree = roots;
 
@@ -716,9 +730,13 @@ function renderTreePanelState() {
   els.treePanelToggle.setAttribute("aria-label", state.treePanelOpen ? "관리 영역 접기" : "관리 영역 펼치기");
   els.treePanelToggle.textContent = state.treePanelOpen ? "▾" : "▸";
   els.selectionToggle.classList.toggle("is-active", state.selectionMode);
-  els.selectionToggle.textContent = state.selectionMode ? "선택 해제" : "선택 모드";
+  els.selectionToggle.textContent = state.selectionMode ? "✓" : "□";
+  els.selectionToggle.setAttribute("aria-label", state.selectionMode ? "선택 해제" : "선택 모드");
+  els.selectionToggle.title = state.selectionMode ? "선택 해제" : "선택 모드";
   els.deleteSelected.disabled = state.selectedIds.size === 0 || state.deleteBusy;
-  els.deleteSelected.textContent = state.deleteBusy ? "삭제 중" : "삭제";
+  els.deleteSelected.textContent = state.deleteBusy ? "…" : "×";
+  els.deleteSelected.setAttribute("aria-label", state.deleteBusy ? "삭제 중" : "삭제");
+  els.deleteSelected.title = state.deleteBusy ? "삭제 중" : "삭제";
 }
 
 function renderSidebar() {
@@ -881,6 +899,33 @@ function addFolder(parentId) {
   render();
 }
 
+function addCategory() {
+  const name = window.prompt("새 카테고리 이름을 입력해주세요.", "새 카테고리");
+  const label = name?.trim();
+  if (!label) return;
+
+  const id = categoryId(label);
+  state.hiddenCategoryIds.delete(id);
+
+  if (findNode(state.tree, id)) {
+    state.activeNodeId = id;
+    saveTree();
+    render();
+    return;
+  }
+
+  state.tree.push({
+    id,
+    type: "category",
+    label,
+    filterCategory: label,
+    children: [],
+  });
+  state.activeNodeId = id;
+  saveTree();
+  render();
+}
+
 function startInlineRename(nodeId) {
   state.editingNodeId = nodeId;
   renderSidebar();
@@ -911,7 +956,11 @@ function saveInlineRename(nodeId, value) {
     return;
   }
 
+  const previousFilter = found.node.filterCategory || found.node.label;
   found.node.label = label;
+  if (found.node.type === "category" && !state.posts.some((post) => post.category === previousFilter)) {
+    found.node.filterCategory = label;
+  }
   saveTree();
   render();
 }
@@ -1079,6 +1128,8 @@ els.selectionToggle.addEventListener("click", () => {
   state.selectedIds.clear();
   render();
 });
+
+els.categoryAdd.addEventListener("click", addCategory);
 
 els.deleteSelected.addEventListener("click", deleteSelectedNodes);
 
