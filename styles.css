@@ -760,23 +760,18 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  min-height: 2.5rem;
-  padding: 0.55rem 0.85rem;
+  min-height: 2.75rem;
+  padding: 0.62rem 0.85rem;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.96);
-}
-
-.post-panel-kicker {
-  margin: 0 0 0.14rem;
-  color: var(--sky-dark);
-  font-size: 0.48rem;
-  font-weight: 900;
 }
 
 .post-panel-head h2 {
   max-width: none;
   margin: 0;
-  font-size: 0.78rem;
+  color: var(--sky-dark);
+  font-size: 1.05rem;
+  font-weight: 900;
   line-height: 1.15;
 }
 

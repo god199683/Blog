@@ -277,12 +277,6 @@ function getActivePanelTitle() {
   return node.label || "전체 카테고리";
 }
 
-function getActivePanelType() {
-  const node = getActiveNode();
-  if (!node || node.id === ALL_FILTER) return "전체";
-  return node.type === "folder" ? "폴더" : "카테고리";
-}
-
 function isSelectableNode(node) {
   return node.id !== ALL_FILTER;
 }
@@ -338,10 +332,7 @@ function renderPostPanel(content, isEmpty = false) {
   return `
     <section class="post-panel">
       <div class="post-panel-head">
-        <div>
-          <p class="post-panel-kicker">${escapeHtml(getActivePanelType())}</p>
-          <h2>${escapeHtml(getActivePanelTitle())}</h2>
-        </div>
+        <h2>${escapeHtml(getActivePanelTitle())}</h2>
       </div>
       <div class="post-panel-body ${isEmpty ? "is-empty" : ""}">
         ${content}
