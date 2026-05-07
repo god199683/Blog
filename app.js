@@ -59,6 +59,34 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#039;");
 }
 
+function cleanPostHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
+    node.remove();
+  });
+  template.content.querySelectorAll("*").forEach((node) => {
+    [...node.attributes].forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim().toLowerCase();
+      if (name.startsWith("on") || name === "style") {
+        node.removeAttribute(attr.name);
+      }
+      if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
+        node.removeAttribute(attr.name);
+      }
+    });
+  });
+  return template.innerHTML.trim();
+}
+
+function renderPostBody(body = "") {
+  if (/<[a-z][\s\S]*>/i.test(body)) {
+    return cleanPostHtml(body);
+  }
+  return `<p>${escapeHtml(body)}</p>`;
+}
+
 function normalizePost(raw, index) {
   const title = raw.title || raw.name || DEFAULT_POST.title;
   const excerpt =
@@ -272,7 +300,7 @@ function openPost(id) {
     <div class="dialog-body">
       <p class="meta-line">${escapeHtml(post.category)} · ${formatDate(post.published_at)} · ${escapeHtml(post.author)}</p>
       <h2>${escapeHtml(post.title)}</h2>
-      <p>${escapeHtml(post.body)}</p>
+      ${renderPostBody(post.body)}
     </div>
   `;
   els.dialog.showModal();
