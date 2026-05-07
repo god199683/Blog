@@ -6,6 +6,7 @@ const ALL_FILTER = "all";
 const DEFAULT_CATEGORY = "전체";
 const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
+const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 
 const state = {
   id: "",
@@ -26,6 +27,7 @@ const els = {
   content: document.querySelector("[data-editor-content]"),
   toolbar: document.querySelector("[data-editor-toolbar]"),
   fontFamily: document.querySelector("[data-editor-font-family]"),
+  addFont: document.querySelector("[data-editor-add-font]"),
   fontSize: document.querySelector("[data-editor-font-size]"),
   draft: document.querySelector("[data-editor-draft]"),
   saveState: document.querySelector("[data-editor-save-state]"),
@@ -41,6 +43,8 @@ let savedEditorRange = null;
 let colorDialogTarget = "foreground";
 let colorDialogValue = "#000000";
 let colorDialogPointerActive = false;
+
+const BUILTIN_EDITOR_FONTS = ["a시네마", "Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
 
 const THEME_COLOR_COLUMNS = [
   ["#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#808080", "#595959"],
@@ -488,6 +492,47 @@ function getEditorDefaults() {
 
 function editorDraftKey() {
   return `${EDITOR_DRAFT_PREFIX}${state.id || "guest"}`;
+}
+
+function editorFontKey() {
+  return `${EDITOR_FONT_PREFIX}${state.id || "guest"}`;
+}
+
+function normalizeFontName(value = "") {
+  return String(value)
+    .trim()
+    .replace(/[<>;{}]/g, "")
+    .slice(0, 80);
+}
+
+function getStoredEditorFonts() {
+  const fonts = safeParseJson(localStorage.getItem(editorFontKey()), []);
+  return Array.isArray(fonts) ? fonts.map(normalizeFontName).filter(Boolean) : [];
+}
+
+function saveStoredEditorFonts(fonts) {
+  localStorage.setItem(editorFontKey(), JSON.stringify([...new Set(fonts.map(normalizeFontName).filter(Boolean))]));
+}
+
+function getEditorFonts() {
+  return [...new Set([...BUILTIN_EDITOR_FONTS, ...getStoredEditorFonts()])];
+}
+
+function renderEditorFontOptions(selectedFont = "") {
+  const selected = selectedFont || els.fontFamily.value || BUILTIN_EDITOR_FONTS[0];
+  els.fontFamily.innerHTML = getEditorFonts()
+    .map((font) => `<option value="${escapeHtml(font)}" ${font === selected ? "selected" : ""}>${escapeHtml(font)}</option>`)
+    .join("");
+}
+
+function addEditorFont() {
+  const name = normalizeFontName(window.prompt("추가할 글씨체 이름을 입력해주세요.", ""));
+  if (!name) return;
+
+  const storedFonts = getStoredEditorFonts();
+  saveStoredEditorFonts([...storedFonts, name]);
+  renderEditorFontOptions(name);
+  applyInlineStyle("fontFamily", name);
 }
 
 function getCategoryOptions() {
@@ -1244,6 +1289,7 @@ async function initEditor() {
   els.content.innerHTML = draft?.body || "";
   els.published.checked = draft?.published ?? true;
   setEditorSaveState(draft ? "임시 저장 불러옴" : "임시 저장 준비");
+  renderEditorFontOptions();
   renderColorMenus();
   setEditorMessage("");
   syncEditorStats();
@@ -1286,6 +1332,8 @@ els.visibilityButtons.forEach((button) => {
 els.fontFamily.addEventListener("change", (event) => {
   applyInlineStyle("fontFamily", event.target.value);
 });
+
+els.addFont.addEventListener("click", addEditorFont);
 
 els.fontSize.addEventListener("change", applyFontSizeFromInput);
 

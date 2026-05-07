@@ -1644,6 +1644,26 @@ h3 {
   padding: 0 0.45rem;
 }
 
+.editor-add-font-button {
+  display: inline-grid;
+  width: 1.85rem;
+  height: 1.85rem;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.editor-add-font-button:hover,
+.editor-add-font-button:focus-visible {
+  border-color: var(--sky);
+  background: var(--surface-soft);
+}
+
 .editor-size-select {
   width: 4.2rem;
   padding: 0 0.35rem;
