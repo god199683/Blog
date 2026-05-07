@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Blog 로그인">
+    <title>로그인 | Blog</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Blog home">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>Blog</span>
+      </a>
+      <div class="auth-actions" aria-label="계정 메뉴">
+        <a class="auth-button auth-login" href="./login.html" aria-current="page">로그인</a>
+        <a class="auth-button auth-signup" href="./signup.html">회원가입</a>
+      </div>
+    </header>
+
+    <main class="auth-main">
+      <section class="auth-shell" aria-labelledby="login-title">
+        <div class="auth-copy">
+          <p class="eyebrow">Account</p>
+          <h1 id="login-title">로그인</h1>
+          <p class="lede">아이디와 비밀번호로 블로그에 들어갑니다.</p>
+        </div>
+
+        <form class="auth-card" data-auth-form data-mode="login">
+          <div class="form-field">
+            <label for="user-id">아이디</label>
+            <input id="user-id" name="user-id" type="text" autocomplete="username" required>
+          </div>
+          <div class="form-field">
+            <label for="password">비밀번호</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="auth-submit" type="submit">로그인</button>
+          <p class="auth-message" data-auth-message role="status" aria-live="polite"></p>
+          <p class="auth-link">계정이 없나요? <a href="./signup.html">회원가입</a></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="./auth.js" defer></script>
+  </body>
+</html>

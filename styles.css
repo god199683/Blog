@@ -99,6 +99,9 @@ button {
 }
 
 .auth-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 2.45rem;
   padding: 0 1rem;
   border: 1px solid var(--line);
@@ -120,6 +123,100 @@ button {
   border-color: var(--sky-dark);
   background: var(--sky-dark);
   color: #fff;
+}
+
+.auth-main {
+  width: min(1040px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.auth-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 440px);
+  gap: clamp(1.5rem, 5vw, 4rem);
+  align-items: center;
+  min-height: calc(100svh - 5.5rem);
+  padding: clamp(2rem, 8vw, 6rem) 0;
+}
+
+.auth-copy h1 {
+  max-width: 8ch;
+}
+
+.auth-card {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.form-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.form-field label {
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.form-field input {
+  width: 100%;
+  min-height: 3.15rem;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+}
+
+.form-field input:focus {
+  border-color: var(--sky);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.16);
+}
+
+.field-help,
+.auth-message,
+.auth-link {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.auth-submit {
+  min-height: 3.15rem;
+  border: 1px solid var(--sky-dark);
+  border-radius: 8px;
+  background: var(--sky-dark);
+  color: #fff;
+  font-weight: 900;
+}
+
+.auth-submit:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.auth-message:empty {
+  display: none;
+}
+
+.auth-message[data-type="success"] {
+  color: #047857;
+}
+
+.auth-message[data-type="error"] {
+  color: #b42318;
+}
+
+.auth-link a {
+  color: var(--sky-dark);
+  font-weight: 850;
 }
 
 main {
@@ -551,11 +648,13 @@ h3 {
 
 @media (max-width: 900px) {
   .hero-section,
-  .content-layout {
+  .content-layout,
+  .auth-shell {
     grid-template-columns: 1fr;
   }
 
-  .hero-section {
+  .hero-section,
+  .auth-shell {
     min-height: auto;
   }
 
