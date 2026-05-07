@@ -46,6 +46,24 @@
           </div>
         </section>
         <nav class="my-sidebar-nav" id="my-sidebar-nav" aria-label="내 글 트리"></nav>
+        <section class="trash-panel" data-trash-panel>
+          <div class="trash-panel-head">
+            <button type="button" class="trash-title" data-trash-toggle aria-expanded="true">
+              <span class="trash-title-icon" aria-hidden="true"></span>
+              <span>휴지통</span>
+              <span class="trash-count" data-trash-count>0</span>
+            </button>
+          </div>
+          <div class="trash-panel-body" data-trash-body>
+            <div class="trash-actions">
+              <button type="button" data-trash-selection-toggle title="선택 모드">선택</button>
+              <button type="button" data-trash-restore title="복원" disabled>복원</button>
+              <button type="button" data-trash-delete-selected title="선택항목 삭제" disabled>삭제</button>
+              <button type="button" data-trash-empty title="비우기" disabled>비우기</button>
+            </div>
+            <div class="trash-list" data-trash-list></div>
+          </div>
+        </section>
       </aside>
 
       <section class="my-post-area" aria-labelledby="my-post-title">

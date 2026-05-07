@@ -26,6 +26,7 @@ create table if not exists public.blog_trees (
   tree jsonb not null default '[]'::jsonb,
   hidden_category_ids text[] not null default '{}',
   tree_collapsed_ids text[] not null default '{}',
+  trash jsonb not null default '[]'::jsonb,
   updated_at timestamptz default now()
 );
 
@@ -51,6 +52,7 @@ alter table public.blog_trees add column if not exists login_id text;
 alter table public.blog_trees add column if not exists tree jsonb not null default '[]'::jsonb;
 alter table public.blog_trees add column if not exists hidden_category_ids text[] not null default '{}';
 alter table public.blog_trees add column if not exists tree_collapsed_ids text[] not null default '{}';
+alter table public.blog_trees add column if not exists trash jsonb not null default '[]'::jsonb;
 alter table public.blog_trees add column if not exists updated_at timestamptz default now();
 
 do $$

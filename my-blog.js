@@ -18,6 +18,10 @@ const state = {
   selectedIds: new Set(),
   panelSelectionMode: false,
   panelSelectedIds: new Set(),
+  trashItems: [],
+  trashSelectionMode: false,
+  selectedTrashIds: new Set(),
+  trashCollapsed: false,
   treeCollapsedIds: new Set(),
   panelCollapsedIds: new Set(),
   deleteBusy: false,
@@ -39,6 +43,15 @@ const els = {
   list: document.querySelector("#my-post-list"),
   writeButton: document.querySelector("[data-write-post]"),
   importInput: document.querySelector("[data-blog-import]"),
+  trashPanel: document.querySelector("[data-trash-panel]"),
+  trashToggle: document.querySelector("[data-trash-toggle]"),
+  trashBody: document.querySelector("[data-trash-body]"),
+  trashCount: document.querySelector("[data-trash-count]"),
+  trashList: document.querySelector("[data-trash-list]"),
+  trashSelectionToggle: document.querySelector("[data-trash-selection-toggle]"),
+  trashRestore: document.querySelector("[data-trash-restore]"),
+  trashDeleteSelected: document.querySelector("[data-trash-delete-selected]"),
+  trashEmpty: document.querySelector("[data-trash-empty]"),
 };
 
 function escapeHtml(value = "") {
@@ -201,6 +214,36 @@ async function insertPostToSupabase(payload) {
   return Array.isArray(data) ? data[0] : data;
 }
 
+async function updatePostInSupabase(id, payload) {
+  const session = getSession();
+
+  if (!session?.access_token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
+  endpoint.searchParams.set("id", `eq.${id}`);
+
+  const response = await fetch(endpoint, {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => []);
+
+  if (!response.ok) {
+    const message = data?.message || data?.hint || data?.details || "Supabase에서 글을 수정하지 못했습니다.";
+    throw new Error(message);
+  }
+
+  return Array.isArray(data) ? data[0] : data;
+}
+
 function createId(prefix = "folder") {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -232,16 +275,48 @@ function cloneNode(node) {
   };
 }
 
+function cloneTrashPost(post) {
+  return {
+    id: post.id,
+    title: post.title,
+    excerpt: post.excerpt || "",
+    category: post.category || DEFAULT_CATEGORY,
+    folder: post.folder || "",
+    folder_id: post.folder_id || "",
+    folder_name: post.folder_name || "",
+    folder_path: post.folder_path || "",
+    user_id: post.user_id || "",
+    login_id: post.login_id || "",
+    body: post.body || "",
+    cover_image: post.cover_image || "",
+    author: post.author || "",
+    published_at: post.published_at || "",
+    reading_time: post.reading_time || "",
+  };
+}
+
+function normalizeTrashItem(item = {}) {
+  return {
+    id: item.id || createId("trash"),
+    kind: item.kind === "post" ? "post" : "node",
+    label: item.label || item.node?.label || item.posts?.[0]?.title || "삭제된 항목",
+    deletedAt: item.deletedAt || new Date().toISOString(),
+    node: item.node ? cloneNode(item.node) : null,
+    posts: Array.isArray(item.posts) ? item.posts.map((post, index) => normalizePost(post, index)) : [],
+  };
+}
+
 function getStoredTreeData() {
   const parsed = safeParseJson(localStorage.getItem(treeStorageKey()), []);
   if (Array.isArray(parsed)) {
-    return { nodes: parsed, hiddenCategoryIds: [], treeCollapsedIds: [] };
+    return { nodes: parsed, hiddenCategoryIds: [], treeCollapsedIds: [], trashItems: [] };
   }
 
   return {
     nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
     hiddenCategoryIds: Array.isArray(parsed.hiddenCategoryIds) ? parsed.hiddenCategoryIds : [],
     treeCollapsedIds: Array.isArray(parsed.treeCollapsedIds) ? parsed.treeCollapsedIds : [],
+    trashItems: Array.isArray(parsed.trashItems) ? parsed.trashItems : [],
   };
 }
 
@@ -249,7 +324,8 @@ function hasTreeData(data) {
   return Boolean(
     data?.nodes?.some((node) => node.id !== ALL_FILTER || (node.children || []).length > 0) ||
       data?.hiddenCategoryIds?.length ||
-      data?.treeCollapsedIds?.length
+      data?.treeCollapsedIds?.length ||
+      data?.trashItems?.length
   );
 }
 
@@ -258,6 +334,7 @@ function normalizeTreeData(data) {
     nodes: Array.isArray(data?.nodes) ? data.nodes.map(cloneNode) : [],
     hiddenCategoryIds: Array.isArray(data?.hiddenCategoryIds) ? data.hiddenCategoryIds : [],
     treeCollapsedIds: Array.isArray(data?.treeCollapsedIds) ? data.treeCollapsedIds : [],
+    trashItems: Array.isArray(data?.trashItems) ? data.trashItems.map(normalizeTrashItem) : [],
   };
 }
 
@@ -271,7 +348,7 @@ async function fetchTreeDataFromSupabase() {
   if (!session?.access_token || !session.user?.id) return null;
 
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_trees`);
-  endpoint.searchParams.set("select", "tree,hidden_category_ids,tree_collapsed_ids");
+  endpoint.searchParams.set("select", "tree,hidden_category_ids,tree_collapsed_ids,trash");
   endpoint.searchParams.set("user_id", `eq.${session.user.id}`);
   endpoint.searchParams.set("limit", "1");
 
@@ -292,6 +369,7 @@ async function fetchTreeDataFromSupabase() {
     nodes: row.tree,
     hiddenCategoryIds: row.hidden_category_ids,
     treeCollapsedIds: row.tree_collapsed_ids,
+    trashItems: row.trash,
   });
 }
 
@@ -317,6 +395,7 @@ async function saveTreeDataToSupabase(data) {
       tree: normalized.nodes,
       hidden_category_ids: normalized.hiddenCategoryIds,
       tree_collapsed_ids: normalized.treeCollapsedIds,
+      trash: normalized.trashItems,
       updated_at: new Date().toISOString(),
     }),
   }).catch(() => {});
@@ -346,6 +425,7 @@ function saveTree() {
     nodes: state.tree,
     hiddenCategoryIds: [...state.hiddenCategoryIds],
     treeCollapsedIds: [...state.treeCollapsedIds],
+    trashItems: state.trashItems,
   });
   state.storedTreeData = data;
   saveTreeDataToLocal(data);
@@ -361,7 +441,7 @@ function flattenNodes(nodes, map = new Map()) {
 }
 
 function getCategories() {
-  return [...new Set(state.posts.map((post) => post.category).filter(Boolean))].filter(
+  return [...new Set(getVisiblePosts().map((post) => post.category).filter(Boolean))].filter(
     (category) => category !== DEFAULT_CATEGORY
   );
 }
@@ -391,6 +471,7 @@ function buildTree() {
   const storedById = flattenNodes(stored.nodes.map(cloneNode));
   state.hiddenCategoryIds = new Set(stored.hiddenCategoryIds);
   state.treeCollapsedIds = new Set(stored.treeCollapsedIds);
+  state.trashItems = Array.isArray(stored.trashItems) ? stored.trashItems.map(normalizeTrashItem) : [];
 
   const roots = [createAllNode(storedById.get(ALL_FILTER))];
   const categoryIds = new Set();
@@ -452,13 +533,29 @@ function postMatchesFolder(post, node) {
     .some((value) => targets.includes(String(value).toLowerCase()));
 }
 
+function getTrashPostIdSet(items = state.trashItems) {
+  const ids = new Set();
+  items.forEach((item) => {
+    (item.posts || []).forEach((post) => {
+      if (post.id) ids.add(String(post.id));
+    });
+  });
+  return ids;
+}
+
+function getVisiblePosts() {
+  const trashIds = getTrashPostIdSet();
+  return state.posts.filter((post) => !trashIds.has(String(post.id)));
+}
+
 function getNodePosts(node) {
-  if (!node || node.type === "all") return state.posts;
+  const posts = getVisiblePosts();
+  if (!node || node.type === "all") return posts;
   if (node.type === "category") {
-    return state.posts.filter((post) => post.category === node.filterCategory);
+    return posts.filter((post) => post.category === node.filterCategory);
   }
 
-  return state.posts.filter((post) => postMatchesFolder(post, node));
+  return posts.filter((post) => postMatchesFolder(post, node));
 }
 
 function getActiveNode() {
@@ -1201,12 +1298,14 @@ function renderTreePanelState() {
 function renderSidebar() {
   els.nav.innerHTML = renderTree();
   renderTreePanelState();
+  renderTrashPanel();
 }
 
 function renderPostPanel(content, isEmpty = false) {
   const activeNode = getActiveNode();
   const canRenameActiveNode = activeNode && isSelectableNode(activeNode);
   const selectionLabel = state.panelSelectionMode ? "선택 해제" : "선택 모드";
+  const canDeletePanelSelection = state.panelSelectionMode && state.panelSelectedIds.size > 0;
 
   return `
     <section class="post-panel ${state.panelSelectionMode ? "is-panel-selecting" : ""}">
@@ -1222,6 +1321,16 @@ function renderPostPanel(content, isEmpty = false) {
             title="${selectionLabel}"
           >
             <span class="panel-action-icon icon-select" aria-hidden="true"></span>
+          </button>
+          <button
+            class="post-panel-icon-button"
+            type="button"
+            data-panel-delete-selected
+            aria-label="선택항목 삭제"
+            title="선택항목 삭제"
+            ${canDeletePanelSelection ? "" : "disabled"}
+          >
+            <span class="panel-action-icon icon-delete" aria-hidden="true"></span>
           </button>
           <button
             class="post-panel-icon-button"
@@ -1266,6 +1375,12 @@ function renderPostPanel(content, isEmpty = false) {
   `;
 }
 
+function getPostLocationText(post) {
+  if (post.folder_path) return post.folder_path;
+  const parts = [post.category || DEFAULT_CATEGORY, post.folder_name || post.folder || ""].filter(Boolean);
+  return parts.join(" / ") || DEFAULT_CATEGORY;
+}
+
 function renderPostItems(posts) {
   return posts
     .map(
@@ -1280,7 +1395,7 @@ function renderPostItems(posts) {
         <article class="my-post-item ${isSelected ? "is-selected" : ""}" data-panel-post-select="${escapeHtml(key)}">
           ${checkbox}
           <div class="my-post-item-content">
-            <p class="meta-line">${escapeHtml(post.category)} · ${formatDate(post.published_at)}</p>
+            <p class="post-location">${escapeHtml(getPostLocationText(post))}</p>
             <h3>${escapeHtml(post.title)}</h3>
             ${post.excerpt ? `<p>${escapeHtml(post.excerpt)}</p>` : ""}
           </div>
@@ -1517,6 +1632,15 @@ function getSelectedNodes(nodes = state.tree) {
   });
 }
 
+function getTopLevelSelectedNodes(nodes = state.tree) {
+  return nodes.flatMap((node) => {
+    if (state.selectedIds.has(node.id) && isSelectableNode(node)) {
+      return [node];
+    }
+    return getTopLevelSelectedNodes(node.children || []);
+  });
+}
+
 function getNodeDeletionPosts(node) {
   const posts = getNodePosts(node);
   const childPosts = (node.children || []).flatMap(getNodeDeletionPosts);
@@ -1527,43 +1651,353 @@ function getNodeDeletionPosts(node) {
   return [...byId.values()];
 }
 
-async function deleteSelectedNodes() {
+function createTrashItemFromNode(node) {
+  return normalizeTrashItem({
+    id: createId("trash-node"),
+    kind: "node",
+    label: node.label,
+    deletedAt: new Date().toISOString(),
+    node: cloneNode(node),
+    posts: getNodeDeletionPosts(node).map(cloneTrashPost),
+  });
+}
+
+function createTrashItemFromPost(post) {
+  return normalizeTrashItem({
+    id: createId("trash-post"),
+    kind: "post",
+    label: post.title,
+    deletedAt: new Date().toISOString(),
+    node: null,
+    posts: [cloneTrashPost(post)],
+  });
+}
+
+function addTrashItems(items) {
+  state.trashItems = [...items.map(normalizeTrashItem), ...state.trashItems];
+  state.selectedTrashIds.clear();
+}
+
+function moveSelectedNodesToTrash() {
   if (state.selectedIds.size === 0) return;
 
-  const selectedNodes = getSelectedNodes();
-  const postsToDelete = selectedNodes.flatMap(getNodeDeletionPosts);
-  const postIds = [...new Set(postsToDelete.map((post) => String(post.id)).filter(Boolean))];
-  const confirmed = window.confirm(
-    postIds.length > 0
-      ? `선택한 항목과 연결된 글 ${postIds.length}개를 Supabase에서도 완전히 삭제할까요?`
-      : "선택한 항목을 삭제할까요?"
-  );
+  const selectedNodes = getTopLevelSelectedNodes();
+  if (selectedNodes.length === 0) return;
+
+  addTrashItems(selectedNodes.map(createTrashItemFromNode));
+  state.tree = removeSelectedNodes(state.tree);
+  state.selectedIds.forEach((id) => state.panelCollapsedIds.delete(id));
+  state.selectedIds.forEach((id) => state.treeCollapsedIds.delete(id));
+  state.selectedIds.clear();
+  state.panelSelectedIds.clear();
+
+  if (!findNode(state.tree, state.activeNodeId)) {
+    state.activeNodeId = ALL_FILTER;
+  }
+
+  saveTree();
+  render();
+  els.status.textContent = "선택한 항목을 휴지통으로 이동했습니다.";
+}
+
+function removeNodeById(nodes, nodeId) {
+  return nodes
+    .filter((node) => {
+      if (node.id === nodeId && isSelectableNode(node)) {
+        if (node.type === "category") state.hiddenCategoryIds.add(node.id);
+        return false;
+      }
+      return true;
+    })
+    .map((node) => ({
+      ...node,
+      children: removeNodeById(node.children || [], nodeId),
+    }));
+}
+
+function getSelectedPanelKeysByType(type) {
+  return [...state.panelSelectedIds]
+    .filter((key) => key.startsWith(`${type}:`))
+    .map((key) => key.slice(type.length + 1));
+}
+
+function movePanelSelectedToTrash() {
+  if (state.panelSelectedIds.size === 0) return;
+
+  const selectedFolderIds = getSelectedPanelKeysByType("folder");
+  const selectedPostIds = getSelectedPanelKeysByType("post");
+  const movedItems = [];
+  const movedPostIds = new Set();
+
+  selectedFolderIds.forEach((nodeId) => {
+    const found = findNode(state.tree, nodeId);
+    if (!found || !isSelectableNode(found.node)) return;
+    const item = createTrashItemFromNode(found.node);
+    movedItems.push(item);
+    item.posts.forEach((post) => movedPostIds.add(String(post.id)));
+    state.tree = removeNodeById(state.tree, nodeId);
+    state.panelCollapsedIds.delete(nodeId);
+    state.treeCollapsedIds.delete(nodeId);
+  });
+
+  selectedPostIds.forEach((postId) => {
+    if (movedPostIds.has(String(postId))) return;
+    const post = getVisiblePosts().find((item) => String(item.id) === String(postId));
+    if (post) movedItems.push(createTrashItemFromPost(post));
+  });
+
+  if (movedItems.length === 0) return;
+
+  addTrashItems(movedItems);
+  state.panelSelectedIds.clear();
+  state.panelSelectionMode = false;
+
+  if (!findNode(state.tree, state.activeNodeId)) {
+    state.activeNodeId = ALL_FILTER;
+  }
+
+  saveTree();
+  render();
+  els.status.textContent = "선택한 본문 항목을 휴지통으로 이동했습니다.";
+}
+
+function deleteSelectedNodes() {
+  moveSelectedNodesToTrash();
+}
+
+function getTrashItemCount() {
+  return state.trashItems.length;
+}
+
+function renderTrashList() {
+  if (!els.trashList) return;
+  if (state.trashItems.length === 0) {
+    els.trashList.innerHTML = `<p class="trash-empty">비어 있음</p>`;
+    return;
+  }
+
+  els.trashList.innerHTML = state.trashItems
+    .map((item) => {
+      const isSelected = state.selectedTrashIds.has(item.id);
+      const typeLabel = item.kind === "post" ? "글" : item.node?.type === "category" ? "카테고리" : "폴더";
+      const countLabel = item.posts?.length ? `${item.posts.length}개 글` : "글 없음";
+      const check = state.trashSelectionMode
+        ? `<input class="trash-check" type="checkbox" data-trash-check="${escapeHtml(item.id)}" ${isSelected ? "checked" : ""} aria-label="${escapeHtml(item.label)} 선택">`
+        : "";
+
+      return `
+        <div class="trash-item ${isSelected ? "is-selected" : ""}" data-trash-item="${escapeHtml(item.id)}" role="button" tabindex="0">
+          ${check}
+          <span class="trash-item-main">
+            <span class="trash-item-title">${escapeHtml(item.label)}</span>
+            <span class="trash-item-meta">${typeLabel} · ${countLabel}</span>
+          </span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderTrashPanel() {
+  if (!els.trashPanel) return;
+  const count = getTrashItemCount();
+  els.trashPanel.classList.toggle("is-collapsed", state.trashCollapsed);
+  els.trashPanel.classList.toggle("is-selecting", state.trashSelectionMode);
+  els.trashBody.hidden = state.trashCollapsed;
+  els.trashToggle.setAttribute("aria-expanded", String(!state.trashCollapsed));
+  els.trashCount.textContent = String(count);
+  els.trashSelectionToggle.classList.toggle("is-active", state.trashSelectionMode);
+  els.trashRestore.disabled = state.selectedTrashIds.size === 0;
+  els.trashDeleteSelected.disabled = state.selectedTrashIds.size === 0 || state.deleteBusy;
+  els.trashEmpty.disabled = count === 0 || state.deleteBusy;
+  renderTrashList();
+}
+
+function getNodeDisplayPath(nodeId) {
+  const labels = getNodePathLabels(nodeId);
+  return labels.length ? labels.join(" / ") : DEFAULT_CATEGORY;
+}
+
+function getRestoreTargets() {
+  const targets = [{ id: ALL_FILTER, label: DEFAULT_CATEGORY, type: "all", node: state.tree[0] }];
+
+  function walk(nodes = state.tree) {
+    nodes.forEach((node) => {
+      if (node.id !== ALL_FILTER && (node.type === "category" || node.type === "folder")) {
+        targets.push({
+          id: node.id,
+          label: getNodeDisplayPath(node.id),
+          type: node.type,
+          node,
+        });
+      }
+      walk(node.children || []);
+    });
+  }
+
+  walk();
+  return targets;
+}
+
+function promptRestoreTarget() {
+  const targets = getRestoreTargets();
+  const message = [
+    "복원할 위치 번호를 입력하세요.",
+    "",
+    ...targets.map((target, index) => `${index + 1}. ${target.label}`),
+  ].join("\n");
+  const selected = window.prompt(message, "1");
+  if (!selected) return null;
+  const index = Number.parseInt(selected, 10) - 1;
+  return targets[index] || null;
+}
+
+function getCategoryForTarget(target) {
+  if (!target || target.id === ALL_FILTER) return DEFAULT_CATEGORY;
+  if (target.type === "category") return target.node.filterCategory || target.node.label || DEFAULT_CATEGORY;
+  const found = findNode(state.tree, target.id);
+  const categoryNode = found?.path.find((node) => node.type === "category");
+  return categoryNode?.filterCategory || categoryNode?.label || DEFAULT_CATEGORY;
+}
+
+function getFolderPayloadForTarget(target) {
+  if (!target || target.id === ALL_FILTER || target.type !== "folder") {
+    return {
+      category: getCategoryForTarget(target),
+      folder: null,
+      folder_id: null,
+      folder_name: null,
+      folder_path: null,
+    };
+  }
+
+  return {
+    category: getCategoryForTarget(target),
+    folder: target.node.label,
+    folder_id: target.node.id,
+    folder_name: target.node.label,
+    folder_path: getNodeDisplayPath(target.node.id),
+  };
+}
+
+function addRestoredNode(node, target) {
+  const restored = cloneNode(node);
+  if (restored.type === "category") {
+    state.hiddenCategoryIds.delete(restored.id);
+    const existing = findNode(state.tree, restored.id);
+    if (existing) {
+      existing.node.children = [...(existing.node.children || []), ...(restored.children || [])];
+    } else {
+      state.tree.push(restored);
+    }
+    return;
+  }
+
+  const parent = target?.node || state.tree[0];
+  parent.children = [...(parent.children || []), restored];
+}
+
+async function restoreTrashItems() {
+  if (state.selectedTrashIds.size === 0) return;
+  const target = promptRestoreTarget();
+  if (!target) return;
+
+  const selectedIds = new Set(state.selectedTrashIds);
+  const items = state.trashItems.filter((item) => selectedIds.has(item.id));
+  const folderPayload = getFolderPayloadForTarget(target);
+
+  try {
+    state.deleteBusy = true;
+    renderTrashPanel();
+
+    for (const item of items) {
+      if (item.node) {
+        addRestoredNode(item.node, target);
+      }
+
+      if (item.kind === "post") {
+        for (const post of item.posts || []) {
+          if (!post.id) continue;
+          const saved = await updatePostInSupabase(post.id, folderPayload);
+          const nextPost = normalizePost(saved || { ...post, ...folderPayload }, state.posts.length);
+          const existingIndex = state.posts.findIndex((entry) => String(entry.id) === String(post.id));
+          if (existingIndex >= 0) {
+            state.posts[existingIndex] = { ...state.posts[existingIndex], ...nextPost };
+          } else {
+            state.posts.unshift(nextPost);
+          }
+        }
+      }
+    }
+
+    state.trashItems = state.trashItems.filter((item) => !selectedIds.has(item.id));
+    state.selectedTrashIds.clear();
+    state.trashSelectionMode = false;
+    state.activeNodeId = target.id || ALL_FILTER;
+    saveTree();
+    render();
+    els.status.textContent = "선택한 항목을 복원했습니다.";
+  } catch (error) {
+    els.status.textContent = error.message || "복원하지 못했습니다.";
+  } finally {
+    state.deleteBusy = false;
+    renderTrashPanel();
+  }
+}
+
+async function permanentlyDeleteTrashItems(items) {
+  const postIds = [...getTrashPostIdSet(items)];
+  if (postIds.length > 0) {
+    await deletePostsFromSupabase(postIds);
+    const deletedIds = new Set(postIds);
+    state.posts = state.posts.filter((post) => !deletedIds.has(String(post.id)));
+  }
+}
+
+async function deleteSelectedTrashItems() {
+  if (state.selectedTrashIds.size === 0) return;
+  const selectedIds = new Set(state.selectedTrashIds);
+  const items = state.trashItems.filter((item) => selectedIds.has(item.id));
+  const confirmed = window.confirm("선택한 휴지통 항목을 Supabase에서도 완전히 삭제할까요?");
   if (!confirmed) return;
 
   try {
     state.deleteBusy = true;
-    renderTreePanelState();
-    const deletedCount = await deletePostsFromSupabase(postIds);
-    const deletedIdSet = new Set(postIds);
-    state.posts = state.posts.filter((post) => !deletedIdSet.has(String(post.id)));
-    state.tree = removeSelectedNodes(state.tree);
-    state.selectedIds.forEach((id) => state.panelCollapsedIds.delete(id));
-    state.selectedIds.forEach((id) => state.treeCollapsedIds.delete(id));
-    state.selectedIds.clear();
-    state.panelSelectedIds.clear();
-
-    if (!findNode(state.tree, state.activeNodeId)) {
-      state.activeNodeId = ALL_FILTER;
-    }
-
+    renderTrashPanel();
+    await permanentlyDeleteTrashItems(items);
+    state.trashItems = state.trashItems.filter((item) => !selectedIds.has(item.id));
+    state.selectedTrashIds.clear();
     saveTree();
     render();
-    els.status.textContent = deletedCount > 0 ? `${deletedCount}개 글을 완전히 삭제했습니다.` : "";
+    els.status.textContent = "선택한 휴지통 항목을 완전히 삭제했습니다.";
   } catch (error) {
-    els.status.textContent = error.message;
+    els.status.textContent = error.message || "삭제하지 못했습니다.";
   } finally {
     state.deleteBusy = false;
-    renderTreePanelState();
+    renderTrashPanel();
+  }
+}
+
+async function emptyTrash() {
+  if (state.trashItems.length === 0) return;
+  const confirmed = window.confirm("휴지통의 모든 항목을 Supabase에서도 완전히 삭제할까요?");
+  if (!confirmed) return;
+
+  try {
+    state.deleteBusy = true;
+    renderTrashPanel();
+    await permanentlyDeleteTrashItems(state.trashItems);
+    state.trashItems = [];
+    state.selectedTrashIds.clear();
+    state.trashSelectionMode = false;
+    saveTree();
+    render();
+    els.status.textContent = "휴지통을 비웠습니다.";
+  } catch (error) {
+    els.status.textContent = error.message || "휴지통을 비우지 못했습니다.";
+  } finally {
+    state.deleteBusy = false;
+    renderTrashPanel();
   }
 }
 
@@ -1686,6 +2120,11 @@ els.list.addEventListener("click", (event) => {
     return;
   }
 
+  if (event.target.closest("[data-panel-delete-selected]")) {
+    movePanelSelectedToTrash();
+    return;
+  }
+
   const editButton = event.target.closest("[data-panel-edit]");
   if (editButton) {
     const activeNode = getActiveNode();
@@ -1756,6 +2195,61 @@ els.list.addEventListener("change", (event) => {
   }
 
   renderList();
+});
+
+els.trashToggle.addEventListener("click", () => {
+  state.trashCollapsed = !state.trashCollapsed;
+  renderTrashPanel();
+});
+
+els.trashSelectionToggle.addEventListener("click", () => {
+  state.trashSelectionMode = !state.trashSelectionMode;
+  state.selectedTrashIds.clear();
+  renderTrashPanel();
+});
+
+els.trashRestore.addEventListener("click", restoreTrashItems);
+
+els.trashDeleteSelected.addEventListener("click", deleteSelectedTrashItems);
+
+els.trashEmpty.addEventListener("click", emptyTrash);
+
+els.trashList.addEventListener("click", (event) => {
+  if (event.target.closest("[data-trash-check]")) return;
+  const item = event.target.closest("[data-trash-item]");
+  if (!item || !state.trashSelectionMode) return;
+  const id = item.dataset.trashItem;
+  if (state.selectedTrashIds.has(id)) {
+    state.selectedTrashIds.delete(id);
+  } else {
+    state.selectedTrashIds.add(id);
+  }
+  renderTrashPanel();
+});
+
+els.trashList.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-trash-check]");
+  if (!checkbox) return;
+  if (checkbox.checked) {
+    state.selectedTrashIds.add(checkbox.dataset.trashCheck);
+  } else {
+    state.selectedTrashIds.delete(checkbox.dataset.trashCheck);
+  }
+  renderTrashPanel();
+});
+
+els.trashList.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const item = event.target.closest("[data-trash-item]");
+  if (!item || !state.trashSelectionMode) return;
+  event.preventDefault();
+  const id = item.dataset.trashItem;
+  if (state.selectedTrashIds.has(id)) {
+    state.selectedTrashIds.delete(id);
+  } else {
+    state.selectedTrashIds.add(id);
+  }
+  renderTrashPanel();
 });
 
 document.addEventListener("click", (event) => {
