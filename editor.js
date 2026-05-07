@@ -7,12 +7,15 @@ const DEFAULT_CATEGORY = "전체";
 const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 const EDITOR_FONT_PREFIX = "blog.editorFonts.";
+const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 
 const state = {
   id: "",
   posts: [],
   tree: [],
-  activeNodeId: new URLSearchParams(window.location.search).get("node") || ALL_FILTER,
+  activeNodeId: EDITOR_PARAMS.get("node") || ALL_FILTER,
+  editPostId: EDITOR_PARAMS.get("post") || "",
+  editingPost: null,
   hiddenCategoryIds: new Set(),
   storedTreeData: null,
   editorSaving: false,
@@ -164,8 +167,11 @@ function normalizePost(raw, index) {
     folder_path: raw.folder_path || "",
     user_id: raw.user_id || "",
     login_id: raw.login_id || "",
+    body: raw.body || raw.content || "",
     author: raw.author || raw.author_name || raw.writer || "",
     published_at: raw.published_at || raw.created_at || raw.date || "",
+    reading_time: raw.reading_time || raw.read_time || "",
+    published: raw.published !== false,
   };
 }
 
@@ -216,6 +222,33 @@ async function insertPost(payload) {
 
   if (!response.ok) {
     const message = data?.message || data?.hint || data?.details || "글을 저장하지 못했습니다.";
+    throw new Error(message);
+  }
+
+  return Array.isArray(data) ? data[0] : data;
+}
+
+async function updatePost(postId, payload) {
+  const session = getSession();
+  const token = session?.access_token || SUPABASE_ANON_KEY;
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
+  endpoint.searchParams.set("id", `eq.${postId}`);
+
+  const response = await fetch(endpoint, {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = data?.message || data?.hint || data?.details || "글을 수정하지 못했습니다.";
     throw new Error(message);
   }
 
@@ -674,7 +707,7 @@ function setEditorMessage(message = "", type = "info") {
 function setEditorBusy(isBusy) {
   state.editorSaving = isBusy;
   els.submit.disabled = isBusy;
-  els.submit.textContent = isBusy ? "게시 중" : "게시";
+  els.submit.textContent = isBusy ? "저장 중" : state.editPostId ? "수정" : "게시";
 }
 
 function setEditorSaveState(message) {
@@ -1207,7 +1240,7 @@ async function publishEditorPost() {
     user_id: session.user?.id,
     reading_time: values.reading_time,
     published: values.published,
-    published_at: new Date().toISOString(),
+    published_at: state.editingPost?.published_at || new Date().toISOString(),
     folder: values.folder?.label || null,
     folder_id: values.folder?.id || null,
     folder_name: values.folder?.label || null,
@@ -1221,7 +1254,7 @@ async function publishEditorPost() {
   });
 
   try {
-    return await insertPost(payload);
+    return state.editPostId ? await updatePost(state.editPostId, payload) : await insertPost(payload);
   } catch (error) {
     if (!/column|schema cache|Could not find/i.test(error.message)) {
       throw error;
@@ -1241,7 +1274,7 @@ async function publishEditorPost() {
         delete fallbackPayload[key];
       }
     });
-    return insertPost(fallbackPayload);
+    return state.editPostId ? updatePost(state.editPostId, fallbackPayload) : insertPost(fallbackPayload);
   }
 }
 
@@ -1255,10 +1288,10 @@ async function handleEditorSubmit(event) {
 
   try {
     setEditorBusy(true);
-    setEditorMessage("게시 중입니다...");
+    setEditorMessage(state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
     await publishEditorPost();
     clearEditorDraft();
-    setEditorMessage("게시가 완료되었습니다.", "success");
+    setEditorMessage(state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
     window.setTimeout(() => {
       window.location.href = "./my-blog.html";
     }, 450);
@@ -1292,17 +1325,30 @@ async function initEditor() {
   buildTree();
 
   const defaults = getEditorDefaults();
-  const draft = loadEditorDraft();
-  els.title.value = draft?.title || "";
-  renderEditorCategoryOptions(draft?.category || defaults.category);
-  renderEditorFolderOptions(draft?.folder_id || defaults.folderId);
-  els.folder.value = draft?.folder_id || defaults.folderId;
-  els.content.innerHTML = draft?.body || "";
-  els.published.checked = draft?.published ?? true;
-  setEditorSaveState(draft ? "임시 저장 불러옴" : "임시 저장 준비");
+  state.editingPost = state.editPostId
+    ? state.posts.find((post) => String(post.id) === String(state.editPostId)) || null
+    : null;
+  const draft = state.editingPost ? null : loadEditorDraft();
+  const source = state.editingPost || draft || null;
+
+  if (state.editPostId && !state.editingPost) {
+    setEditorMessage("수정할 글을 찾지 못했습니다.", "error");
+    els.submit.disabled = true;
+  }
+
+  els.title.value = source?.title || "";
+  renderEditorCategoryOptions(source?.category || defaults.category);
+  renderEditorFolderOptions(source?.folder_id || defaults.folderId);
+  els.folder.value = source?.folder_id || defaults.folderId;
+  els.content.innerHTML = source?.body || "";
+  els.published.checked = source?.published ?? true;
+  els.submit.textContent = state.editingPost ? "수정" : "게시";
+  setEditorSaveState(state.editingPost ? "수정 준비" : draft ? "임시 저장 불러옴" : "임시 저장 준비");
   renderEditorFontOptions();
   renderColorMenus();
-  setEditorMessage("");
+  if (!state.editPostId || state.editingPost) {
+    setEditorMessage("");
+  }
   syncEditorStats();
   window.setTimeout(() => els.title.focus(), 0);
 }

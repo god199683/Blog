@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="블로그 글 보기">
+    <title>글 보기 | Blog</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body class="viewer-page">
+    <header class="site-header">
+      <a class="brand" href="./my-blog.html" aria-label="My blog home">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span data-brand-text>Blog</span>
+      </a>
+      <div class="auth-actions" aria-label="계정 메뉴" data-auth-actions>
+        <a class="auth-button auth-login" href="./login.html">로그인</a>
+        <a class="auth-button auth-signup" href="./signup.html">회원가입</a>
+      </div>
+    </header>
+
+    <main class="viewer-main">
+      <article class="viewer-shell">
+        <div class="viewer-topbar">
+          <button class="viewer-back-button" type="button" data-viewer-back>뒤로</button>
+          <button class="viewer-edit-button" type="button" data-viewer-edit hidden>수정</button>
+        </div>
+        <p class="viewer-location" data-viewer-location></p>
+        <h1 data-viewer-title>글을 불러오는 중입니다</h1>
+        <div class="viewer-body" data-viewer-body></div>
+        <p class="viewer-message" data-viewer-message></p>
+      </article>
+    </main>
+
+    <script src="./session.js" defer></script>
+    <script src="./viewer.js" defer></script>
+  </body>
+</html>

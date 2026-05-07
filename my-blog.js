@@ -533,6 +533,17 @@ function postMatchesFolder(post, node) {
     .some((value) => targets.includes(String(value).toLowerCase()));
 }
 
+function getDescendantFolders(node) {
+  return (node?.children || []).flatMap((child) => [
+    ...(child.type === "folder" ? [child] : []),
+    ...getDescendantFolders(child),
+  ]);
+}
+
+function postMatchesAnyFolder(post, folders) {
+  return folders.some((folder) => postMatchesFolder(post, folder));
+}
+
 function getTrashPostIdSet(items = state.trashItems) {
   const ids = new Set();
   items.forEach((item) => {
@@ -556,6 +567,13 @@ function getNodePosts(node) {
   }
 
   return posts.filter((post) => postMatchesFolder(post, node));
+}
+
+function getDirectNodePosts(node) {
+  const posts = getNodePosts(node);
+  const childFolders = getDescendantFolders(node);
+  if (childFolders.length === 0) return posts;
+  return posts.filter((post) => !postMatchesAnyFolder(post, childFolders));
 }
 
 function getActiveNode() {
@@ -584,6 +602,16 @@ function openEditor() {
   }
   const query = params.toString();
   window.location.href = `./editor.html${query ? `?${query}` : ""}`;
+}
+
+function openPostViewer(postId) {
+  if (!postId) return;
+  window.location.href = `./viewer.html?id=${encodeURIComponent(postId)}`;
+}
+
+function openPostEditor(postId) {
+  if (!postId) return;
+  window.location.href = `./editor.html?post=${encodeURIComponent(postId)}`;
 }
 
 function toggleSelectionMode() {
@@ -1302,10 +1330,10 @@ function renderSidebar() {
 }
 
 function renderPostPanel(content, isEmpty = false) {
-  const activeNode = getActiveNode();
-  const canRenameActiveNode = activeNode && isSelectableNode(activeNode);
   const selectionLabel = state.panelSelectionMode ? "선택 해제" : "선택 모드";
   const canDeletePanelSelection = state.panelSelectionMode && state.panelSelectedIds.size > 0;
+  const selectedPostIds = getSelectedPanelKeysByType("post");
+  const canEditSelectedPost = state.panelSelectionMode && selectedPostIds.length === 1;
 
   return `
     <section class="post-panel ${state.panelSelectionMode ? "is-panel-selecting" : ""}">
@@ -1338,7 +1366,7 @@ function renderPostPanel(content, isEmpty = false) {
             data-panel-edit
             aria-label="수정"
             title="수정"
-            ${canRenameActiveNode ? "" : "disabled"}
+            ${canEditSelectedPost ? "" : "disabled"}
           >
             <span class="panel-action-icon icon-edit" aria-hidden="true"></span>
           </button>
@@ -1392,7 +1420,13 @@ function renderPostItems(posts) {
           : "";
 
         return `
-        <article class="my-post-item ${isSelected ? "is-selected" : ""}" data-panel-post-select="${escapeHtml(key)}">
+        <article
+          class="my-post-item ${isSelected ? "is-selected" : ""}"
+          data-panel-post-select="${escapeHtml(key)}"
+          data-post-id="${escapeHtml(post.id)}"
+          role="button"
+          tabindex="0"
+        >
           ${checkbox}
           <div class="my-post-item-content">
             <p class="post-location">${escapeHtml(getPostLocationText(post))}</p>
@@ -1422,7 +1456,7 @@ function renderPanelFolders(nodes = [], depth = 0) {
             ? `<input class="panel-check" type="checkbox" data-panel-check="${escapeHtml(key)}" ${isSelected ? "checked" : ""} aria-label="${escapeHtml(node.label)} 선택">`
             : "";
           const childFolders = renderPanelFolders(node.children || [], depth + 1);
-          const posts = renderPostItems(getNodePosts(node));
+          const posts = renderPostItems(getDirectNodePosts(node));
           const content = [childFolders, posts].filter(Boolean).join("");
 
           return `
@@ -1460,7 +1494,7 @@ function renderPanelFolders(nodes = [], depth = 0) {
 function renderActiveNodeContent(posts) {
   const activeNode = getActiveNode();
   const folders = renderPanelFolders(activeNode?.children || []);
-  const postItems = renderPostItems(posts);
+  const postItems = renderPostItems(getDirectNodePosts(activeNode));
   return [folders, postItems].filter(Boolean).join("");
 }
 
@@ -2127,11 +2161,11 @@ els.list.addEventListener("click", (event) => {
 
   const editButton = event.target.closest("[data-panel-edit]");
   if (editButton) {
-    const activeNode = getActiveNode();
-    if (activeNode && isSelectableNode(activeNode)) {
-      startInlineRename(activeNode.id);
+    const selectedPostIds = getSelectedPanelKeysByType("post");
+    if (selectedPostIds.length === 1) {
+      openPostEditor(selectedPostIds[0]);
     } else {
-      els.status.textContent = "수정할 카테고리나 폴더를 선택해주세요.";
+      els.status.textContent = "수정할 글을 하나만 선택해주세요.";
     }
     return;
   }
@@ -2171,6 +2205,10 @@ els.list.addEventListener("click", (event) => {
     renderList();
     return;
   }
+  if (postSelect) {
+    openPostViewer(postSelect.dataset.postId);
+    return;
+  }
 
   const selectButton = event.target.closest("[data-panel-folder-select]");
   if (!selectButton) return;
@@ -2195,6 +2233,20 @@ els.list.addEventListener("change", (event) => {
   }
 
   renderList();
+});
+
+els.list.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  if (event.target.closest("[data-panel-check]")) return;
+  const postSelect = event.target.closest("[data-panel-post-select]");
+  if (!postSelect) return;
+  event.preventDefault();
+  if (state.panelSelectionMode) {
+    togglePanelSelection(postSelect.dataset.panelPostSelect);
+    renderList();
+    return;
+  }
+  openPostViewer(postSelect.dataset.postId);
 });
 
 els.trashToggle.addEventListener("click", () => {
