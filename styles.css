@@ -335,8 +335,12 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.45rem 0.75rem;
   border-bottom: 1px solid var(--line);
+}
+
+.my-sidebar-title .section-kicker {
+  font-size: 0.58rem;
 }
 
 .sidebar-toggle {
@@ -361,16 +365,16 @@ button {
 
 .sidebar-filter {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) auto;
-  gap: 0.6rem;
+  grid-template-columns: 1.7rem minmax(0, 1fr) auto;
+  gap: 0.5rem;
   align-items: center;
-  min-height: 2.55rem;
-  padding: 0 0.65rem;
+  min-height: 2.1rem;
+  padding: 0 0.55rem;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
   color: var(--ink);
-  font-size: 0.5rem;
+  font-size: 0.58rem;
   text-align: left;
 }
 
@@ -383,13 +387,13 @@ button {
 
 .sidebar-filter-key {
   display: grid;
-  width: 2rem;
-  height: 2rem;
+  width: 1.55rem;
+  height: 1.55rem;
   place-items: center;
   border-radius: 50%;
   background: #fff;
   color: var(--sky-dark);
-  font-size: 0.5rem;
+  font-size: 0.58rem;
   font-weight: 900;
 }
 
@@ -402,7 +406,7 @@ button {
 
 .sidebar-filter-count {
   color: var(--muted);
-  font-size: 0.5rem;
+  font-size: 0.58rem;
   font-weight: 850;
 }
 
