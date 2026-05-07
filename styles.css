@@ -311,6 +311,7 @@ button {
   width: 100%;
   min-height: calc(100svh - 4.5rem);
   margin: 0;
+  font-size: 0.5rem;
   transition: grid-template-columns 180ms ease;
 }
 
@@ -340,7 +341,7 @@ button {
 
 .my-sidebar-title h2 {
   margin: 0.25rem 0 0;
-  font-size: 1.15rem;
+  font-size: 0.72rem;
 }
 
 .sidebar-toggle {
@@ -374,6 +375,7 @@ button {
   border-radius: 8px;
   background: transparent;
   color: var(--ink);
+  font-size: 0.5rem;
   text-align: left;
 }
 
@@ -392,7 +394,7 @@ button {
   border-radius: 50%;
   background: #fff;
   color: var(--sky-dark);
-  font-size: 0.78rem;
+  font-size: 0.5rem;
   font-weight: 900;
 }
 
@@ -405,7 +407,7 @@ button {
 
 .sidebar-filter-count {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.5rem;
   font-weight: 850;
 }
 
@@ -447,12 +449,13 @@ button {
 .my-post-header h1 {
   max-width: none;
   margin-bottom: 0;
-  font-size: clamp(2.3rem, 6vw, 4.4rem);
+  font-size: clamp(1.15rem, 3vw, 2.2rem);
 }
 
 .my-post-status {
   margin: 1rem 0 0;
   color: var(--muted);
+  font-size: 0.5rem;
   font-weight: 800;
 }
 
@@ -480,12 +483,21 @@ button {
 
 .my-post-item h3 {
   margin: 0.35rem 0;
+  font-size: 0.62rem;
 }
 
 .my-post-item p:not(.meta-line) {
   margin: 0;
   color: var(--muted);
+  font-size: 0.5rem;
   line-height: 1.6;
+}
+
+.my-blog-main .section-kicker,
+.my-blog-main .meta-line,
+.my-blog-main .result-count,
+.my-blog-main .tag {
+  font-size: 0.5rem;
 }
 
 main {
