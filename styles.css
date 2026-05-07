@@ -67,7 +67,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem clamp(1rem, 4vw, 4rem);
+  padding: 1rem clamp(1rem, 4vw, 4rem) 1rem 10px;
   border-bottom: 1px solid rgba(223, 228, 220, 0.9);
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(18px);
