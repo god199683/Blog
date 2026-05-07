@@ -8,6 +8,7 @@ const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
+const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th";
 
 const state = {
   id: "",
@@ -15,6 +16,7 @@ const state = {
   tree: [],
   activeNodeId: EDITOR_PARAMS.get("node") || ALL_FILTER,
   editPostId: EDITOR_PARAMS.get("post") || "",
+  forceNewPost: EDITOR_PARAMS.get("mode") === "new",
   editingPost: null,
   hiddenCategoryIds: new Set(),
   storedTreeData: null,
@@ -200,6 +202,28 @@ async function fetchPosts() {
   }
 
   return response.json();
+}
+
+async function fetchPostById(postId) {
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
+  endpoint.searchParams.set("select", "*");
+  endpoint.searchParams.set("id", `eq.${postId}`);
+  endpoint.searchParams.set("limit", "1");
+  const token = getSession()?.access_token || SUPABASE_ANON_KEY;
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("");
+  }
+
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows[0] || null : null;
 }
 
 async function insertPost(payload) {
@@ -835,7 +859,8 @@ function applyFontSizeFromInput() {
 
 function getClosestEditorBlock(node) {
   const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
-  return element?.closest?.("p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th") || null;
+  const block = element?.closest?.(EDITOR_BLOCK_SELECTOR) || null;
+  return block && block !== els.content && els.content.contains(block) ? block : null;
 }
 
 function getSelectedEditorBlocks() {
@@ -848,11 +873,15 @@ function getSelectedEditorBlocks() {
   const startBlock = getClosestEditorBlock(range.startContainer);
   const endBlock = getClosestEditorBlock(range.endContainer);
 
+  if (range.collapsed) {
+    return [startBlock || els.content];
+  }
+
   if (startBlock && els.content.contains(startBlock)) blocks.add(startBlock);
   if (endBlock && els.content.contains(endBlock)) blocks.add(endBlock);
 
   els.content
-    .querySelectorAll("p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th")
+    .querySelectorAll(EDITOR_BLOCK_SELECTOR)
     .forEach((block) => {
       if (range.intersectsNode(block)) blocks.add(block);
     });
@@ -868,6 +897,23 @@ function applyBlockStyle(property, value) {
   getSelectedEditorBlocks().forEach((block) => {
     block.style[property] = value;
   });
+  syncEditorStats();
+  markEditorDirty();
+  saveCurrentSelection();
+}
+
+function applyLineHeight(value) {
+  const blocks = getSelectedEditorBlocks();
+
+  blocks.forEach((block) => {
+    block.style.lineHeight = value;
+    if (block === els.content) {
+      els.content.querySelectorAll(EDITOR_BLOCK_SELECTOR).forEach((child) => {
+        child.style.lineHeight = value;
+      });
+    }
+  });
+
   syncEditorStats();
   markEditorDirty();
   saveCurrentSelection();
@@ -1311,6 +1357,18 @@ async function initEditor() {
     return;
   }
 
+  let exactEditingPost = null;
+  if (state.editPostId) {
+    try {
+      const row = await fetchPostById(state.editPostId);
+      if (row && belongsToAccount(row, state.id)) {
+        exactEditingPost = normalizePost(row);
+      }
+    } catch {
+      exactEditingPost = null;
+    }
+  }
+
   try {
     const rows = await fetchPosts();
     state.posts = rows
@@ -1326,9 +1384,12 @@ async function initEditor() {
 
   const defaults = getEditorDefaults();
   state.editingPost = state.editPostId
-    ? state.posts.find((post) => String(post.id) === String(state.editPostId)) || null
+    ? exactEditingPost || state.posts.find((post) => String(post.id) === String(state.editPostId)) || null
     : null;
-  const draft = state.editingPost ? null : loadEditorDraft();
+  if (state.editingPost && !state.posts.some((post) => String(post.id) === String(state.editingPost.id))) {
+    state.posts.unshift(state.editingPost);
+  }
+  const draft = state.editingPost || state.forceNewPost ? null : loadEditorDraft();
   const source = state.editingPost || draft || null;
 
   if (state.editPostId && !state.editingPost) {
@@ -1430,7 +1491,7 @@ els.toolbar.addEventListener("click", (event) => {
 
   const lineHeightButton = event.target.closest("[data-line-height]");
   if (lineHeightButton) {
-    applyBlockStyle("lineHeight", lineHeightButton.dataset.lineHeight);
+    applyLineHeight(lineHeightButton.dataset.lineHeight);
     closeEditorMiniMenus();
     return;
   }

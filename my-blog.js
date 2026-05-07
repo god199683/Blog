@@ -597,6 +597,7 @@ function openEditor() {
   }
 
   const params = new URLSearchParams();
+  params.set("mode", "new");
   if (state.activeNodeId && state.activeNodeId !== ALL_FILTER) {
     params.set("node", state.activeNodeId);
   }

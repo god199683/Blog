@@ -1360,9 +1360,9 @@ button {
 
 .viewer-shell {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.45rem;
   min-height: calc(100svh - 6.5rem);
-  padding: 1.15rem;
+  padding: 0.85rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
@@ -1377,13 +1377,13 @@ button {
 
 .viewer-back-button,
 .viewer-edit-button {
-  min-height: 1.8rem;
-  padding: 0 0.75rem;
+  min-height: 1.28rem;
+  padding: 0 0.48rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #fff;
   color: var(--sky-dark);
-  font-size: 0.68rem;
+  font-size: 0.55rem;
   font-weight: 900;
 }
 
@@ -1396,14 +1396,14 @@ button {
 .viewer-location {
   margin: 0;
   color: var(--sky-dark);
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 900;
 }
 
 .viewer-shell h1 {
   margin: 0;
-  font-size: clamp(1.5rem, 4vw, 2.5rem);
-  line-height: 1.15;
+  font-size: clamp(0.95rem, 2.5vw, 1.35rem);
+  line-height: 1.05;
 }
 
 .viewer-body {
@@ -1969,10 +1969,14 @@ h3 {
 }
 
 .editor-fields input:focus,
-.editor-fields select:focus,
-.editor-surface:focus {
+.editor-fields select:focus {
   border-color: var(--sky);
   box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.14);
+}
+
+.editor-surface:focus {
+  border-color: var(--line);
+  box-shadow: none;
 }
 
 .editor-toolbar {
