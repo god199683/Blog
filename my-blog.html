@@ -9,9 +9,9 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="./" aria-label="Blog home">
+      <a class="brand" href="./my-blog.html" aria-label="My blog home">
         <span class="brand-mark" aria-hidden="true">B</span>
-        <span>Blog</span>
+        <span data-brand-text>Blog</span>
       </a>
       <div class="auth-actions" aria-label="계정 메뉴" data-auth-actions>
         <a class="auth-button auth-login" href="./login.html">로그인</a>
@@ -19,30 +19,36 @@
       </div>
     </header>
 
-    <main class="account-main">
-      <section class="account-hero" aria-labelledby="account-title">
-        <div>
-          <p class="eyebrow">My Blog</p>
-          <h1 id="account-title">내 블로그 홈</h1>
-          <p class="lede" id="account-lede">로그인한 계정의 글을 모아 보여줍니다.</p>
+    <main class="my-blog-main" data-my-blog-main>
+      <aside class="my-sidebar" data-sidebar>
+        <div class="my-sidebar-head">
+          <div class="my-sidebar-title">
+            <p class="section-kicker">Menu</p>
+            <h2>내 블로그</h2>
+          </div>
+          <button
+            class="sidebar-toggle"
+            type="button"
+            data-sidebar-toggle
+            aria-label="사이드바 접기"
+            aria-expanded="true"
+          >
+            ‹
+          </button>
         </div>
+        <nav class="my-sidebar-nav" id="my-sidebar-nav" aria-label="내 글 필터"></nav>
+      </aside>
 
-        <div class="account-summary">
-          <p class="section-kicker">Account</p>
-          <h2 id="account-name">확인 중</h2>
-          <p id="account-status">계정 정보를 불러오고 있습니다.</p>
-        </div>
-      </section>
-
-      <section class="account-section" aria-labelledby="account-post-title">
-        <div class="section-heading">
+      <section class="my-post-area" aria-labelledby="my-post-title">
+        <div class="my-post-header">
           <div>
             <p class="section-kicker">Posts</p>
-            <h2 id="account-post-title">내 글</h2>
+            <h1 id="my-post-title">내 글 목록</h1>
           </div>
-          <p class="result-count" id="account-count">0개 글</p>
+          <p class="result-count" id="my-post-count">0개 글</p>
         </div>
-        <div class="post-grid" id="account-posts" aria-live="polite"></div>
+        <p class="my-post-status" id="my-post-status" aria-live="polite"></p>
+        <div class="my-post-list" id="my-post-list" aria-live="polite"></div>
       </section>
     </main>
 

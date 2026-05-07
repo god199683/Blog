@@ -304,6 +304,190 @@ button {
   padding: 1rem 0 4rem;
 }
 
+.my-blog-main {
+  --sidebar-width: 280px;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  width: 100%;
+  min-height: calc(100svh - 4.5rem);
+  margin: 0;
+  transition: grid-template-columns 180ms ease;
+}
+
+.my-blog-main.is-sidebar-collapsed {
+  --sidebar-width: 4.75rem;
+}
+
+.my-sidebar {
+  position: sticky;
+  top: 4.45rem;
+  align-self: start;
+  height: calc(100svh - 4.45rem);
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(14px);
+}
+
+.my-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.my-sidebar-title h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.15rem;
+}
+
+.sidebar-toggle {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.my-sidebar-nav {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem;
+}
+
+.sidebar-filter {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  min-height: 2.55rem;
+  padding: 0 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.sidebar-filter:hover,
+.sidebar-filter:focus-visible,
+.sidebar-filter.is-active {
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+.sidebar-filter-key {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.sidebar-filter-label {
+  overflow: hidden;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-filter-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.my-blog-main.is-sidebar-collapsed .my-sidebar-title,
+.my-blog-main.is-sidebar-collapsed .sidebar-filter-label,
+.my-blog-main.is-sidebar-collapsed .sidebar-filter-count {
+  display: none;
+}
+
+.my-blog-main.is-sidebar-collapsed .my-sidebar-head {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.my-blog-main.is-sidebar-collapsed .my-sidebar-nav {
+  padding-inline: 0.6rem;
+}
+
+.my-blog-main.is-sidebar-collapsed .sidebar-filter {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: 0;
+}
+
+.my-post-area {
+  min-width: 0;
+  padding: clamp(1rem, 4vw, 3rem);
+}
+
+.my-post-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.my-post-header h1 {
+  max-width: none;
+  margin-bottom: 0;
+  font-size: clamp(2.3rem, 6vw, 4.4rem);
+}
+
+.my-post-status {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.my-post-status a {
+  color: var(--sky-dark);
+}
+
+.my-post-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.my-post-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 28px rgba(14, 116, 144, 0.07);
+}
+
+.my-post-item h3 {
+  margin: 0.35rem 0;
+}
+
+.my-post-item p:not(.meta-line) {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 main {
   width: min(1180px, calc(100% - 2rem));
   margin: 0 auto;
@@ -735,7 +919,8 @@ h3 {
   .hero-section,
   .content-layout,
   .auth-shell,
-  .account-hero {
+  .account-hero,
+  .my-blog-main {
     grid-template-columns: 1fr;
   }
 
@@ -747,6 +932,18 @@ h3 {
   .side-panel {
     position: static;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .my-sidebar {
+    position: relative;
+    top: auto;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .my-blog-main.is-sidebar-collapsed {
+    --sidebar-width: 100%;
   }
 }
 
@@ -767,6 +964,20 @@ h3 {
 
   .auth-actions.is-signed-in {
     justify-content: flex-start;
+  }
+
+  .account-nav {
+    order: 2;
+  }
+
+  .welcome-message {
+    order: 1;
+  }
+
+  .my-post-header,
+  .my-post-item {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   h1 {

@@ -23,12 +23,40 @@ function getSessionId(session) {
   );
 }
 
+function getCurrentPage() {
+  return window.location.pathname.split("/").pop() || "index.html";
+}
+
+function syncBrand(id) {
+  const brand = document.querySelector(".brand");
+  if (!brand) return;
+
+  const brandText = brand.querySelector("[data-brand-text]");
+  const currentPage = getCurrentPage();
+
+  if (currentPage === "my-blog.html") {
+    brand.href = "./my-blog.html";
+    brand.setAttribute("aria-label", "My blog home");
+    if (brandText && id) {
+      brandText.textContent = `${id}'s Blog`;
+    }
+    return;
+  }
+
+  brand.href = "./";
+  brand.setAttribute("aria-label", "Blog home");
+  if (brandText) {
+    brandText.textContent = "Blog";
+  }
+}
+
 function renderSignedInHeader() {
   const actions = document.querySelector("[data-auth-actions]");
   if (!actions) return;
 
   const session = readBlogSession();
   const id = getSessionId(session);
+  syncBrand(id);
   if (!id) return;
 
   const nav = document.createElement("nav");
@@ -43,7 +71,7 @@ function renderSignedInHeader() {
   blogLink.href = "./my-blog.html";
   blogLink.textContent = "내 블로그";
 
-  const currentPage = window.location.pathname.split("/").pop() || "index.html";
+  const currentPage = getCurrentPage();
   if (currentPage === "index.html") {
     homeLink.setAttribute("aria-current", "page");
   }
