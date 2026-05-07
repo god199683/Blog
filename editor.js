@@ -24,8 +24,6 @@ const els = {
   title: document.querySelector("[data-editor-title]"),
   category: document.querySelector("[data-editor-category]"),
   folder: document.querySelector("[data-editor-folder]"),
-  cover: document.querySelector("[data-editor-cover]"),
-  excerpt: document.querySelector("[data-editor-excerpt]"),
   content: document.querySelector("[data-editor-content]"),
   block: document.querySelector("[data-editor-block]"),
   preview: document.querySelector("[data-editor-preview]"),
@@ -386,7 +384,8 @@ function getFolderMeta(folderId) {
 function getEditorDefaults() {
   const categoryNode = getActiveCategoryNode();
   const folderNode = getActiveFolderNode();
-  const category = categoryNode?.filterCategory || categoryNode?.label || DEFAULT_CATEGORY;
+  const firstCategory = getCategoryOptions()[0]?.value || DEFAULT_CATEGORY;
+  const category = categoryNode?.filterCategory || categoryNode?.label || firstCategory;
 
   return {
     category,
@@ -398,8 +397,35 @@ function editorDraftKey() {
   return `${EDITOR_DRAFT_PREFIX}${state.id || "guest"}`;
 }
 
+function getCategoryOptions() {
+  const categories = state.tree
+    .filter((node) => node.type === "category")
+    .map((node) => ({
+      label: node.label,
+      value: node.filterCategory || node.label,
+    }));
+
+  return categories.length ? categories : [{ label: DEFAULT_CATEGORY, value: DEFAULT_CATEGORY }];
+}
+
+function renderEditorCategoryOptions(selectedCategory = "") {
+  const categories = getCategoryOptions();
+  const values = new Set(categories.map((category) => category.value));
+  const selected = selectedCategory && values.has(selectedCategory) ? selectedCategory : categories[0]?.value || "";
+
+  els.category.innerHTML = categories
+    .map(
+      (category) => `
+        <option value="${escapeHtml(category.value)}" ${category.value === selected ? "selected" : ""}>
+          ${escapeHtml(category.label)}
+        </option>
+      `
+    )
+    .join("");
+}
+
 function renderEditorFolderOptions(selectedFolderId = "") {
-  const category = els.category.value.trim();
+  const category = els.category.value;
   const folders = collectFolderOptions().filter(
     (folder) => !category || !folder.category || folder.category === category
   );
@@ -453,15 +479,12 @@ function collectEditorValues() {
   const body = cleanEditorHtml(els.content.innerHTML);
   const plainText = getPlainTextFromHtml(body);
   const folder = getFolderMeta(els.folder.value);
-  const category = els.category.value.trim() || folder?.category || DEFAULT_CATEGORY;
-  const excerpt = els.excerpt.value.trim() || plainText.slice(0, 120);
+  const category = els.category.value || folder?.category || DEFAULT_CATEGORY;
 
   return {
     title: els.title.value.trim(),
     category,
     folder,
-    cover_image: els.cover.value.trim(),
-    excerpt,
     body,
     plainText,
     reading_time: getReadingTimeLabel(plainText),
@@ -486,8 +509,6 @@ function saveEditorDraft() {
     title: els.title.value,
     category: els.category.value,
     folder_id: els.folder.value,
-    cover_image: els.cover.value,
-    excerpt: els.excerpt.value,
     body: els.content.innerHTML,
     published: els.published.checked,
     saved_at: new Date().toISOString(),
@@ -542,13 +563,11 @@ async function publishEditorPost() {
 
   const payload = {
     title: values.title,
-    excerpt: values.excerpt,
     body: values.body,
     category: values.category,
     author: state.id,
     login_id: state.id,
     user_id: session.user?.id,
-    cover_image: values.cover_image || null,
     reading_time: values.reading_time,
     published: values.published,
     published_at: new Date().toISOString(),
@@ -573,11 +592,9 @@ async function publishEditorPost() {
 
     const fallbackPayload = {
       title: payload.title,
-      excerpt: payload.excerpt,
       body: payload.body,
       category: payload.category,
       author: payload.author,
-      cover_image: payload.cover_image,
       reading_time: payload.reading_time,
       published: payload.published,
       published_at: payload.published_at,
@@ -643,11 +660,9 @@ async function initEditor() {
   const defaults = getEditorDefaults();
   const draft = loadEditorDraft();
   els.title.value = draft?.title || "";
-  els.category.value = draft?.category || defaults.category;
+  renderEditorCategoryOptions(draft?.category || defaults.category);
   renderEditorFolderOptions(draft?.folder_id || defaults.folderId);
   els.folder.value = draft?.folder_id || defaults.folderId;
-  els.cover.value = draft?.cover_image || "";
-  els.excerpt.value = draft?.excerpt || "";
   els.content.innerHTML = draft?.body || "";
   els.published.checked = draft?.published ?? true;
   els.previewPanel.hidden = true;
@@ -667,10 +682,12 @@ els.form.addEventListener("input", () => {
   saveEditorDraft();
 });
 
-els.category.addEventListener("input", () => {
+els.category.addEventListener("change", () => {
   renderEditorFolderOptions(els.folder.value);
   saveEditorDraft();
 });
+
+els.folder.addEventListener("change", saveEditorDraft);
 
 els.block.addEventListener("change", (event) => {
   executeEditorCommand("formatBlock", event.target.value);

@@ -19,12 +19,11 @@
       </div>
     </header>
 
-    <main class="editor-page-main" aria-labelledby="editor-title-label">
+    <main class="editor-page-main" aria-label="글쓰기">
       <form class="editor-shell" data-editor-form>
         <header class="editor-topbar">
           <div>
             <p class="editor-kicker">글쓰기</p>
-            <h1 id="editor-title-label">새 글 작성</h1>
           </div>
           <div class="editor-topbar-actions">
             <span class="editor-save-state" data-editor-save-state>초안 준비됨</span>
@@ -49,7 +48,9 @@
             <div class="editor-fields">
               <label>
                 <span>카테고리</span>
-                <input type="text" data-editor-category placeholder="카테고리">
+                <select data-editor-category>
+                  <option value="">카테고리 선택</option>
+                </select>
               </label>
               <label>
                 <span>폴더</span>
@@ -57,16 +58,7 @@
                   <option value="">폴더 없음</option>
                 </select>
               </label>
-              <label>
-                <span>커버 이미지</span>
-                <input type="url" data-editor-cover placeholder="https://">
-              </label>
             </div>
-
-            <label class="editor-excerpt-field">
-              <span>요약</span>
-              <textarea data-editor-excerpt rows="2" placeholder="목록에 보일 짧은 요약"></textarea>
-            </label>
 
             <div class="editor-toolbar" role="toolbar" aria-label="글 편집 도구">
               <select data-editor-block aria-label="문단 형식">

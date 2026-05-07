@@ -1345,8 +1345,8 @@ h3 {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  min-height: 4.5rem;
-  padding: 0.9rem 1rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 1rem;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.96);
 }
@@ -1427,7 +1427,7 @@ h3 {
 
 .editor-canvas {
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 0.75rem;
   min-width: 0;
   min-height: 0;
@@ -1437,12 +1437,12 @@ h3 {
 
 .editor-title-input {
   width: 100%;
-  min-height: 3.2rem;
+  min-height: 1.6rem;
   border: 0;
   border-bottom: 1px solid var(--line);
   background: transparent;
   color: var(--ink);
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 900;
   outline: none;
 }
@@ -1454,12 +1454,11 @@ h3 {
 
 .editor-fields {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
 }
 
-.editor-fields label,
-.editor-excerpt-field {
+.editor-fields label {
   display: grid;
   gap: 0.28rem;
   color: var(--muted);
@@ -1468,8 +1467,7 @@ h3 {
 }
 
 .editor-fields input,
-.editor-fields select,
-.editor-excerpt-field textarea {
+.editor-fields select {
   width: 100%;
   min-height: 2.1rem;
   padding: 0 0.65rem;
@@ -1480,15 +1478,8 @@ h3 {
   outline: none;
 }
 
-.editor-excerpt-field textarea {
-  min-height: 3.6rem;
-  padding-block: 0.55rem;
-  resize: vertical;
-}
-
 .editor-fields input:focus,
 .editor-fields select:focus,
-.editor-excerpt-field textarea:focus,
 .editor-surface:focus {
   border-color: var(--sky);
   box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.14);
