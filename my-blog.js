@@ -19,6 +19,7 @@ const state = {
   panelCollapsedIds: new Set(),
   deleteBusy: false,
   editingNodeId: "",
+  storedTreeData: null,
 };
 
 const els = {
@@ -202,7 +203,7 @@ function cloneNode(node) {
 function getStoredTreeData() {
   const parsed = safeParseJson(localStorage.getItem(treeStorageKey()), []);
   if (Array.isArray(parsed)) {
-    return { nodes: parsed, hiddenCategoryIds: [] };
+    return { nodes: parsed, hiddenCategoryIds: [], treeCollapsedIds: [] };
   }
 
   return {
@@ -212,16 +213,111 @@ function getStoredTreeData() {
   };
 }
 
+function hasTreeData(data) {
+  return Boolean(
+    data?.nodes?.some((node) => node.id !== ALL_FILTER || (node.children || []).length > 0) ||
+      data?.hiddenCategoryIds?.length ||
+      data?.treeCollapsedIds?.length
+  );
+}
+
+function normalizeTreeData(data) {
+  return {
+    nodes: Array.isArray(data?.nodes) ? data.nodes.map(cloneNode) : [],
+    hiddenCategoryIds: Array.isArray(data?.hiddenCategoryIds) ? data.hiddenCategoryIds : [],
+    treeCollapsedIds: Array.isArray(data?.treeCollapsedIds) ? data.treeCollapsedIds : [],
+  };
+}
+
+function saveTreeDataToLocal(data) {
+  if (!state.id) return;
+  localStorage.setItem(treeStorageKey(), JSON.stringify(normalizeTreeData(data)));
+}
+
+async function fetchTreeDataFromSupabase() {
+  const session = getSession();
+  if (!session?.access_token || !session.user?.id) return null;
+
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_trees`);
+  endpoint.searchParams.set("select", "tree,hidden_category_ids,tree_collapsed_ids");
+  endpoint.searchParams.set("user_id", `eq.${session.user.id}`);
+  endpoint.searchParams.set("limit", "1");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (!response.ok) return null;
+
+  const rows = await response.json().catch(() => []);
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row) return null;
+
+  return normalizeTreeData({
+    nodes: row.tree,
+    hiddenCategoryIds: row.hidden_category_ids,
+    treeCollapsedIds: row.tree_collapsed_ids,
+  });
+}
+
+async function saveTreeDataToSupabase(data) {
+  const session = getSession();
+  if (!session?.access_token || !session.user?.id || !state.id) return;
+
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_trees`);
+  endpoint.searchParams.set("on_conflict", "user_id");
+
+  const normalized = normalizeTreeData(data);
+  await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify({
+      user_id: session.user.id,
+      login_id: state.id,
+      tree: normalized.nodes,
+      hidden_category_ids: normalized.hiddenCategoryIds,
+      tree_collapsed_ids: normalized.treeCollapsedIds,
+      updated_at: new Date().toISOString(),
+    }),
+  }).catch(() => {});
+}
+
+async function loadTreeData() {
+  const local = getStoredTreeData();
+  const remote = await fetchTreeDataFromSupabase();
+
+  if (hasTreeData(remote)) {
+    saveTreeDataToLocal(remote);
+    return remote;
+  }
+
+  if (hasTreeData(local)) {
+    saveTreeDataToLocal(local);
+    saveTreeDataToSupabase(local);
+    return local;
+  }
+
+  return remote || local;
+}
+
 function saveTree() {
   if (!state.id) return;
-  localStorage.setItem(
-    treeStorageKey(),
-    JSON.stringify({
-      nodes: state.tree,
-      hiddenCategoryIds: [...state.hiddenCategoryIds],
-      treeCollapsedIds: [...state.treeCollapsedIds],
-    })
-  );
+  const data = normalizeTreeData({
+    nodes: state.tree,
+    hiddenCategoryIds: [...state.hiddenCategoryIds],
+    treeCollapsedIds: [...state.treeCollapsedIds],
+  });
+  state.storedTreeData = data;
+  saveTreeDataToLocal(data);
+  saveTreeDataToSupabase(data);
 }
 
 function flattenNodes(nodes, map = new Map()) {
@@ -258,7 +354,7 @@ function createCategoryNode(category, storedNode) {
 }
 
 function buildTree() {
-  const stored = getStoredTreeData();
+  const stored = state.storedTreeData || getStoredTreeData();
   const storedById = flattenNodes(stored.nodes.map(cloneNode));
   state.hiddenCategoryIds = new Set(stored.hiddenCategoryIds);
   state.treeCollapsedIds = new Set(stored.treeCollapsedIds);
@@ -769,6 +865,7 @@ async function initMyBlog() {
     state.posts = [];
   }
 
+  state.storedTreeData = await loadTreeData();
   buildTree();
   render();
 }
