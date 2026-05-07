@@ -511,7 +511,7 @@ button {
 
 .tree-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.22rem;
   min-height: 1.9rem;
@@ -529,7 +529,7 @@ button {
 
 .tree-row-main {
   display: grid;
-  grid-column: 2;
+  grid-column: 3;
   grid-template-columns: 1rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.28rem;
@@ -541,6 +541,35 @@ button {
   background: transparent;
   color: var(--ink);
   text-align: left;
+}
+
+.tree-node-toggle,
+.tree-node-toggle-placeholder {
+  grid-column: 2;
+  width: 1.12rem;
+  height: 1.12rem;
+}
+
+.tree-node-toggle {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 0.56rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.tree-node-toggle:hover,
+.tree-node-toggle:focus-visible {
+  border-color: var(--sky);
+  background: #fff;
+}
+
+.tree-node-toggle-placeholder {
+  display: block;
 }
 
 .tree-node-icon {
@@ -590,7 +619,7 @@ button {
 
 .tree-row-actions {
   display: flex;
-  grid-column: 3;
+  grid-column: 4;
   align-items: center;
   gap: 0.16rem;
   opacity: 0;
@@ -640,7 +669,9 @@ button {
 .my-blog-main.is-sidebar-collapsed .tree-node-count,
 .my-blog-main.is-sidebar-collapsed .tree-row-actions,
 .my-blog-main.is-sidebar-collapsed .tree-rename-input,
-.my-blog-main.is-sidebar-collapsed .tree-check {
+.my-blog-main.is-sidebar-collapsed .tree-check,
+.my-blog-main.is-sidebar-collapsed .tree-node-toggle,
+.my-blog-main.is-sidebar-collapsed .tree-node-toggle-placeholder {
   display: none;
 }
 

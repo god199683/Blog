@@ -16,6 +16,7 @@ const state = {
   hiddenCategoryIds: new Set(),
   selectionMode: false,
   selectedIds: new Set(),
+  treeCollapsedIds: new Set(),
   panelCollapsedIds: new Set(),
   editorPreviewOpen: false,
   editorSaving: false,
@@ -257,6 +258,7 @@ function getStoredTreeData() {
   return {
     nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
     hiddenCategoryIds: Array.isArray(parsed.hiddenCategoryIds) ? parsed.hiddenCategoryIds : [],
+    treeCollapsedIds: Array.isArray(parsed.treeCollapsedIds) ? parsed.treeCollapsedIds : [],
   };
 }
 
@@ -267,6 +269,7 @@ function saveTree() {
     JSON.stringify({
       nodes: state.tree,
       hiddenCategoryIds: [...state.hiddenCategoryIds],
+      treeCollapsedIds: [...state.treeCollapsedIds],
     })
   );
 }
@@ -308,6 +311,7 @@ function buildTree() {
   const stored = getStoredTreeData();
   const storedById = flattenNodes(stored.nodes.map(cloneNode));
   state.hiddenCategoryIds = new Set(stored.hiddenCategoryIds);
+  state.treeCollapsedIds = new Set(stored.treeCollapsedIds);
 
   const roots = [createAllNode(storedById.get(ALL_FILTER))];
   const categoryIds = new Set();
@@ -678,6 +682,22 @@ function renderTree(nodes = state.tree, depth = 0) {
       const isSelected = state.selectedIds.has(node.id);
       const isEditing = node.id === state.editingNodeId;
       const children = Array.isArray(node.children) ? node.children : [];
+      const canToggle = children.length > 0 && node.type !== "all";
+      const isOpen = !state.treeCollapsedIds.has(node.id);
+      const treeToggle = canToggle
+        ? `
+            <button
+              class="tree-node-toggle"
+              type="button"
+              data-tree-toggle="${escapeHtml(node.id)}"
+              aria-label="${escapeHtml(node.label)} ${isOpen ? "접기" : "펼치기"}"
+              aria-expanded="${String(isOpen)}"
+              title="${isOpen ? "접기" : "펼치기"}"
+            >
+              ${isOpen ? "▾" : "▸"}
+            </button>
+          `
+        : `<span class="tree-node-toggle-placeholder" aria-hidden="true"></span>`;
       const count = getNodePosts(node).length;
       const checkbox = state.selectionMode && isSelectableNode(node)
         ? `<input class="tree-check" type="checkbox" data-tree-check="${escapeHtml(node.id)}" ${isSelected ? "checked" : ""} aria-label="${escapeHtml(node.label)} 선택">`
@@ -708,13 +728,14 @@ function renderTree(nodes = state.tree, depth = 0) {
         <div class="tree-node" style="--tree-depth:${depth}">
           <div class="tree-row ${isActive ? "is-active" : ""}">
             ${checkbox}
+            ${treeToggle}
             ${rowMain}
             <div class="tree-row-actions">
               <button type="button" data-add-folder="${escapeHtml(node.id)}" aria-label="폴더 추가" title="폴더 추가">+</button>
               <button type="button" data-rename-node="${escapeHtml(node.id)}" aria-label="이름 수정" title="이름 수정">✎</button>
             </div>
           </div>
-          ${children.length ? `<div class="tree-children">${renderTree(children, depth + 1)}</div>` : ""}
+          ${children.length && isOpen ? `<div class="tree-children">${renderTree(children, depth + 1)}</div>` : ""}
         </div>
       `;
     })
@@ -1019,6 +1040,7 @@ async function deleteSelectedNodes() {
     state.posts = state.posts.filter((post) => !deletedIdSet.has(String(post.id)));
     state.tree = removeSelectedNodes(state.tree);
     state.selectedIds.forEach((id) => state.panelCollapsedIds.delete(id));
+    state.selectedIds.forEach((id) => state.treeCollapsedIds.delete(id));
     state.selectedIds.clear();
 
     if (!findNode(state.tree, state.activeNodeId)) {
@@ -1175,6 +1197,19 @@ els.editorForm.addEventListener("keydown", (event) => {
 });
 
 els.nav.addEventListener("click", (event) => {
+  const treeToggle = event.target.closest("[data-tree-toggle]");
+  if (treeToggle) {
+    const id = treeToggle.dataset.treeToggle;
+    if (state.treeCollapsedIds.has(id)) {
+      state.treeCollapsedIds.delete(id);
+    } else {
+      state.treeCollapsedIds.add(id);
+    }
+    saveTree();
+    renderSidebar();
+    return;
+  }
+
   const addButton = event.target.closest("[data-add-folder]");
   if (addButton) {
     addFolder(addButton.dataset.addFolder);
