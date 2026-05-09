@@ -1444,7 +1444,7 @@ button {
 .viewer-location {
   margin: 0;
   color: var(--sky-dark);
-  font-size: 0.52rem;
+  font-size: 0.64rem;
   font-weight: 900;
   line-height: 1;
 }
