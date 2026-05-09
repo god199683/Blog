@@ -32,6 +32,44 @@
             <dd data-account-id>-</dd>
           </div>
         </dl>
+
+        <section class="account-section" aria-labelledby="password-change-title">
+          <h2 id="password-change-title">비밀번호 바꾸기</h2>
+          <form class="account-form" data-password-form>
+            <div class="form-field">
+              <label for="current-password">현재 비밀번호</label>
+              <input id="current-password" name="current-password" type="password" autocomplete="current-password" required>
+            </div>
+            <div class="form-field">
+              <label for="new-password">새 비밀번호</label>
+              <input id="new-password" name="new-password" type="password" autocomplete="new-password" required>
+            </div>
+            <div class="form-field">
+              <label for="new-password-confirm">새 비밀번호 확인</label>
+              <input id="new-password-confirm" name="new-password-confirm" type="password" autocomplete="new-password" required>
+            </div>
+            <button class="auth-submit" type="submit">비밀번호 변경</button>
+            <p class="auth-message" data-password-message role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="account-section" aria-labelledby="away-password-title">
+          <h2 id="away-password-title">자리비움 패스워드 만들기</h2>
+          <form class="account-form" data-away-form>
+            <div class="form-field">
+              <label for="away-password">자리비움 패스워드</label>
+              <input id="away-password" name="away-password" type="password" autocomplete="new-password" required>
+            </div>
+            <div class="form-field">
+              <label for="away-password-confirm">자리비움 패스워드 확인</label>
+              <input id="away-password-confirm" name="away-password-confirm" type="password" autocomplete="new-password" required>
+              <p class="field-help">상단바의 자리비움 버튼을 눌렀을 때 화면 잠금을 푸는 용도로 사용됩니다.</p>
+            </div>
+            <button class="auth-submit" type="submit">자리비움 패스워드 저장</button>
+            <p class="auth-message" data-away-message role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
         <div class="account-page-actions">
           <a class="auth-button" href="./">홈으로</a>
           <a class="auth-button" href="./my-blog.html">내 블로그</a>

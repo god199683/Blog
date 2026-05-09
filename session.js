@@ -4,6 +4,7 @@
   const SUPABASE_ANON_KEY =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
   const REFRESH_WINDOW_MS = 60 * 1000;
+  const AWAY_LOCK_KEY = "blog.away.locked";
 
   function readSession() {
     try {
@@ -35,6 +36,28 @@
       session?.user?.user_metadata?.username ||
       ""
     );
+  }
+
+  async function requestRest(path, token, options = {}) {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      ...options,
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(payload?.message || "요청을 처리하지 못했습니다.");
+    return payload;
+  }
+
+  async function hashAwayPassword(userId, password) {
+    const data = new TextEncoder().encode(`${userId}:away:${password}`);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   }
 
   async function refreshSession(session) {
@@ -81,6 +104,76 @@
     }
 
     return session;
+  }
+
+  async function getAwayPasswordHash(session) {
+    if (!session?.access_token || !session.user?.id) return "";
+    const rows = await requestRest(
+      `account_security?select=away_password_hash&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
+      session.access_token
+    );
+    return Array.isArray(rows) ? rows[0]?.away_password_hash || "" : "";
+  }
+
+  function closeAwayOverlay() {
+    document.querySelector("[data-away-lock]")?.remove();
+    document.body.classList.remove("is-away-locked");
+    sessionStorage.removeItem(AWAY_LOCK_KEY);
+  }
+
+  function showAwayOverlay(session, storedHash) {
+    document.querySelector("[data-away-lock]")?.remove();
+
+    const overlay = document.createElement("div");
+    overlay.className = "away-lock";
+    overlay.dataset.awayLock = "true";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.innerHTML = `
+      <form class="away-lock-card" data-away-unlock-form>
+        <p class="eyebrow">자리비움</p>
+        <h2>화면 잠금</h2>
+        <p>계정 관리에서 정한 자리비움 패스워드를 입력해주세요.</p>
+        <input type="password" autocomplete="off" aria-label="자리비움 패스워드" data-away-password required>
+        <button class="auth-submit" type="submit">돌아가기</button>
+        <p class="auth-message" data-away-error role="status" aria-live="polite"></p>
+      </form>
+    `;
+
+    const form = overlay.querySelector("[data-away-unlock-form]");
+    const input = overlay.querySelector("[data-away-password]");
+    const error = overlay.querySelector("[data-away-error]");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const enteredHash = await hashAwayPassword(session.user.id, input.value);
+      if (enteredHash === storedHash) {
+        closeAwayOverlay();
+        return;
+      }
+      input.value = "";
+      error.textContent = "자리비움 패스워드가 맞지 않습니다.";
+      error.dataset.type = "error";
+      input.focus();
+    });
+
+    document.body.append(overlay);
+    document.body.classList.add("is-away-locked");
+    window.setTimeout(() => input.focus(), 0);
+  }
+
+  async function lockAway(session, persist = true) {
+    try {
+      const storedHash = await getAwayPasswordHash(session);
+      if (!storedHash) {
+        window.alert("계정 관리 페이지에서 자리비움 패스워드를 먼저 만들어주세요.");
+        return;
+      }
+      if (persist) sessionStorage.setItem(AWAY_LOCK_KEY, "1");
+      showAwayOverlay(session, storedHash);
+    } catch {
+      window.alert("자리비움 잠금을 불러오지 못했습니다.");
+    }
   }
 
   function renderHeader(session) {
@@ -140,11 +233,20 @@
       if (event.key === "Escape") closeDropdown();
     });
 
-    actions.replaceChildren(account);
+    const awayButton = document.createElement("button");
+    awayButton.className = "auth-button";
+    awayButton.type = "button";
+    awayButton.textContent = "자리비움";
+    awayButton.addEventListener("click", () => lockAway(session));
+
+    actions.replaceChildren(awayButton, account);
   }
 
   const ready = getFreshSession().then((session) => {
     renderHeader(session);
+    if (session && sessionStorage.getItem(AWAY_LOCK_KEY) === "1") {
+      lockAway(session, false);
+    }
     return session;
   });
 
@@ -153,6 +255,7 @@
     read: readSession,
     clear: clearSession,
     logout,
+    lockAway,
     getId,
   };
 })();
