@@ -358,7 +358,7 @@ button {
 }
 
 .my-blog-main.is-sidebar-collapsed {
-  --sidebar-width: 4.75rem;
+  --sidebar-width: 2.4rem;
 }
 
 .my-sidebar {
@@ -629,7 +629,7 @@ button {
 }
 
 .my-blog-main.is-sidebar-collapsed .my-sidebar-nav {
-  padding-inline: 0.6rem;
+  padding-inline: 0.25rem;
 }
 
 .my-blog-main.is-sidebar-collapsed .sidebar-filter {
@@ -888,7 +888,7 @@ button {
 }
 
 .my-blog-main.is-sidebar-collapsed .my-sidebar-nav {
-  padding-inline: 0.6rem;
+  padding-inline: 0.25rem;
 }
 
 .my-blog-main.is-sidebar-collapsed .tree-row {
