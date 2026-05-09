@@ -205,12 +205,20 @@
     accountLink.href = "./account.html";
     accountLink.textContent = "계정 관리";
 
+    const awayButton = document.createElement("button");
+    awayButton.type = "button";
+    awayButton.textContent = "자리비움";
+    awayButton.addEventListener("click", () => {
+      closeDropdown();
+      lockAway(session);
+    });
+
     const logoutButton = document.createElement("button");
     logoutButton.type = "button";
     logoutButton.textContent = "로그아웃";
     logoutButton.addEventListener("click", logout);
 
-    dropdown.append(blogLink, accountLink, logoutButton);
+    dropdown.append(blogLink, accountLink, awayButton, logoutButton);
     account.append(accountButton, dropdown);
 
     function closeDropdown() {
@@ -233,13 +241,7 @@
       if (event.key === "Escape") closeDropdown();
     });
 
-    const awayButton = document.createElement("button");
-    awayButton.className = "auth-button";
-    awayButton.type = "button";
-    awayButton.textContent = "자리비움";
-    awayButton.addEventListener("click", () => lockAway(session));
-
-    actions.replaceChildren(awayButton, account);
+    actions.replaceChildren(account);
   }
 
   const ready = getFreshSession().then((session) => {
