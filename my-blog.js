@@ -37,6 +37,8 @@ const els = {
   visitorVisiblePosts: document.querySelector("[data-visitor-visible-posts]"),
   featureCard: document.querySelector("[data-feature-card]"),
   miniList: document.querySelector("[data-blog-mini-list]"),
+  scrollTop: document.querySelector("[data-scroll-top]"),
+  scrollBottom: document.querySelector("[data-scroll-bottom]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -446,7 +448,6 @@ function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
       <span class="blog-feature-author">${escapeHtml(state.id || post.author || "blog")}</span>
       <time datetime="${escapeHtml(post.published_at || post.created_at || "")}">${escapeHtml(date)}</time>
       <span>${escapeHtml(location)}</span>
-      <button class="blog-feature-light-button" type="button" data-feature-copy="${escapeHtml(viewHref)}">URL 복사</button>
       <a class="blog-feature-light-button" href="${editHref}">수정</a>
       <button class="blog-feature-light-button" type="button" data-feature-delete="${escapeHtml(post.id || "")}">삭제</button>
     </div>
@@ -462,9 +463,6 @@ function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
       <a class="blog-feature-icon-action" href="${viewHref}" title="읽기" aria-label="읽기">
         <span class="feature-icon feature-icon-book" aria-hidden="true"></span>
       </a>
-      <button class="blog-feature-icon-action" type="button" data-feature-copy="${escapeHtml(viewHref)}" title="URL 복사" aria-label="URL 복사">
-        <span class="feature-icon feature-icon-copy" aria-hidden="true"></span>
-      </button>
       <a class="blog-feature-text-action" href="${editHref}">수정</a>
       <button class="blog-feature-text-action" type="button" data-feature-delete="${escapeHtml(post.id || "")}">삭제</button>
     </div>
@@ -833,24 +831,6 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-async function copyPostUrl(href = "") {
-  const url = new URL(href || "./my-blog.html", window.location.href).href;
-  try {
-    await navigator.clipboard.writeText(url);
-  } catch {
-    const input = document.createElement("textarea");
-    input.value = url;
-    input.setAttribute("readonly", "");
-    input.style.position = "fixed";
-    input.style.left = "-9999px";
-    document.body.append(input);
-    input.select();
-    document.execCommand("copy");
-    input.remove();
-  }
-  window.alert("URL을 복사했습니다.");
-}
-
 function getExportPosts() {
   return getActiveTreeMeta().posts;
 }
@@ -955,7 +935,7 @@ function renderPosts(posts = []) {
       return `
         <div class="blog-post-row">
           <span>
-            <a class="blog-post-title" href="./editor.html?post=${encodeURIComponent(post.id)}">
+            <a class="blog-post-title" href="${getPostViewHref(post)}">
               ${escapeHtml(post.title || "제목 없는 글")}
             </a>
             <small>${escapeHtml(post.folder_path || post.folder_name || post.category || "전체")} · ${visibility}</small>
@@ -990,13 +970,6 @@ if (listToggle && blogBoard) {
 }
 
 els.featureCard?.addEventListener("click", async (event) => {
-  const copy = event.target.closest("[data-feature-copy]");
-  if (copy) {
-    event.preventDefault();
-    await copyPostUrl(copy.dataset.featureCopy);
-    return;
-  }
-
   const deleteButton = event.target.closest("[data-feature-delete]");
   if (deleteButton) {
     event.preventDefault();
@@ -1011,6 +984,20 @@ els.miniList?.addEventListener("click", (event) => {
   if (els.searchInput) els.searchInput.value = "";
   renderActivePosts();
   syncTreeSelectionState();
+});
+
+els.scrollTop?.addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+els.scrollBottom?.addEventListener("click", () => {
+  const bottom = Math.max(
+    document.body.scrollHeight,
+    document.documentElement.scrollHeight,
+    document.body.offsetHeight,
+    document.documentElement.offsetHeight
+  );
+  window.scrollTo({ top: bottom, behavior: "smooth" });
 });
 
 els.toolsToggle?.addEventListener("click", () => {
