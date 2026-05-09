@@ -3161,10 +3161,14 @@ body.is-book-mode .viewer-page-content {
 .trash-page-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 0.7rem;
   min-height: 3.5rem;
   padding: 0.65rem 0.75rem;
+}
+
+.trash-page-item[data-trash-view-href] {
+  cursor: pointer;
 }
 
 .trash-page-item.is-selected {
@@ -3202,6 +3206,55 @@ body.is-book-mode .viewer-page-content {
   margin: 0.12rem 0 0;
   color: #8aa0b2;
   font-size: 0.76rem;
+}
+
+.trash-page-posts {
+  display: grid;
+  gap: 0.32rem;
+  margin-top: 0.52rem;
+}
+
+.trash-page-post-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.15rem;
+  padding: 0.35rem 0.48rem;
+  border: 1px solid rgba(216, 234, 251, 0.76);
+  border-radius: 6px;
+  background: #f8fcff;
+  color: #20364a;
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
+.trash-page-post-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-page-post-link small {
+  overflow: hidden;
+  color: #8aa0b2;
+  font-size: 0.7rem;
+  font-weight: 620;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-page-post-link:hover,
+.trash-page-post-link:focus-visible {
+  border-color: rgba(56, 189, 248, 0.46);
+  background: #f0f9ff;
+  color: var(--sky-dark);
+}
+
+.trash-page-post-link.is-static {
+  color: #557085;
+  cursor: default;
 }
 
 @media (max-width: 760px) {
@@ -3246,6 +3299,15 @@ body.is-book-mode .viewer-page-content {
 
   .trash-page-actions {
     justify-content: flex-start;
+  }
+
+  .trash-page-post-link {
+    grid-template-columns: 1fr;
+    gap: 0.12rem;
+  }
+
+  .trash-page-post-link small {
+    text-align: left;
   }
 }
 
