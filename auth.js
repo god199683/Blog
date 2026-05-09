@@ -132,6 +132,25 @@ async function savePasswordHint(payload, id, hint) {
   });
 }
 
+async function saveBlogProfile(payload, id) {
+  const session = getSession(payload);
+  if (!session?.access_token || !session.user?.id) return;
+
+  await requestRest("blog_profiles?on_conflict=user_id", {
+    method: "POST",
+    token: session.access_token,
+    headers: {
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify({
+      user_id: session.user.id,
+      login_id: id,
+      blog_title: `${id}'s Blog`,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+}
+
 async function fetchPasswordHint(id) {
   const rows = await requestRest(`password_hints?select=hint&login_id=eq.${encodeURIComponent(id)}&limit=1`);
   return Array.isArray(rows) ? rows[0]?.hint || "" : "";
@@ -195,7 +214,10 @@ async function handleSubmit(event) {
         : await requestAuth("token?grant_type=password", { email, password });
 
     const hasSession = saveSession(payload, id);
-    if (mode === "signup" && hasSession) await savePasswordHint(payload, id, passwordHint);
+    if (hasSession) {
+      await saveBlogProfile(payload, id);
+      if (mode === "signup") await savePasswordHint(payload, id, passwordHint);
+    }
 
     if (mode === "signup" && !hasSession) {
       setMessage(form, "회원가입 요청이 완료되었습니다. 로그인 후 사용할 수 있습니다.", "success");
@@ -204,7 +226,7 @@ async function handleSubmit(event) {
 
     setMessage(form, mode === "signup" ? "회원가입이 완료되었습니다." : "로그인되었습니다.", "success");
     window.setTimeout(() => {
-      window.location.href = "./";
+      window.location.href = "./my-blog.html";
     }, 650);
   } catch (error) {
     setMessage(form, error.message, "error");

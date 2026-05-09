@@ -542,6 +542,64 @@ button {
   gap: 0.5rem;
 }
 
+.blog-main {
+  width: min(820px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(1.7rem, 7vw, 3.6rem) 0 2.2rem;
+}
+
+.personal-cover {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(186, 230, 253, 0.44), transparent 12rem),
+    rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow);
+}
+
+.personal-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 1.15rem;
+  font-weight: 860;
+  box-shadow: 0 12px 26px rgba(14, 116, 144, 0.08);
+}
+
+.personal-cover h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.35rem, 4vw, 1.82rem);
+  font-weight: 840;
+  line-height: 1.25;
+}
+
+.personal-cover p:last-child {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.personal-feed {
+  display: grid;
+  gap: 0;
+  margin-top: 0.8rem;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow);
+}
+
 @media (max-width: 640px) {
   body {
     font-size: 14px;
@@ -568,5 +626,9 @@ button {
 
   .auth-shell {
     grid-template-columns: 1fr;
+  }
+
+  .personal-cover {
+    align-items: flex-start;
   }
 }

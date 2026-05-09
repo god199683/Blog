@@ -104,6 +104,10 @@
     dropdown.className = "account-dropdown";
     dropdown.hidden = true;
 
+    const blogLink = document.createElement("a");
+    blogLink.href = "./my-blog.html";
+    blogLink.textContent = "내 블로그";
+
     const accountLink = document.createElement("a");
     accountLink.href = "./account.html";
     accountLink.textContent = "계정 관리";
@@ -113,7 +117,7 @@
     logoutButton.textContent = "로그아웃";
     logoutButton.addEventListener("click", logout);
 
-    dropdown.append(accountLink, logoutButton);
+    dropdown.append(blogLink, accountLink, logoutButton);
     account.append(accountButton, dropdown);
 
     function closeDropdown() {

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="심플한 공용 블로그 홈">
-    <title>블로그 홈</title>
+    <meta name="description" content="계정별 블로그 홈">
+    <title>내 블로그 | 블로그 홈</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
@@ -14,7 +14,8 @@
         <span>Blog</span>
       </a>
       <nav class="top-nav" aria-label="상단 메뉴">
-        <a href="./" aria-current="page">홈</a>
+        <a href="./">홈</a>
+        <a href="./my-blog.html" aria-current="page">내 블로그</a>
       </nav>
       <div class="auth-actions" aria-label="계정 메뉴" data-auth-actions>
         <a class="auth-button" href="./login.html">로그인</a>
@@ -22,35 +23,34 @@
       </div>
     </header>
 
-    <main class="home-main">
-      <section class="home-hero" aria-labelledby="home-title">
+    <main class="blog-main">
+      <section class="personal-cover" aria-labelledby="blog-title">
+        <span class="personal-mark" data-blog-initial aria-hidden="true">B</span>
         <div>
-          <p class="eyebrow">공용 블로그 홈</p>
-          <h1 id="home-title">블로그 홈</h1>
+          <p class="eyebrow">내 블로그</p>
+          <h1 id="blog-title" data-blog-title>Blog</h1>
+          <p data-blog-owner>계정별 블로그 홈입니다.</p>
         </div>
-        <p>가볍게 읽고, 차분하게 기록을 모으는 공간입니다.</p>
       </section>
 
-      <section class="feed-section" aria-labelledby="feed-title">
+      <section class="personal-feed" aria-labelledby="personal-feed-title">
         <div class="section-head">
-          <h2 id="feed-title">피드</h2>
-          <span>TODAY</span>
+          <h2 id="personal-feed-title">전체글</h2>
+          <span data-blog-count>0개</span>
         </div>
-        <div class="feed-list" aria-label="공개 글 목록">
+        <div class="feed-list" aria-label="내 블로그 글 목록">
           <div class="feed-list-head" aria-hidden="true">
             <span>글 제목</span>
             <span>작성일</span>
           </div>
           <div class="feed-empty">
-            <p>공개된 글이 이곳에 표시됩니다.</p>
+            <p>아직 작성된 글이 없습니다.</p>
           </div>
         </div>
       </section>
     </main>
 
-    <footer class="site-footer">
-      <p>천천히 읽기 좋은 블로그.</p>
-    </footer>
     <script src="./session.js" defer></script>
+    <script src="./my-blog.js" defer></script>
   </body>
 </html>
