@@ -219,7 +219,7 @@ button {
 }
 
 .home-main {
-  width: min(820px, calc(100% - 2rem));
+  width: min(1080px, calc(100% - clamp(1.2rem, 4vw, 2.4rem)));
   margin: 0 auto;
   padding: clamp(1.7rem, 7vw, 3.6rem) 0 2.2rem;
 }
@@ -344,7 +344,7 @@ button {
 }
 
 .site-footer {
-  width: min(820px, calc(100% - 2rem));
+  width: min(1080px, calc(100% - clamp(1.2rem, 4vw, 2.4rem)));
   margin: 0 auto;
   padding: 0 0 2rem;
   color: #8aa0b2;
@@ -357,7 +357,7 @@ button {
 }
 
 .auth-main {
-  width: min(820px, calc(100% - 2rem));
+  width: min(1080px, calc(100% - clamp(1.2rem, 4vw, 2.4rem)));
   margin: 0 auto;
   padding: clamp(1.7rem, 7vw, 3.6rem) 0 2.2rem;
 }
@@ -487,7 +487,7 @@ button {
 }
 
 .account-main {
-  width: min(620px, calc(100% - 2rem));
+  width: min(720px, calc(100% - clamp(1.2rem, 4vw, 2.4rem)));
   margin: 0 auto;
   padding: clamp(1.7rem, 7vw, 3.6rem) 0 2.2rem;
 }
@@ -616,18 +616,18 @@ body.is-away-locked {
 }
 
 .blog-main {
-  width: min(980px, calc(100% - 1.6rem));
+  width: min(1240px, calc(100% - clamp(1.1rem, 3vw, 2rem)));
   margin: 0 auto;
-  padding: 1.15rem 0 2.4rem;
+  padding: 0.85rem 0 2.2rem;
 }
 
 .personal-cover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  min-height: 7.15rem;
-  padding: 1.15rem 1.35rem;
+  gap: 0.75rem;
+  min-height: 2.55rem;
+  padding: 0.42rem 0.7rem;
   border: 1px solid rgba(216, 234, 251, 0.95);
   border-radius: 9px;
   background:
@@ -640,14 +640,14 @@ body.is-away-locked {
 .blog-profile-mark {
   display: grid;
   flex: 0 0 auto;
-  width: 2.65rem;
-  height: 2.65rem;
+  width: 2.15rem;
+  height: 2.15rem;
   place-items: center;
   border: 1px solid rgba(56, 189, 248, 0.28);
   border-radius: 8px;
   background: #fff;
   color: var(--sky-dark);
-  font-size: 1rem;
+  font-size: 0.88rem;
   font-weight: 820;
   box-shadow: 0 10px 22px rgba(14, 116, 144, 0.07);
 }
@@ -655,15 +655,22 @@ body.is-away-locked {
 .personal-cover h1 {
   margin: 0;
   color: #183047;
-  font-size: clamp(1.12rem, 2.3vw, 1.42rem);
+  font-size: clamp(0.95rem, 1.6vw, 1.08rem);
   font-weight: 780;
-  line-height: 1.28;
+  line-height: 1.12;
+}
+
+.personal-cover .eyebrow {
+  margin-bottom: 0.04rem;
+  font-size: 0.64rem;
+  line-height: 1.1;
 }
 
 .personal-cover p:last-child {
-  margin: 0.28rem 0 0;
+  margin: 0.08rem 0 0;
   color: #6f8497;
-  font-size: 0.82rem;
+  font-size: 0.7rem;
+  line-height: 1.15;
 }
 
 .blog-menu-bar {
@@ -940,7 +947,7 @@ body.is-away-locked {
 }
 
 .editor-page-main {
-  width: min(1180px, calc(100% - 1.6rem));
+  width: min(1280px, calc(100% - clamp(1.1rem, 3vw, 2rem)));
   margin: 0 auto;
   padding: 1rem 0 2.4rem;
 }
@@ -1681,7 +1688,7 @@ body.is-away-locked {
   }
 
   .home-main {
-    width: min(100% - 1.25rem, 820px);
+    width: min(100% - 1rem, 1080px);
   }
 
   .home-hero {
@@ -1698,14 +1705,14 @@ body.is-away-locked {
   }
 
   .personal-cover {
-    align-items: flex-start;
+    align-items: center;
     min-height: auto;
-    padding: 1rem;
+    padding: 0.42rem 0.58rem;
   }
 
   .blog-main {
-    width: min(100% - 1.1rem, 980px);
-    padding-top: 0.9rem;
+    width: min(100% - 0.9rem, 1240px);
+    padding-top: 0.65rem;
   }
 
   .blog-menu-bar {
@@ -1729,7 +1736,7 @@ body.is-away-locked {
   }
 
   .editor-page-main {
-    width: min(100% - 1rem, 1180px);
+    width: min(100% - 0.9rem, 1280px);
   }
 
   .editor-topbar,
