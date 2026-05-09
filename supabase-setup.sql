@@ -30,6 +30,15 @@ create table if not exists public.blog_trees (
   updated_at timestamptz default now()
 );
 
+create table if not exists public.password_hints (
+  login_id text primary key,
+  user_id uuid not null unique,
+  hint text not null default '',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  constraint password_hints_hint_length check (char_length(hint) <= 160)
+);
+
 alter table public.posts add column if not exists title text;
 alter table public.posts add column if not exists excerpt text;
 alter table public.posts add column if not exists body text;
@@ -55,6 +64,12 @@ alter table public.blog_trees add column if not exists tree_collapsed_ids text[]
 alter table public.blog_trees add column if not exists trash jsonb not null default '[]'::jsonb;
 alter table public.blog_trees add column if not exists updated_at timestamptz default now();
 
+alter table public.password_hints add column if not exists login_id text;
+alter table public.password_hints add column if not exists user_id uuid;
+alter table public.password_hints add column if not exists hint text not null default '';
+alter table public.password_hints add column if not exists created_at timestamptz default now();
+alter table public.password_hints add column if not exists updated_at timestamptz default now();
+
 do $$
 begin
   if not exists (
@@ -70,11 +85,14 @@ $$;
 
 alter table public.posts enable row level security;
 alter table public.blog_trees enable row level security;
+alter table public.password_hints enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select on table public.posts to anon, authenticated;
 grant insert, update, delete on table public.posts to authenticated;
 grant select, insert, update, delete on table public.blog_trees to authenticated;
+grant select on table public.password_hints to anon, authenticated;
+grant insert, update on table public.password_hints to authenticated;
 
 do $$
 begin
@@ -108,6 +126,61 @@ begin
     for select
     to authenticated
     using (auth.uid() = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'password_hints'
+      and policyname = 'Anyone can read password hints'
+  ) then
+    create policy "Anyone can read password hints"
+    on public.password_hints
+    for select
+    to anon, authenticated
+    using (true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'password_hints'
+      and policyname = 'Authenticated users can create own password hint'
+  ) then
+    create policy "Authenticated users can create own password hint"
+    on public.password_hints
+    for insert
+    to authenticated
+    with check (auth.uid() = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'password_hints'
+      and policyname = 'Authenticated users can update own password hint'
+  ) then
+    create policy "Authenticated users can update own password hint"
+    on public.password_hints
+    for update
+    to authenticated
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
   end if;
 end
 $$;

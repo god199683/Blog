@@ -35,6 +35,8 @@
           <div class="form-field">
             <label for="password">비밀번호</label>
             <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button class="password-hint-button" type="button" data-password-hint-trigger>힌트</button>
+            <p class="password-hint-result" data-password-hint-result hidden></p>
           </div>
           <button class="auth-submit" type="submit">로그인</button>
           <p class="auth-message" data-auth-message role="status" aria-live="polite"></p>

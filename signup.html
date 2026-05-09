@@ -41,6 +41,11 @@
             <label for="confirm-password">비밀번호 확인</label>
             <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" required>
           </div>
+          <div class="form-field">
+            <label for="password-hint">비밀번호 힌트</label>
+            <input id="password-hint" name="password-hint" type="text" maxlength="160" autocomplete="off" placeholder="나만 알 수 있는 힌트">
+            <p class="field-help">비밀번호 자체는 적지 말고, 기억을 돕는 말만 적어주세요.</p>
+          </div>
           <button class="auth-submit" type="submit">회원가입</button>
           <p class="auth-message" data-auth-message role="status" aria-live="polite"></p>
           <p class="auth-link">이미 계정이 있나요? <a href="./login.html">로그인</a></p>

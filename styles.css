@@ -227,13 +227,46 @@ button {
   box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.16);
 }
 
+.password-hint-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sky-dark);
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
+.password-hint-button:disabled {
+  cursor: wait;
+  color: var(--muted);
+}
+
 .field-help,
 .auth-message,
-.auth-link {
+.auth-link,
+.password-hint-result {
   margin: 0;
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.55;
+}
+
+.password-hint-result {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.password-hint-result[data-type="error"] {
+  border-color: rgba(180, 35, 24, 0.28);
+  background: rgba(254, 226, 226, 0.78);
+  color: #b42318;
 }
 
 .auth-submit {
