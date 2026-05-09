@@ -135,6 +135,17 @@ function updateBookModeUi() {
   syncReaderControls();
 }
 
+function closeBookMode() {
+  bookMode = false;
+  syncBookModeUrl();
+  updateBookModeUi();
+}
+
+function changeReaderFontSize(delta) {
+  readerFontSize = clampReaderFontSize(readerFontSize + delta);
+  syncReaderControls();
+}
+
 function renderBookNavigation() {
   if (!bookMode || !currentPost) {
     updateBookModeUi();
@@ -302,9 +313,7 @@ els.bookToggle.addEventListener("click", () => {
 });
 
 els.bookClose.addEventListener("click", () => {
-  bookMode = false;
-  syncBookModeUrl();
-  updateBookModeUi();
+  closeBookMode();
 });
 
 els.fontSelect.addEventListener("change", (event) => {
@@ -313,13 +322,11 @@ els.fontSelect.addEventListener("change", (event) => {
 });
 
 els.fontDown.addEventListener("click", () => {
-  readerFontSize = clampReaderFontSize(readerFontSize - 1);
-  syncReaderControls();
+  changeReaderFontSize(-1);
 });
 
 els.fontUp.addEventListener("click", () => {
-  readerFontSize = clampReaderFontSize(readerFontSize + 1);
-  syncReaderControls();
+  changeReaderFontSize(1);
 });
 
 els.prev.addEventListener("click", () => {
@@ -340,6 +347,42 @@ els.prevSide.addEventListener("click", () => {
 els.nextSide.addEventListener("click", () => {
   if (!els.nextSide.dataset.postId) return;
   turnBookPage(els.nextSide.dataset.postId, "next");
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!bookMode || event.altKey || event.ctrlKey || event.metaKey) return;
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(event.target?.tagName)) return;
+
+  if (event.key === "ArrowLeft" || event.key === "PageUp") {
+    if (!els.prevSide.dataset.postId || els.prevSide.disabled) return;
+    event.preventDefault();
+    turnBookPage(els.prevSide.dataset.postId, "prev");
+    return;
+  }
+
+  if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+    if (!els.nextSide.dataset.postId || els.nextSide.disabled) return;
+    event.preventDefault();
+    turnBookPage(els.nextSide.dataset.postId, "next");
+    return;
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeBookMode();
+    return;
+  }
+
+  if (event.key === "+" || event.key === "=") {
+    event.preventDefault();
+    changeReaderFontSize(1);
+    return;
+  }
+
+  if (event.key === "-" || event.key === "_") {
+    event.preventDefault();
+    changeReaderFontSize(-1);
+  }
 });
 
 updateBookModeUi();
