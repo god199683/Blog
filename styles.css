@@ -1505,7 +1505,8 @@ body.is-away-locked {
 .align-icon,
 .list-icon,
 .indent-icon,
-.line-height-icon {
+.line-height-icon,
+.divider-icon {
   display: grid;
   gap: 0.16rem;
   width: 1rem;
@@ -1519,6 +1520,23 @@ body.is-away-locked {
   height: 2px;
   border-radius: 999px;
   background: currentColor;
+}
+
+.divider-icon {
+  position: relative;
+  height: 1rem;
+}
+
+.divider-icon::before {
+  position: absolute;
+  top: 50%;
+  left: 0.05rem;
+  width: 0.9rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  transform: translateY(-50%);
 }
 
 .align-center i:nth-child(2) {
@@ -1757,6 +1775,13 @@ body.is-away-locked {
   width: 100%;
   margin: 0.75rem 0;
   border-collapse: collapse;
+}
+
+.editor-surface hr {
+  height: 1px;
+  margin: 1rem 0;
+  border: 0;
+  background: #cfe1f0;
 }
 
 .editor-surface td,

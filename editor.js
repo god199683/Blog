@@ -1101,6 +1101,10 @@ function insertEditorTable() {
   executeEditorCommand("insertHTML", `<table><tbody>${rows}</tbody></table><p><br></p>`);
 }
 
+function insertEditorDivider() {
+  executeEditorCommand("insertHTML", `<hr><p><br></p>`);
+}
+
 function getActiveTableCell() {
   const selection = window.getSelection();
   if (!selection?.rangeCount) return null;
@@ -1703,6 +1707,12 @@ els.toolbar.addEventListener("click", (event) => {
   if (event.target.closest("[data-table-add-col]")) {
     addTableColumn();
     closeEditorMiniMenus();
+    return;
+  }
+
+  if (event.target.closest("[data-editor-divider]")) {
+    insertEditorDivider();
+    closeAllToolbarMenus();
     return;
   }
 
