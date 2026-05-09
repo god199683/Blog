@@ -24,30 +24,56 @@
     </header>
 
     <main class="blog-main">
-      <section class="personal-cover" aria-labelledby="blog-title">
-        <span class="personal-mark" data-blog-initial aria-hidden="true">B</span>
+      <section class="personal-cover blog-cover" aria-labelledby="blog-title">
         <div>
           <p class="eyebrow">내 블로그</p>
           <h1 id="blog-title" data-blog-title>Blog</h1>
           <p data-blog-owner>계정별 블로그 홈입니다.</p>
         </div>
+        <span class="personal-mark" data-blog-initial aria-hidden="true">B</span>
       </section>
 
-      <section class="personal-feed" aria-labelledby="personal-feed-title">
-        <div class="section-head">
-          <h2 id="personal-feed-title">전체글</h2>
-          <span data-blog-count>0개</span>
-        </div>
-        <div class="feed-list" aria-label="내 블로그 글 목록">
-          <div class="feed-list-head" aria-hidden="true">
-            <span>글 제목</span>
-            <span>작성일</span>
+      <nav class="blog-menu-bar" aria-label="블로그 메뉴">
+        <a href="./my-blog.html" aria-current="page">블로그 홈</a>
+        <a href="#blog-posts">전체글</a>
+        <a href="./account.html">관리</a>
+      </nav>
+
+      <div class="blog-body-layout">
+        <aside class="blog-side-panel" aria-label="블로그 정보">
+          <div class="blog-profile-box">
+            <span class="blog-profile-mark" data-blog-initial aria-hidden="true">B</span>
+            <div>
+              <strong data-profile-title>Blog</strong>
+              <span data-profile-id>@blog</span>
+            </div>
           </div>
-          <div class="feed-empty">
-            <p>아직 작성된 글이 없습니다.</p>
+          <nav class="blog-side-links" aria-label="블로그 바로가기">
+            <a href="./my-blog.html" aria-current="page">전체글</a>
+            <a href="./account.html">계정 관리</a>
+          </nav>
+        </aside>
+
+        <section class="blog-board" id="blog-posts" aria-labelledby="personal-feed-title" data-blog-board>
+          <div class="blog-board-head">
+            <h2 id="personal-feed-title">전체보기 <span data-blog-count>0개의 글</span></h2>
+            <button class="blog-board-toggle" type="button" data-list-toggle>목록닫기</button>
           </div>
-        </div>
-      </section>
+
+          <div class="blog-table" aria-label="내 블로그 글 목록">
+            <div class="blog-table-head" aria-hidden="true">
+              <span>글 제목</span>
+              <span>조회수</span>
+              <span>작성일</span>
+            </div>
+            <div class="blog-empty-row">
+              <span>아직 작성된 글이 없습니다.</span>
+              <span>0</span>
+              <span>-</span>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
 
     <script src="./session.js" defer></script>

@@ -5,7 +5,9 @@ const SUPABASE_ANON_KEY =
 const els = {
   title: document.querySelector("[data-blog-title]"),
   owner: document.querySelector("[data-blog-owner]"),
-  initial: document.querySelector("[data-blog-initial]"),
+  initials: document.querySelectorAll("[data-blog-initial]"),
+  profileTitle: document.querySelector("[data-profile-title]"),
+  profileId: document.querySelector("[data-profile-id]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -27,9 +29,25 @@ async function requestRest(path, token, options = {}) {
 function renderBlog(id, profile = null) {
   const title = profile?.blog_title || `${id}'s Blog`;
   if (els.title) els.title.textContent = title;
-  if (els.owner) els.owner.textContent = `${id} 계정에 배정된 블로그입니다.`;
-  if (els.initial) els.initial.textContent = id.slice(0, 1).toUpperCase();
+  if (els.profileTitle) els.profileTitle.textContent = title;
+  if (els.profileId) els.profileId.textContent = `@${id}`;
+  if (els.owner) els.owner.textContent = `${id} 계정의 개인 블로그입니다.`;
+  els.initials.forEach((initial) => {
+    initial.textContent = id.slice(0, 1).toUpperCase();
+  });
   document.title = `${title} | 블로그 홈`;
+}
+
+const listToggle = document.querySelector("[data-list-toggle]");
+const blogBoard = document.querySelector("[data-blog-board]");
+
+if (listToggle && blogBoard) {
+  listToggle.addEventListener("click", () => {
+    const isCollapsed = blogBoard.classList.toggle("is-list-collapsed");
+    listToggle.textContent = isCollapsed ? "목록열기" : "목록닫기";
+    listToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  });
+  listToggle.setAttribute("aria-expanded", "true");
 }
 
 async function ensureBlogProfile(session, id) {
