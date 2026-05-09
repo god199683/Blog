@@ -4,7 +4,9 @@ const SUPABASE_ANON_KEY =
 
 const params = new URLSearchParams(window.location.search);
 const postId = params.get("id") || "";
+const PAGE_TURN_DURATION = 560;
 let bookMode = params.get("book") === "1";
+let bookTurning = false;
 let currentPost = null;
 let sameFolderPosts = [];
 
@@ -102,6 +104,7 @@ function updateBookModeUi() {
   document.body.classList.toggle("is-book-mode", bookMode);
   els.bookToggle.textContent = bookMode ? "일반 보기" : "책 읽기";
   els.bookToggle.setAttribute("aria-pressed", String(bookMode));
+  els.bookToggle.disabled = bookTurning;
   els.bookNav.hidden = !bookMode;
 }
 
@@ -118,11 +121,31 @@ function renderBookNavigation() {
   const nextPost = currentIndex >= 0 && currentIndex < sameFolderPosts.length - 1 ? sameFolderPosts[currentIndex + 1] : null;
 
   els.position.textContent = `${visibleIndex} / ${postCount}`;
-  els.prev.disabled = !prevPost;
-  els.next.disabled = !nextPost;
-  els.prev.dataset.postId = normalizePostId(prevPost);
-  els.next.dataset.postId = normalizePostId(nextPost);
+  els.prev.disabled = bookTurning || !prevPost;
+  els.next.disabled = bookTurning || !nextPost;
+  els.prev.dataset.postId = prevPost ? normalizePostId(prevPost) : "";
+  els.next.dataset.postId = nextPost ? normalizePostId(nextPost) : "";
   updateBookModeUi();
+}
+
+function turnBookPage(targetPostId, direction) {
+  if (!targetPostId || bookTurning) return;
+
+  if (!bookMode) {
+    window.location.href = buildViewerUrl(targetPostId, false);
+    return;
+  }
+
+  bookTurning = true;
+  document.body.classList.add("is-page-turning");
+  els.body.classList.remove("is-turning-prev", "is-turning-next");
+  void els.body.offsetWidth;
+  els.body.classList.add(direction === "prev" ? "is-turning-prev" : "is-turning-next");
+  renderBookNavigation();
+
+  window.setTimeout(() => {
+    window.location.href = buildViewerUrl(targetPostId, true);
+  }, PAGE_TURN_DURATION);
 }
 
 async function fetchPost() {
@@ -245,12 +268,12 @@ els.bookToggle.addEventListener("click", () => {
 
 els.prev.addEventListener("click", () => {
   if (!els.prev.dataset.postId) return;
-  window.location.href = buildViewerUrl(els.prev.dataset.postId, true);
+  turnBookPage(els.prev.dataset.postId, "prev");
 });
 
 els.next.addEventListener("click", () => {
   if (!els.next.dataset.postId) return;
-  window.location.href = buildViewerUrl(els.next.dataset.postId, true);
+  turnBookPage(els.next.dataset.postId, "next");
 });
 
 updateBookModeUi();
