@@ -1405,7 +1405,7 @@ button {
 .viewer-shell {
   position: relative;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   gap: 0.48rem;
   height: 100%;
   min-height: 0;
@@ -1419,14 +1419,56 @@ button {
 
 .viewer-topbar {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.viewer-book-titleblock {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0.2rem;
 }
 
 .viewer-topbar-actions {
   display: flex;
   gap: 0.45rem;
   align-items: center;
+}
+
+.viewer-reader-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.viewer-reader-controls[hidden] {
+  display: none;
+}
+
+.viewer-reader-controls select {
+  min-height: 2rem;
+  padding: 0 2rem 0 0.8rem;
+  border: 1px solid rgba(56, 189, 248, 0.34);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.viewer-reader-controls button {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.viewer-reader-controls span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
 .viewer-back-button,
@@ -1493,6 +1535,10 @@ button {
 .viewer-body img {
   max-width: 100%;
   height: auto;
+}
+
+.viewer-page-arrow {
+  display: none;
 }
 
 .viewer-page.is-book-mode .viewer-shell {
@@ -1678,6 +1724,230 @@ button {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 900;
+}
+
+.viewer-page.is-book-mode {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(186, 230, 253, 0.72), transparent 34rem),
+    linear-gradient(180deg, #eaf8ff 0%, #ffffff 44%, #eaf8ff 100%);
+}
+
+.viewer-page.is-book-mode .site-header {
+  display: none;
+}
+
+.viewer-page.is-book-mode .viewer-main {
+  width: 100%;
+  padding: 0;
+}
+
+.viewer-page.is-book-mode .viewer-shell {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(234, 248, 255, 0.96), rgba(255, 255, 255, 0.96) 48%, rgba(234, 248, 255, 0.96)),
+    #fff;
+  box-shadow: none;
+}
+
+.viewer-page.is-book-mode .viewer-topbar {
+  min-height: 5.2rem;
+  padding: 1.15rem 1.3rem;
+  border-bottom: 1px solid rgba(125, 211, 252, 0.38);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.92), rgba(234, 248, 255, 0.92)),
+    #fff;
+}
+
+.viewer-page.is-book-mode .viewer-back-button,
+.viewer-page.is-book-mode .viewer-book-button,
+.viewer-page.is-book-mode .viewer-edit-button {
+  display: none;
+}
+
+.viewer-page.is-book-mode .viewer-topbar-actions {
+  margin-left: auto;
+}
+
+.viewer-page.is-book-mode .viewer-book-titleblock {
+  gap: 0.35rem;
+}
+
+.viewer-page.is-book-mode .viewer-book-titleblock h1 {
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-page.is-book-mode .viewer-location {
+  color: #334155;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.viewer-page.is-book-mode .viewer-reader-controls {
+  display: flex;
+}
+
+.viewer-page.is-book-mode .viewer-body {
+  columns: auto;
+  column-gap: normal;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: clamp(2rem, 6vh, 3.2rem) clamp(3.2rem, 4.5vw, 5.2rem);
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(234, 248, 255, 0.36)),
+    transparent;
+  box-shadow: none;
+  color: #111827;
+  font-family: "Noto Serif KR", "Batang", "Georgia", serif;
+  font-size: var(--reader-font-size, 18px);
+  line-height: 2.65;
+  overflow: auto;
+}
+
+.viewer-page.is-book-mode[data-reader-font="sans"] .viewer-body {
+  font-family: "Noto Sans KR", "Segoe UI", system-ui, sans-serif;
+}
+
+.viewer-page.is-book-mode .viewer-body::before {
+  content: none;
+}
+
+.viewer-page.is-book-mode .viewer-body p {
+  max-width: 58rem;
+  margin: 0 0 1.25rem;
+  break-inside: auto;
+}
+
+.viewer-page.is-book-mode .viewer-body h1,
+.viewer-page.is-book-mode .viewer-body h2,
+.viewer-page.is-book-mode .viewer-body h3,
+.viewer-page.is-book-mode .viewer-body blockquote,
+.viewer-page.is-book-mode .viewer-body table,
+.viewer-page.is-book-mode .viewer-body img {
+  max-width: 58rem;
+}
+
+.viewer-page.is-book-mode .viewer-page-arrow {
+  position: fixed;
+  top: 50%;
+  z-index: 20;
+  display: grid;
+  width: 3.1rem;
+  height: 3.1rem;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.viewer-page.is-book-mode .viewer-page-arrow:disabled {
+  opacity: 0.28;
+}
+
+.viewer-page.is-book-mode .viewer-page-arrow-prev {
+  left: 0.9rem;
+}
+
+.viewer-page.is-book-mode .viewer-page-arrow-next {
+  right: 0.9rem;
+}
+
+.viewer-page.is-book-mode .viewer-book-nav {
+  grid-template-columns: 1fr minmax(12rem, 18rem) 1fr;
+  min-height: 4.8rem;
+  padding: 0.8rem clamp(1rem, 5vw, 5rem);
+  border-top: 1px solid rgba(125, 211, 252, 0.38);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.9), rgba(234, 248, 255, 0.92)),
+    #fff;
+}
+
+.viewer-page.is-book-mode .viewer-book-nav button {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.viewer-page.is-book-mode .viewer-book-nav button:last-child {
+  border: 0;
+  background: transparent;
+  color: #334155;
+}
+
+.viewer-book-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.viewer-book-progress input {
+  width: 100%;
+  accent-color: var(--sky-dark);
+}
+
+.viewer-book-progress span {
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.viewer-page.is-book-mode .viewer-message {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .viewer-page.is-book-mode .viewer-topbar {
+    align-items: start;
+    min-height: 6.4rem;
+    padding: 0.9rem;
+  }
+
+  .viewer-page.is-book-mode .viewer-reader-controls {
+    gap: 0.55rem;
+  }
+
+  .viewer-page.is-book-mode .viewer-reader-controls select {
+    width: 5.2rem;
+  }
+
+  .viewer-page.is-book-mode .viewer-body {
+    padding: 1.6rem 1.35rem;
+    line-height: 2.25;
+  }
+
+  .viewer-page.is-book-mode .viewer-page-arrow {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+
+  .viewer-page.is-book-mode .viewer-book-nav {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    padding: 0.7rem 1rem;
+  }
 }
 
 .viewer-message {

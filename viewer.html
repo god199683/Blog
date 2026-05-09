@@ -23,17 +23,34 @@
       <article class="viewer-shell">
         <div class="viewer-topbar">
           <button class="viewer-back-button" type="button" data-viewer-back>뒤로</button>
+          <div class="viewer-book-titleblock">
+            <h1 data-viewer-title>글을 불러오는 중입니다</h1>
+            <p class="viewer-location" data-viewer-location></p>
+          </div>
           <div class="viewer-topbar-actions">
             <button class="viewer-book-button" type="button" data-viewer-book-toggle>책 읽기</button>
+            <div class="viewer-reader-controls" data-viewer-reader-controls hidden>
+              <select data-viewer-font aria-label="글꼴">
+                <option value="serif">명조</option>
+                <option value="sans">고딕</option>
+              </select>
+              <button type="button" data-viewer-font-down aria-label="글씨 작게">A-</button>
+              <span data-viewer-font-size>18px</span>
+              <button type="button" data-viewer-font-up aria-label="글씨 크게">A+</button>
+              <button type="button" data-viewer-book-close aria-label="책 읽기 닫기">×</button>
+            </div>
             <button class="viewer-edit-button" type="button" data-viewer-edit hidden>수정</button>
           </div>
         </div>
-        <p class="viewer-location" data-viewer-location></p>
-        <h1 data-viewer-title>글을 불러오는 중입니다</h1>
         <div class="viewer-body" data-viewer-body></div>
+        <button class="viewer-page-arrow viewer-page-arrow-prev" type="button" data-viewer-prev-side aria-label="이전 글">←</button>
+        <button class="viewer-page-arrow viewer-page-arrow-next" type="button" data-viewer-next-side aria-label="다음 글">→</button>
         <div class="viewer-book-nav" data-viewer-book-nav hidden>
           <button type="button" data-viewer-prev>이전 글</button>
-          <span data-viewer-book-position>1 / 1</span>
+          <div class="viewer-book-progress">
+            <input type="range" min="1" max="1" value="1" data-viewer-progress aria-label="읽기 위치" disabled>
+            <span data-viewer-book-position>1 / 1</span>
+          </div>
           <button type="button" data-viewer-next>다음 글</button>
         </div>
         <p class="viewer-message" data-viewer-message></p>
