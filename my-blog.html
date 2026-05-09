@@ -35,8 +35,7 @@
 
       <nav class="blog-menu-bar" aria-label="블로그 메뉴">
         <a href="./my-blog.html" aria-current="page">블로그 홈</a>
-        <a href="#blog-posts">전체글</a>
-        <a href="./account.html">관리</a>
+        <a class="blog-write-button" href="./editor.html?mode=new">글쓰기</a>
       </nav>
 
       <div class="blog-body-layout">
@@ -50,7 +49,6 @@
           </div>
           <nav class="blog-side-links" aria-label="블로그 바로가기">
             <a href="./my-blog.html" aria-current="page">전체글</a>
-            <a href="./account.html">계정 관리</a>
           </nav>
         </aside>
 
@@ -66,10 +64,12 @@
               <span>조회수</span>
               <span>작성일</span>
             </div>
-            <div class="blog-empty-row">
-              <span>아직 작성된 글이 없습니다.</span>
-              <span>0</span>
-              <span>-</span>
+            <div data-post-list>
+              <div class="blog-empty-row">
+                <span>아직 작성된 글이 없습니다.</span>
+                <span>0</span>
+                <span>-</span>
+              </div>
             </div>
           </div>
         </section>

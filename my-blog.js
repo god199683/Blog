@@ -9,6 +9,8 @@ const els = {
   initials: document.querySelectorAll("[data-blog-initial]"),
   profileTitle: document.querySelector("[data-profile-title]"),
   profileId: document.querySelector("[data-profile-id]"),
+  count: document.querySelector("[data-blog-count]"),
+  postList: document.querySelector("[data-post-list]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -38,6 +40,75 @@ function renderBlog(id, profile = null) {
     initial.textContent = id.slice(0, 1).toUpperCase();
   });
   document.title = `${title} | 블로그 홈`;
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatDate(value = "") {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).format(date);
+}
+
+function belongsToUser(post, session, id) {
+  return (
+    post.user_id === session?.user?.id ||
+    String(post.login_id || "").toLowerCase() === id.toLowerCase() ||
+    String(post.author || "").toLowerCase() === id.toLowerCase()
+  );
+}
+
+function renderPosts(posts = []) {
+  if (els.count) els.count.textContent = `${posts.length}개의 글`;
+  if (!els.postList) return;
+
+  if (posts.length === 0) {
+    els.postList.innerHTML = `
+      <div class="blog-empty-row">
+        <span>아직 작성된 글이 없습니다.</span>
+        <span>0</span>
+        <span>-</span>
+      </div>
+    `;
+    return;
+  }
+
+  els.postList.innerHTML = posts
+    .map((post) => {
+      const visibility = post.published === false ? "비공개" : "공개";
+      return `
+        <div class="blog-post-row">
+          <span>
+            <a class="blog-post-title" href="./editor.html?post=${encodeURIComponent(post.id)}">
+              ${escapeHtml(post.title || "제목 없는 글")}
+            </a>
+            <small>${escapeHtml(post.category || "전체")} · ${visibility}</small>
+          </span>
+          <span>0</span>
+          <span>${formatDate(post.published_at || post.created_at)}</span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+async function fetchUserPosts(session, id) {
+  const rows = await requestRest(
+    "posts?select=id,title,category,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=100",
+    session.access_token
+  );
+  return Array.isArray(rows) ? rows.filter((post) => belongsToUser(post, session, id)) : [];
 }
 
 const listToggle = document.querySelector("[data-list-toggle]");
@@ -83,10 +154,17 @@ window.blogSession?.ready.then(async (session) => {
   }
 
   renderBlog(id);
+  renderPosts([]);
   try {
     const profile = await ensureBlogProfile(session, id);
     renderBlog(id, profile);
   } catch {
     renderBlog(id);
+  }
+
+  try {
+    renderPosts(await fetchUserPosts(session, id));
+  } catch {
+    renderPosts([]);
   }
 });
