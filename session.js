@@ -124,6 +124,8 @@
 
     const brandMark = brand.querySelector(".brand-mark");
     const brandText = brand.querySelector("[data-brand-text]");
+    const blogOwnerNames = document.querySelectorAll("[data-blog-owner-name]");
+    const blogOwnerInitials = document.querySelectorAll("[data-blog-owner-initial]");
     const currentPage = getCurrentPage();
 
     if (isBlogPage(currentPage)) {
@@ -135,6 +137,12 @@
       if (brandMark && id) {
         brandMark.textContent = String(id).trim().slice(0, 1).toUpperCase();
       }
+      blogOwnerNames.forEach((item) => {
+        item.textContent = id ? `${id}'s Blog` : "Blog";
+      });
+      blogOwnerInitials.forEach((item) => {
+        item.textContent = id ? String(id).trim().slice(0, 1).toUpperCase() : "B";
+      });
       return;
     }
 

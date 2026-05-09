@@ -45,7 +45,7 @@ const els = {
   status: document.querySelector("#my-post-status"),
   count: document.querySelector("#my-post-count"),
   list: document.querySelector("#my-post-list"),
-  writeButton: document.querySelector("[data-write-post]"),
+  writeButtons: document.querySelectorAll("[data-write-post]"),
   importInput: document.querySelector("[data-blog-import]"),
   trashPanel: document.querySelector("[data-trash-panel]"),
   trashToggle: document.querySelector("[data-trash-toggle]"),
@@ -1710,7 +1710,7 @@ function renderListBoard(posts) {
     })
     .join("");
 
-  const body = state.listBoardCollapsed
+  const listBody = state.listBoardCollapsed
     ? ""
     : `
       <div class="blog-list-table" role="table" aria-label="내 글 목록">
@@ -1738,8 +1738,6 @@ function renderListBoard(posts) {
           </label>
         </div>
       </div>
-      ${renderFeaturedBlogPost(pagePosts)}
-      ${renderSimpleCategoryList(pagePosts, total, start, totalPages)}
     `;
 
   return `
@@ -1750,8 +1748,9 @@ function renderListBoard(posts) {
           ${state.listBoardCollapsed ? "목록열기" : "목록닫기"}
         </button>
       </div>
-      ${body}
+      ${listBody}
     </section>
+    ${state.listBoardCollapsed ? "" : `${renderFeaturedBlogPost(pagePosts)}${renderSimpleCategoryList(pagePosts, total, start, totalPages)}`}
   `;
 }
 
@@ -2334,7 +2333,7 @@ els.categoryAdd.addEventListener("click", addCategory);
 
 els.deleteSelected.addEventListener("click", deleteSelectedNodes);
 
-els.writeButton.addEventListener("click", openEditor);
+els.writeButtons.forEach((button) => button.addEventListener("click", openEditor));
 
 els.importInput.addEventListener("change", (event) => {
   importBlogDataFile(event.target.files?.[0]);
