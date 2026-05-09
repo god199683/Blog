@@ -1693,11 +1693,36 @@ function renderListBoard(posts) {
 
   const start = (state.listBoardPage - 1) * pageSize;
   const pagePosts = posts.slice(start, start + pageSize);
+  const rows = pagePosts
+    .map((post, index) => {
+      const number = total - (start + index);
+      return `
+        <button class="blog-list-row" type="button" data-board-post="${escapeHtml(post.id)}">
+          <span class="blog-list-title-cell">
+            <span class="blog-list-number">${number}</span>
+            <span class="blog-list-title">${escapeHtml(post.title)}</span>
+            <span class="blog-list-chip">${escapeHtml(getPostVisibilityLabel(post))}</span>
+          </span>
+          <span class="blog-list-views">${getPostViewCount(post)}</span>
+          <span class="blog-list-date">${escapeHtml(formatListDate(post.published_at))}</span>
+        </button>
+      `;
+    })
+    .join("");
 
   const body = state.listBoardCollapsed
     ? ""
     : `
-      ${renderFeaturedBlogPost(pagePosts)}
+      <div class="blog-list-table" role="table" aria-label="내 글 목록">
+        <div class="blog-list-head" role="row">
+          <span>글 제목</span>
+          <span>조회수</span>
+          <span>작성일</span>
+        </div>
+        <div class="blog-list-rows">
+          ${rows || `<div class="blog-list-empty">표시할 글이 없습니다.</div>`}
+        </div>
+      </div>
       <div class="blog-list-footer">
         <button class="blog-list-manage" type="button" data-list-manage-toggle>
           ${state.listManageOpen ? "글관리 닫기" : "글관리 열기"}
@@ -1713,6 +1738,7 @@ function renderListBoard(posts) {
           </label>
         </div>
       </div>
+      ${renderFeaturedBlogPost(pagePosts)}
       ${renderSimpleCategoryList(pagePosts, total, start, totalPages)}
     `;
 
