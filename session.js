@@ -26,6 +26,11 @@
     localStorage.removeItem(BLOG_SESSION_KEY);
   }
 
+  function logout() {
+    clearStoredSession();
+    window.location.href = "./";
+  }
+
   function getSessionId(session) {
     return (
       session?.id ||
@@ -109,6 +114,10 @@
     return window.location.pathname.split("/").pop() || "index.html";
   }
 
+  function isBlogPage(currentPage = getCurrentPage()) {
+    return ["my-blog.html", "editor.html", "viewer.html", "trash.html", "account.html"].includes(currentPage);
+  }
+
   function syncBrand(id) {
     const brand = document.querySelector(".brand");
     if (!brand) return;
@@ -116,7 +125,7 @@
     const brandText = brand.querySelector("[data-brand-text]");
     const currentPage = getCurrentPage();
 
-    if (currentPage === "my-blog.html" || currentPage === "editor.html" || currentPage === "viewer.html" || currentPage === "trash.html") {
+    if (isBlogPage(currentPage)) {
       brand.href = "./my-blog.html";
       brand.setAttribute("aria-label", "My blog home");
       if (brandText && id) {
@@ -139,6 +148,8 @@
     syncBrand(id);
     if (!actions || !id) return;
 
+    const currentPage = getCurrentPage();
+
     const nav = document.createElement("nav");
     nav.className = "account-nav";
     nav.setAttribute("aria-label", "계정 네비게이션");
@@ -151,22 +162,63 @@
     blogLink.href = "./my-blog.html";
     blogLink.textContent = "내 블로그";
 
-    const currentPage = getCurrentPage();
     if (currentPage === "index.html") {
       homeLink.setAttribute("aria-current", "page");
     }
-    if (currentPage === "my-blog.html" || currentPage === "editor.html" || currentPage === "viewer.html" || currentPage === "trash.html") {
+    if (isBlogPage(currentPage)) {
       blogLink.setAttribute("aria-current", "page");
     }
 
     nav.append(homeLink, blogLink);
 
-    const welcome = document.createElement("span");
-    welcome.className = "welcome-message";
-    welcome.textContent = `${id} 님 환영합니다.`;
+    const account = document.createElement("div");
+    account.className = "account-menu";
+
+    const accountButton = document.createElement("button");
+    accountButton.className = "account-menu-button";
+    accountButton.type = "button";
+    accountButton.setAttribute("aria-haspopup", "true");
+    accountButton.setAttribute("aria-expanded", "false");
+    accountButton.textContent = id;
+
+    const dropdown = document.createElement("div");
+    dropdown.className = "account-dropdown";
+    dropdown.hidden = true;
+
+    const manageLink = document.createElement("a");
+    manageLink.href = "./account.html";
+    manageLink.textContent = "계정 관리";
+
+    const logoutButton = document.createElement("button");
+    logoutButton.type = "button";
+    logoutButton.textContent = "로그아웃";
+    logoutButton.addEventListener("click", logout);
+
+    dropdown.append(manageLink, logoutButton);
+    account.append(accountButton, dropdown);
+
+    function closeDropdown() {
+      dropdown.hidden = true;
+      accountButton.setAttribute("aria-expanded", "false");
+    }
+
+    accountButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const nextOpen = dropdown.hidden;
+      dropdown.hidden = !nextOpen;
+      accountButton.setAttribute("aria-expanded", String(nextOpen));
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!account.contains(event.target)) closeDropdown();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDropdown();
+    });
 
     actions.classList.add("is-signed-in");
-    actions.replaceChildren(nav, welcome);
+    actions.replaceChildren(nav, account);
   }
 
   const ready = ensureFreshSession()
@@ -184,5 +236,6 @@
     refresh: ensureFreshSession,
     ready,
     getId: getSessionId,
+    logout,
   };
 })();

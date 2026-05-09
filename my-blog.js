@@ -1517,18 +1517,42 @@ function renderActiveNodeContent(posts) {
   return [folders, postItems].filter(Boolean).join("");
 }
 
+function getCleanActiveTitle() {
+  const node = getActiveNode();
+  if (!node || node.id === ALL_FILTER) return "전체";
+  return node.label || "전체";
+}
+
 function getListBoardTitle() {
-  const title = getActivePanelTitle();
-  return `${title || DEFAULT_CATEGORY}보기`;
+  return `${getCleanActiveTitle()}보기`;
 }
 
 function getPostVisibilityLabel(post) {
-  return post.published === false ? "비공개" : "공개";
+  return post.published === false ? "서로이웃공개" : "공개";
 }
 
 function getPostViewCount(post) {
   const count = Number.parseInt(post.views, 10);
   return Number.isFinite(count) ? count : 0;
+}
+
+function stripHtmlContent(value = "") {
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = String(value || "");
+  return wrapper.textContent.replace(/\s+/g, " ").trim();
+}
+
+function getPostPreviewText(post) {
+  return stripHtmlContent(post.excerpt || post.content || post.body || "").slice(0, 120);
+}
+
+function getPostPathLabel(post) {
+  const parts = [post.category, post.folder].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "전체";
+}
+
+function getFeaturedPost(posts) {
+  return posts[0] || null;
 }
 
 function clampListBoardPage(totalPages) {
@@ -1558,9 +1582,9 @@ function renderListBoardPagination(totalPages) {
   }
 
   const previousButton =
-    current > 1 ? `<button class="blog-list-page blog-list-prev" type="button" data-list-board-page="${current - 1}">‹ 이전</button>` : "";
+    current > 1 ? `<button class="blog-list-page blog-list-prev" type="button" data-list-board-page="${current - 1}">이전</button>` : "";
   const nextButton =
-    current < totalPages ? `<button class="blog-list-page blog-list-next" type="button" data-list-board-page="${current + 1}">다음 ›</button>` : "";
+    current < totalPages ? `<button class="blog-list-page blog-list-next" type="button" data-list-board-page="${current + 1}">다음</button>` : "";
 
   return `<nav class="blog-list-pagination" aria-label="글 목록 페이지">${previousButton}${pages.join("")}${nextButton}</nav>`;
 }
@@ -1578,22 +1602,86 @@ function renderSimpleCategoryList(posts, total, start, totalPages) {
     .join("");
 
   return `
-    <section class="simple-blog-list" aria-label="전체 카테고리 글">
+    <section class="simple-blog-list" aria-label="카테고리 글">
       <div class="simple-list-head">
-        <p>이 블로그 <strong>${escapeHtml(getActivePanelTitle())}</strong> 카테고리 글</p>
+        <p>이 블로그 <strong>${escapeHtml(getCleanActiveTitle())}</strong> 카테고리 글</p>
         <button type="button" data-list-board-page="1">전체글 보기</button>
       </div>
       <div class="simple-list-rows">
         ${rows || `<div class="simple-list-empty">표시할 글이 없습니다.</div>`}
       </div>
       <div class="simple-list-foot">
-        <button type="button" data-list-board-page="${Math.max(1, state.listBoardPage - 1)}" ${state.listBoardPage <= 1 ? "disabled" : ""}>‹ 이전</button>
+        <button type="button" data-list-board-page="${Math.max(1, state.listBoardPage - 1)}" ${state.listBoardPage <= 1 ? "disabled" : ""}>이전</button>
         <button type="button" data-list-board-page="${Math.min(totalPages, state.listBoardPage + 1)}" ${
           state.listBoardPage >= totalPages ? "disabled" : ""
-        }>다음 ›</button>
-        <a href="#top">▲ TOP</a>
+        }>다음</button>
+        <a href="#top">TOP</a>
       </div>
     </section>
+  `;
+}
+
+function renderFeatureMedia(post) {
+  if (post?.cover_image) {
+    return `<img src="${escapeHtml(post.cover_image)}" alt="">`;
+  }
+
+  return `
+    <div class="blog-feature-placeholder" aria-hidden="true">
+      <span>${escapeHtml((post?.title || "Blog").slice(0, 1))}</span>
+    </div>
+  `;
+}
+
+function renderFeaturedBlogPost(posts) {
+  const post = getFeaturedPost(posts);
+  if (!post) {
+    return `
+      <article class="blog-feature-card is-empty">
+        <div class="blog-feature-main">
+          <p class="blog-feature-kicker">${escapeHtml(getCleanActiveTitle())}</p>
+          <h2>아직 작성된 글이 없습니다.</h2>
+          <p>글쓰기 버튼으로 첫 글을 남기면 이 영역에 자연스럽게 표시됩니다.</p>
+        </div>
+      </article>
+    `;
+  }
+
+  const preview = getPostPreviewText(post);
+  const author = state.id || "Blog";
+  const date = formatListDate(post.published_at);
+
+  return `
+    <article class="blog-feature-card" aria-label="${escapeHtml(post.title)}">
+      <div class="blog-feature-main">
+        <p class="blog-feature-kicker">${escapeHtml(getPostPathLabel(post))}</p>
+        <h2>
+          <button class="blog-feature-title-button" type="button" data-board-post="${escapeHtml(post.id)}">
+            ${escapeHtml(post.title)}
+          </button>
+        </h2>
+        <div class="blog-feature-meta">
+          <span class="blog-feature-avatar" aria-hidden="true">${escapeHtml(author.slice(0, 1).toUpperCase())}</span>
+          <span>${escapeHtml(author)}</span>
+          <time>${escapeHtml(date)}</time>
+          <span>${escapeHtml(getPostVisibilityLabel(post))}</span>
+          <button type="button" data-feature-copy="${escapeHtml(post.id)}">URL 복사</button>
+          <button type="button" data-feature-edit="${escapeHtml(post.id)}">수정</button>
+        </div>
+        <button class="blog-feature-media" type="button" data-board-post="${escapeHtml(post.id)}">
+          ${renderFeatureMedia(post)}
+        </button>
+        ${preview ? `<p class="blog-feature-caption">${escapeHtml(preview)}</p>` : ""}
+      </div>
+      <div class="blog-feature-tail">
+        <span>${escapeHtml(String(getPostViewCount(post)))}</span>
+        <div class="blog-feature-tail-actions" aria-label="글 기능">
+          <button type="button" data-feature-copy="${escapeHtml(post.id)}" title="URL 복사">링크</button>
+          <button type="button" data-feature-edit="${escapeHtml(post.id)}" title="수정">수정</button>
+          <button type="button" data-board-post="${escapeHtml(post.id)}" title="보기">보기</button>
+        </div>
+      </div>
+    </article>
   `;
 }
 
@@ -1605,36 +1693,11 @@ function renderListBoard(posts) {
 
   const start = (state.listBoardPage - 1) * pageSize;
   const pagePosts = posts.slice(start, start + pageSize);
-  const rows = pagePosts
-    .map((post, index) => {
-      const number = total - (start + index);
-      return `
-        <button class="blog-list-row" type="button" data-board-post="${escapeHtml(post.id)}">
-          <span class="blog-list-title-cell">
-            <span class="blog-list-number">${number}</span>
-            <span class="blog-list-title">${escapeHtml(post.title)}</span>
-            <span class="blog-list-chip">${escapeHtml(getPostVisibilityLabel(post))}</span>
-          </span>
-          <span class="blog-list-views">${getPostViewCount(post)}</span>
-          <span class="blog-list-date">${escapeHtml(formatListDate(post.published_at))}</span>
-        </button>
-      `;
-    })
-    .join("");
 
   const body = state.listBoardCollapsed
     ? ""
     : `
-      <div class="blog-list-table" role="table" aria-label="내 글 목록">
-        <div class="blog-list-head" role="row">
-          <span>글 제목</span>
-          <span>조회수</span>
-          <span>작성일</span>
-        </div>
-        <div class="blog-list-rows">
-          ${rows || `<div class="blog-list-empty">표시할 글이 없습니다.</div>`}
-        </div>
-      </div>
+      ${renderFeaturedBlogPost(pagePosts)}
       <div class="blog-list-footer">
         <button class="blog-list-manage" type="button" data-list-manage-toggle>
           ${state.listManageOpen ? "글관리 닫기" : "글관리 열기"}
@@ -1654,7 +1717,7 @@ function renderListBoard(posts) {
     `;
 
   return `
-    <section class="blog-list-board ${state.listBoardCollapsed ? "is-collapsed" : ""}" aria-label="글 목록 표">
+    <section class="blog-list-board ${state.listBoardCollapsed ? "is-collapsed" : ""}" aria-label="글 목록">
       <div class="blog-list-board-head">
         <p><strong>${escapeHtml(getListBoardTitle())}</strong> <span>${total}개의 글</span></p>
         <button type="button" data-list-board-toggle>
@@ -1666,6 +1729,17 @@ function renderListBoard(posts) {
   `;
 }
 
+async function copyPostUrl(postId) {
+  if (!postId) return;
+  const url = new URL(`./viewer.html?id=${encodeURIComponent(postId)}`, window.location.href).href;
+  try {
+    await navigator.clipboard.writeText(url);
+    els.status.textContent = "URL을 복사했습니다.";
+  } catch {
+    window.prompt("URL을 복사하세요.", url);
+  }
+}
+
 function renderList() {
   const posts = getFilteredPosts();
   els.count.textContent = `${posts.length}개 글`;
@@ -1675,7 +1749,7 @@ function renderList() {
     els.list.innerHTML = renderPostPanel(
       `
         <div class="empty-state">
-          <h3>로그인이 필요합니다</h3>
+          <h3>로그인이 필요합니다.</h3>
         </div>
       `,
       true
@@ -1691,27 +1765,10 @@ function renderList() {
     ? content ||
       `
         <div class="empty-state">
-          <h3>표시할 글이 없습니다</h3>
+          <h3>표시할 글이 없습니다.</h3>
         </div>
       `
     : "";
-
-  if (!content) {
-    els.list.innerHTML = renderPostPanel(`${board}${manageContent}`, false);
-    return;
-  }
-
-  if (!content) {
-    els.list.innerHTML = renderPostPanel(
-      `
-        <div class="empty-state">
-          <h3>표시할 글이 없습니다</h3>
-        </div>
-      `,
-      true
-    );
-    return;
-  }
 
   els.list.innerHTML = renderPostPanel(`${board}${manageContent}`, false);
 }
@@ -2345,6 +2402,18 @@ els.list.addEventListener("click", (event) => {
   if (pageButton) {
     state.listBoardPage = Number.parseInt(pageButton.dataset.listBoardPage, 10) || 1;
     renderList();
+    return;
+  }
+
+  const featureCopy = event.target.closest("[data-feature-copy]");
+  if (featureCopy) {
+    copyPostUrl(featureCopy.dataset.featureCopy);
+    return;
+  }
+
+  const featureEdit = event.target.closest("[data-feature-edit]");
+  if (featureEdit) {
+    openPostEditor(featureEdit.dataset.featureEdit);
     return;
   }
 
