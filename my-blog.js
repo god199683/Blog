@@ -29,6 +29,7 @@ const els = {
   all: document.querySelector("[data-tree-all]"),
   toolsToggle: document.querySelector("[data-tree-tools-toggle]"),
   tools: document.querySelector("[data-tree-tools]"),
+  importInput: document.querySelector("[data-file-import]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -67,6 +68,22 @@ function escapeHtml(value = "") {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function sanitizeFileName(value = "blog") {
+  return String(value)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .slice(0, 80) || "blog";
+}
+
+function getFileExtension(name = "") {
+  return String(name).split(".").pop().toLowerCase();
+}
+
+function getFileStem(name = "") {
+  return String(name).replace(/\.[^.]+$/, "").trim() || "불러온 글";
 }
 
 function formatDate(value = "") {
@@ -358,6 +375,267 @@ async function deleteSelectedNodes() {
   renderActivePosts();
 }
 
+function cleanImportedHtml(html = "") {
+  const parsed = new DOMParser().parseFromString(String(html), "text/html");
+  const template = document.createElement("template");
+  template.innerHTML = parsed.body?.innerHTML || String(html);
+  template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
+    node.remove();
+  });
+  template.content.querySelectorAll("*").forEach((node) => {
+    [...node.attributes].forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim().toLowerCase();
+      if (name.startsWith("on")) node.removeAttribute(attr.name);
+      if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
+        node.removeAttribute(attr.name);
+      }
+    });
+  });
+  return template.innerHTML.trim();
+}
+
+function textToHtml(text = "") {
+  const normalized = String(text).replace(/\r\n?/g, "\n").trim();
+  if (!normalized) return "";
+  return normalized
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll("\n", "<br>")}</p>`)
+    .join("");
+}
+
+function stripRtfToText(text = "") {
+  return String(text)
+    .replace(/\\par[d]?/gi, "\n")
+    .replace(/\\'[0-9a-f]{2}/gi, "")
+    .replace(/\\[a-z]+\d* ?/gi, "")
+    .replace(/[{}]/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function htmlToPlainText(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = String(html);
+  template.content.querySelectorAll("br").forEach((node) => node.replaceWith("\n"));
+  template.content.querySelectorAll("p, div, h1, h2, h3, h4, li, tr").forEach((node) => {
+    node.append(document.createTextNode("\n"));
+  });
+  return (template.content.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function getReadingTimeLabel(text = "") {
+  const words = text.split(/\s+/).filter(Boolean).length;
+  const minutes = Math.max(1, Math.ceil(words / 350));
+  return `${minutes}분 읽기`;
+}
+
+function getActiveLocationMeta() {
+  const fallback = {
+    category: "전체",
+    folder: null,
+  };
+  if (state.activeNodeId === ALL_NODE_ID) return fallback;
+
+  const found = findNode(state.tree, state.activeNodeId);
+  if (!found) return fallback;
+
+  if (found.node.type === "category") {
+    return {
+      category: found.node.filterCategory || found.node.label || "전체",
+      folder: null,
+    };
+  }
+
+  const categoryNode = findParentCategory(found.path);
+  return {
+    category: categoryNode?.filterCategory || categoryNode?.label || "전체",
+    folder: {
+      id: found.node.id,
+      label: found.node.label,
+      path: found.path.map((node) => node.label).filter(Boolean).join(" / "),
+    },
+  };
+}
+
+async function readFileAsHtml(file) {
+  const extension = getFileExtension(file.name);
+
+  if (extension === "docx") {
+    if (!window.mammoth?.convertToHtml) {
+      throw new Error("DOCX 불러오기 도구를 불러오지 못했습니다.");
+    }
+    const result = await window.mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
+    return cleanImportedHtml(result.value);
+  }
+
+  const text = await file.text();
+  if (extension === "html" || extension === "htm") return cleanImportedHtml(text);
+  if (extension === "rtf") return textToHtml(stripRtfToText(text));
+  return textToHtml(text);
+}
+
+async function insertImportedPost(payload) {
+  const rows = await requestRest("posts", state.session.access_token, {
+    method: "POST",
+    headers: {
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(payload),
+  });
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
+async function createImportedPostFromFile(file, location) {
+  const body = await readFileAsHtml(file);
+  const plainText = htmlToPlainText(body);
+  if (!plainText) {
+    throw new Error("내용이 비어 있습니다.");
+  }
+
+  return {
+    title: getFileStem(file.name).slice(0, 120),
+    body,
+    category: location.category,
+    author: state.id,
+    login_id: state.id,
+    user_id: state.session.user?.id,
+    reading_time: getReadingTimeLabel(plainText),
+    published: true,
+    published_at: new Date().toISOString(),
+    folder: location.folder?.label || null,
+    folder_id: location.folder?.id || null,
+    folder_name: location.folder?.label || null,
+    folder_path: location.folder?.path || null,
+  };
+}
+
+async function importFiles(files = []) {
+  const fileList = [...files].filter(Boolean);
+  if (fileList.length === 0) return;
+  if (!state.session?.access_token) {
+    window.alert("로그인이 필요합니다.");
+    return;
+  }
+
+  const location = getActiveLocationMeta();
+  const errors = [];
+  let importedCount = 0;
+
+  for (const file of fileList) {
+    try {
+      const payload = await createImportedPostFromFile(file, location);
+      await insertImportedPost(payload);
+      importedCount += 1;
+    } catch (error) {
+      errors.push(`${file.name}: ${error.message || "불러오지 못했습니다."}`);
+    }
+  }
+
+  try {
+    state.posts = await fetchUserPosts(state.session, state.id);
+  } catch {}
+  renderActivePosts();
+
+  if (errors.length > 0) {
+    window.alert(`${importedCount}개의 파일을 불러왔습니다.\n\n${errors.join("\n")}`);
+    return;
+  }
+  window.alert(`${importedCount}개의 파일을 불러왔습니다.`);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function getExportPosts() {
+  return getActiveTreeMeta().posts;
+}
+
+function buildExportBaseName(posts, format) {
+  const title = els.boardTitle?.textContent || "블로그";
+  const suffix = posts.length === 1 ? posts[0].title || title : title;
+  return `${sanitizeFileName(`${state.id || "blog"}-${suffix}`)}.${format}`;
+}
+
+function exportPostsAsText(posts) {
+  const text = posts
+    .map((post) =>
+      [
+        post.title || "제목 없는 글",
+        post.folder_path || post.folder_name || post.category || "전체",
+        formatDate(post.published_at || post.created_at),
+        "",
+        htmlToPlainText(post.body || ""),
+      ].join("\n")
+    )
+    .join("\n\n---\n\n");
+  downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), buildExportBaseName(posts, "txt"));
+}
+
+function exportPostsAsDocx(posts) {
+  const docx = window.htmlDocx || window.htmlDocxJs;
+  if (!docx?.asBlob) {
+    window.alert("DOCX 내보내기 도구를 불러오지 못했습니다. TXT로 다시 내보내주세요.");
+    return;
+  }
+
+  const body = posts
+    .map(
+      (post) => `
+        <article>
+          <h1>${escapeHtml(post.title || "제목 없는 글")}</h1>
+          <p>${escapeHtml(post.folder_path || post.folder_name || post.category || "전체")} · ${escapeHtml(formatDate(post.published_at || post.created_at))}</p>
+          ${cleanImportedHtml(post.body || "")}
+        </article>
+      `
+    )
+    .join("<hr>");
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { color: #22364a; font-family: "Malgun Gothic", Arial, sans-serif; font-size: 11pt; line-height: 1.65; }
+          h1 { color: #0f3f61; font-size: 18pt; margin: 0 0 12pt; }
+          p { margin: 0 0 10pt; }
+          hr { border: 0; border-top: 1px solid #cfe1f0; margin: 20pt 0; }
+        </style>
+      </head>
+      <body>${body}</body>
+    </html>
+  `;
+  downloadBlob(docx.asBlob(html), buildExportBaseName(posts, "docx"));
+}
+
+function exportActivePosts() {
+  const posts = getExportPosts();
+  if (posts.length === 0) {
+    window.alert("내보낼 글이 없습니다.");
+    return;
+  }
+
+  const format = window.prompt("내보낼 형식을 입력해주세요. txt 또는 docx", "txt")?.trim().toLowerCase();
+  if (!format) return;
+  if (format === "txt") {
+    exportPostsAsText(posts);
+    return;
+  }
+  if (format === "docx") {
+    exportPostsAsDocx(posts);
+    return;
+  }
+  window.alert("txt 또는 docx 형식만 입력해주세요.");
+}
+
 function renderPosts(posts = []) {
   if (els.count) els.count.textContent = `${posts.length}개의 글`;
   if (!els.postList) return;
@@ -394,7 +672,7 @@ function renderPosts(posts = []) {
 
 async function fetchUserPosts(session, id) {
   const rows = await requestRest(
-    "posts?select=id,title,category,folder_id,folder_name,folder_path,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=100",
+    "posts?select=id,title,body,category,folder_id,folder_name,folder_path,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=100",
     session.access_token
   );
   return Array.isArray(rows) ? rows.filter((post) => belongsToUser(post, session, id)) : [];
@@ -438,7 +716,23 @@ els.tools?.addEventListener("click", async (event) => {
   if (action === "delete-selected") {
     await deleteSelectedNodes();
     els.tools.querySelector('[data-tree-action="toggle-selection"]')?.classList.toggle("is-active", state.selectionMode);
+    return;
   }
+
+  if (action === "import-files") {
+    els.importInput?.click();
+    return;
+  }
+
+  if (action === "export-files") {
+    exportActivePosts();
+  }
+});
+
+els.importInput?.addEventListener("change", async (event) => {
+  const files = event.target.files ? [...event.target.files] : [];
+  event.target.value = "";
+  await importFiles(files);
 });
 
 els.all?.addEventListener("click", () => {

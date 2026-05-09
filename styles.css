@@ -1013,6 +1013,10 @@ body.is-away-locked {
 .tree-action-edit::before,
 .tree-action-folder::before,
 .tree-action-folder::after,
+.tree-action-import::before,
+.tree-action-import::after,
+.tree-action-export::before,
+.tree-action-export::after,
 .tree-action-trash::before,
 .tree-action-trash::after {
   position: absolute;
@@ -1086,6 +1090,44 @@ body.is-away-locked {
   border: 2px solid currentColor;
   border-top: 0;
   background: transparent;
+}
+
+.tree-action-import::before,
+.tree-action-export::before {
+  left: 0.39rem;
+  width: 2px;
+  height: 0.5rem;
+  border-radius: 999px;
+}
+
+.tree-action-import::before {
+  top: 0.12rem;
+}
+
+.tree-action-export::before {
+  top: 0.22rem;
+}
+
+.tree-action-import::after,
+.tree-action-export::after {
+  left: 0.24rem;
+  width: 0.34rem;
+  height: 0.34rem;
+  background: transparent;
+}
+
+.tree-action-import::after {
+  top: 0.38rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.tree-action-export::after {
+  top: 0.12rem;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: rotate(45deg);
 }
 
 .blog-tree-rename-input {
