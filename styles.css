@@ -3436,3 +3436,692 @@ h3 {
     width: 100%;
   }
 }
+
+/* Global visual polish */
+:root {
+  --bg: #f7fbff;
+  --surface: #ffffff;
+  --surface-soft: #eef8ff;
+  --ink: #102033;
+  --muted: #687b8f;
+  --line: #d9e9f5;
+  --sky: #5ac8f6;
+  --sky-soft: #dff4ff;
+  --sky-dark: #1376a5;
+  --blue-deep: #0f4f6f;
+  --shadow: 0 16px 40px rgba(19, 118, 165, 0.1);
+  --shadow-soft: 0 10px 28px rgba(15, 79, 111, 0.08);
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% -8%, rgba(125, 211, 252, 0.22), transparent 30rem),
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 46%, #edf8ff 100%);
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(90, 200, 246, 0.28);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[contenteditable="true"]:focus-visible {
+  outline: 2px solid rgba(19, 118, 165, 0.38);
+  outline-offset: 2px;
+}
+
+.site-header {
+  border-bottom-color: rgba(198, 224, 240, 0.86);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 1px 0 rgba(15, 79, 111, 0.04);
+}
+
+.brand {
+  color: #0f3550;
+}
+
+.brand-mark {
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #73d4fb, #1684b5);
+  box-shadow: 0 8px 18px rgba(19, 118, 165, 0.16);
+}
+
+.auth-button,
+.welcome-message,
+.account-nav,
+.search-bar input,
+.search-bar button,
+.topic-tab,
+.post-button,
+.write-post-button,
+.viewer-back-button,
+.viewer-edit-button,
+.viewer-book-button,
+.editor-ghost-button,
+.editor-primary-button,
+.editor-icon-button,
+.editor-tool-button,
+.editor-table-button,
+.editor-add-font-button,
+.auth-submit {
+  box-shadow: none;
+}
+
+.auth-button,
+.welcome-message,
+.account-nav,
+.search-bar input,
+.topic-tab,
+.post-button,
+.viewer-back-button,
+.viewer-book-button,
+.editor-ghost-button,
+.editor-icon-button,
+.editor-tool-button,
+.editor-table-button,
+.editor-add-font-button {
+  border-color: rgba(196, 221, 236, 0.92);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.auth-signup,
+.search-bar button,
+.topic-tab.is-active,
+.post-button,
+.write-post-button,
+.viewer-edit-button,
+.editor-primary-button,
+.auth-submit {
+  border-color: transparent;
+  background: linear-gradient(180deg, #1689bd, #0f6f9d);
+  color: #fff;
+}
+
+.auth-button:hover,
+.auth-button:focus-visible,
+.topic-tab:hover,
+.topic-tab:focus-visible,
+.post-button:hover,
+.post-button:focus-visible,
+.write-post-button:hover,
+.write-post-button:focus-visible,
+.viewer-back-button:hover,
+.viewer-book-button:hover,
+.viewer-edit-button:hover,
+.editor-ghost-button:hover,
+.editor-icon-button:hover,
+.editor-tool-button:hover,
+.editor-table-button:hover,
+.editor-add-font-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(19, 118, 165, 0.1);
+}
+
+.hero-section,
+.auth-shell,
+.account-hero {
+  gap: clamp(1.4rem, 4vw, 3.2rem);
+}
+
+.lede,
+.featured-body p:not(.meta-line),
+.post-content p,
+.status-panel p:not(.section-kicker),
+.note-panel p,
+.auth-copy p,
+.account-summary p:not(.section-kicker),
+.dialog-body p {
+  color: #53677a;
+}
+
+.featured-card,
+.auth-card,
+.account-summary,
+.post-card,
+.status-panel,
+.note-panel,
+.post-panel,
+.editor-shell,
+.viewer-shell,
+.color-dialog,
+.post-dialog {
+  border-color: rgba(205, 226, 239, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-soft);
+}
+
+.featured-card,
+.post-card,
+.auth-card,
+.account-summary,
+.status-panel,
+.note-panel,
+.post-panel {
+  border-radius: 8px;
+}
+
+.featured-media,
+.post-image,
+.dialog-cover,
+.image-placeholder,
+.skeleton {
+  background:
+    linear-gradient(135deg, rgba(223, 244, 255, 0.92), rgba(255, 255, 255, 0.72)),
+    #eaf7ff;
+}
+
+.featured-media::after,
+.post-image::after {
+  background: linear-gradient(180deg, transparent 45%, rgba(15, 79, 111, 0.12));
+}
+
+.post-card,
+.my-post-item,
+.trash-item,
+.tree-row,
+.panel-folder-row {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.post-card:hover,
+.my-post-item:hover,
+.trash-item:hover,
+.tree-row:hover,
+.panel-folder-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(19, 118, 165, 0.08);
+}
+
+.side-panel {
+  gap: 0.85rem;
+}
+
+.reading-list li,
+.tag,
+.meta-line,
+.result-count {
+  color: #6f8294;
+}
+
+.my-blog-page {
+  background: #f6fbff;
+}
+
+.my-blog-main {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(241, 249, 255, 0.92)),
+    #f7fbff;
+}
+
+.my-sidebar {
+  border-right-color: rgba(205, 226, 239, 0.92);
+  background: rgba(251, 254, 255, 0.92);
+}
+
+.my-sidebar-head,
+.tree-panel-bar,
+.trash-panel {
+  background: rgba(243, 250, 255, 0.86);
+}
+
+.tree-row,
+.sidebar-filter,
+.trash-title,
+.trash-item,
+.panel-folder-row,
+.my-post-item {
+  border-radius: 7px;
+}
+
+.tree-row:hover,
+.tree-row:focus-within,
+.tree-row.is-active,
+.sidebar-filter:hover,
+.sidebar-filter:focus-visible,
+.sidebar-filter.is-active,
+.panel-folder-row:hover,
+.panel-folder-row:focus-within,
+.panel-folder.is-active > .panel-folder-row,
+.my-post-item:hover,
+.my-post-item:focus-visible,
+.my-post-item.is-selected {
+  border-color: rgba(139, 203, 234, 0.72);
+  background: rgba(232, 247, 255, 0.76);
+}
+
+.tree-panel-actions button,
+.trash-actions button,
+.post-panel-icon-button,
+.sidebar-toggle,
+.tree-node-toggle {
+  border-color: rgba(196, 221, 236, 0.95);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--sky-dark);
+}
+
+.my-post-area {
+  background: transparent;
+}
+
+.my-post-header {
+  border-bottom-color: rgba(205, 226, 239, 0.82);
+}
+
+.post-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 253, 255, 0.96)),
+    #fff;
+}
+
+.post-panel-head {
+  background: rgba(248, 253, 255, 0.88);
+}
+
+.post-panel-body,
+.my-sidebar-nav,
+.trash-list {
+  scrollbar-color: rgba(90, 200, 246, 0.42) transparent;
+}
+
+.editor-page {
+  background:
+    radial-gradient(circle at 0 0, rgba(186, 230, 253, 0.42), transparent 32rem),
+    linear-gradient(180deg, #ffffff, #f4fbff);
+}
+
+.editor-page .editor-shell {
+  border-color: rgba(205, 226, 239, 0.88);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.editor-topbar,
+.editor-canvas,
+.editor-side-panel {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.editor-toolbar {
+  border-color: rgba(205, 226, 239, 0.88);
+  background:
+    linear-gradient(180deg, rgba(252, 254, 255, 0.98), rgba(242, 250, 255, 0.96)),
+    #fff;
+}
+
+.editor-title-input,
+.editor-fields input,
+.editor-fields select,
+.form-field input,
+.editor-surface {
+  border-color: rgba(196, 221, 236, 0.95);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.editor-title-input:focus,
+.editor-fields input:focus,
+.editor-fields select:focus,
+.form-field input:focus,
+.editor-surface:focus,
+.search-bar input:focus {
+  border-color: rgba(19, 118, 165, 0.55);
+  box-shadow: 0 0 0 3px rgba(90, 200, 246, 0.18);
+}
+
+.editor-surface {
+  box-shadow: inset 0 1px 0 rgba(15, 79, 111, 0.03);
+}
+
+.editor-side-panel {
+  background:
+    linear-gradient(180deg, rgba(239, 249, 255, 0.94), rgba(255, 255, 255, 0.94)),
+    var(--surface-soft);
+}
+
+.editor-visibility-button {
+  border-color: rgba(196, 221, 236, 0.95);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.editor-visibility-button.is-active {
+  border-color: transparent;
+  background: #1376a5;
+}
+
+.viewer-page {
+  background:
+    linear-gradient(180deg, rgba(232, 248, 255, 0.92), rgba(255, 255, 255, 0.96) 34%),
+    #fff;
+}
+
+.viewer-shell {
+  border-color: rgba(205, 226, 239, 0.9);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.viewer-body {
+  color: #18293a;
+}
+
+.viewer-page.is-book-mode {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(186, 230, 253, 0.58), transparent 34rem),
+    linear-gradient(180deg, #eefaff 0%, #ffffff 46%, #eefaff 100%);
+}
+
+.viewer-page.is-book-mode .viewer-topbar,
+.viewer-page.is-book-mode .viewer-book-nav {
+  border-color: rgba(205, 226, 239, 0.8);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.94), rgba(238, 248, 255, 0.94)),
+    #fff;
+}
+
+.viewer-page.is-book-mode .viewer-body {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(238, 248, 255, 0.42)),
+    transparent;
+}
+
+.viewer-page.is-book-mode .viewer-page-arrow {
+  border-color: rgba(189, 214, 229, 0.8);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 26px rgba(15, 79, 111, 0.1);
+}
+
+.color-dialog,
+.post-dialog {
+  box-shadow: 0 22px 54px rgba(15, 79, 111, 0.18);
+}
+
+@media (max-width: 680px) {
+  .site-header {
+    gap: 0.8rem;
+  }
+
+  .auth-button,
+  .welcome-message {
+    min-height: 2.25rem;
+  }
+
+  .featured-card,
+  .post-card,
+  .auth-card,
+  .account-summary,
+  .status-panel,
+  .note-panel {
+    box-shadow: 0 8px 22px rgba(19, 118, 165, 0.08);
+  }
+}
+
+/* Typography polish */
+body {
+  font-family:
+    "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+h1,
+h2,
+h3,
+.brand,
+.auth-button,
+.welcome-message,
+.section-kicker,
+.eyebrow,
+.tree-panel-title,
+.tree-node-label,
+.my-post-header h1,
+.post-panel-head h2,
+.viewer-shell h1,
+.editor-topbar h1,
+.editor-topbar h2 {
+  font-family:
+    "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
+    Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+h1,
+h2,
+h3 {
+  color: #102033;
+  font-weight: 850;
+}
+
+h1 {
+  font-size: 1.92rem;
+  line-height: 1.14;
+}
+
+h2 {
+  font-size: 1.18rem;
+  line-height: 1.22;
+}
+
+h3 {
+  font-size: 0.98rem;
+  line-height: 1.32;
+}
+
+.lede,
+.featured-body p:not(.meta-line),
+.post-content p,
+.status-panel p:not(.section-kicker),
+.note-panel p,
+.auth-message,
+.auth-link,
+.field-help,
+.password-hint-result,
+.dialog-body p {
+  font-size: 0.96rem;
+  line-height: 1.68;
+}
+
+.section-kicker,
+.eyebrow,
+.meta-line,
+.tag,
+.result-count {
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.auth-button,
+.welcome-message,
+.search-bar input,
+.search-bar button,
+.topic-tab,
+.post-button,
+.write-post-button,
+.auth-submit {
+  font-size: 0.9rem;
+}
+
+.form-field label,
+.editor-fields label {
+  font-size: 0.86rem;
+}
+
+.form-field input,
+.editor-title-input,
+.editor-fields input,
+.editor-fields select {
+  font-size: 0.94rem;
+}
+
+.my-blog-main {
+  font-size: 0.58rem;
+}
+
+.my-blog-main .section-kicker,
+.tree-panel-title,
+.tree-node-label,
+.sidebar-filter-label,
+.post-panel-head h2,
+.my-post-header h1 {
+  font-size: 0.78rem;
+}
+
+.my-blog-main .result-count,
+.tree-node-count,
+.sidebar-filter-count,
+.trash-count,
+.my-post-status,
+.post-location,
+.trash-item-meta,
+.trash-empty {
+  font-size: 0.6rem;
+}
+
+.tree-panel-actions button,
+.trash-actions button,
+.post-panel-icon-button,
+.sidebar-toggle,
+.tree-node-toggle {
+  font-size: 0.72rem;
+}
+
+.my-post-item h3 {
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.my-post-item p:not(.meta-line) {
+  font-size: 0.62rem;
+  line-height: 1.55;
+}
+
+.editor-topbar h1,
+.editor-topbar h2 {
+  font-size: 0.98rem;
+}
+
+.editor-kicker,
+.editor-save-state,
+.editor-side-label,
+.editor-message {
+  font-size: 0.72rem;
+}
+
+.editor-tool-button,
+.editor-table-button,
+.editor-font-select,
+.editor-size-select,
+.editor-add-font-button,
+.editor-visibility-button {
+  font-size: 0.76rem;
+}
+
+.editor-surface {
+  font-family:
+    "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
+    system-ui, sans-serif;
+  font-size: 0.94rem;
+  line-height: 1.82;
+}
+
+.viewer-body {
+  font-size: 0.94rem;
+  line-height: 1.82;
+}
+
+.viewer-page.is-book-mode .viewer-body {
+  font-family: "Noto Serif KR", "Nanum Myeongjo", "Batang", "Georgia", serif;
+  font-size: var(--reader-font-size, 18px);
+  line-height: 2.45;
+}
+
+.viewer-page.is-book-mode[data-reader-font="sans"] .viewer-body {
+  font-family:
+    "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
+    "Segoe UI", system-ui, sans-serif;
+}
+
+.viewer-page.is-book-mode .viewer-book-titleblock h1 {
+  font-size: 1.04rem;
+}
+
+.viewer-page.is-book-mode .viewer-location {
+  font-size: 0.9rem;
+}
+
+.viewer-page.is-book-mode .viewer-book-nav button,
+.viewer-book-progress span {
+  font-size: 0.86rem;
+}
+
+.my-blog-main .my-sidebar-title .section-kicker,
+.my-blog-main .my-post-header h1 {
+  font-size: 0.78rem;
+}
+
+.my-blog-main .my-post-header .result-count {
+  font-size: 0.6rem;
+}
+
+.viewer-back-button,
+.viewer-edit-button,
+.viewer-book-button {
+  font-size: 0.92rem;
+}
+
+.editor-surface h2 {
+  font-size: 1.12rem;
+}
+
+.editor-surface h3 {
+  font-size: 0.98rem;
+}
+
+@media (max-width: 680px) {
+  body {
+    font-size: 15px;
+  }
+
+  h1 {
+    font-size: 1.62rem;
+  }
+
+  h2 {
+    font-size: 1.08rem;
+  }
+
+  .my-blog-main .section-kicker,
+  .tree-panel-title,
+  .tree-node-label,
+  .sidebar-filter-label,
+  .post-panel-head h2,
+  .my-post-header h1 {
+    font-size: 0.74rem;
+  }
+}
