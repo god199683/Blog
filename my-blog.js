@@ -2231,7 +2231,7 @@ async function deleteSelectedTrashItems() {
   if (state.selectedTrashIds.size === 0) return;
   const selectedIds = new Set(state.selectedTrashIds);
   const items = state.trashItems.filter((item) => selectedIds.has(item.id));
-  const confirmed = window.confirm("선택한 휴지통 항목을 Supabase에서도 완전히 삭제할까요?");
+  const confirmed = window.confirm("내용을 정말로 삭제할까요?");
   if (!confirmed) return;
 
   try {
@@ -2253,7 +2253,7 @@ async function deleteSelectedTrashItems() {
 
 async function emptyTrash() {
   if (state.trashItems.length === 0) return;
-  const confirmed = window.confirm("휴지통의 모든 항목을 Supabase에서도 완전히 삭제할까요?");
+  const confirmed = window.confirm("내용을 정말로 삭제할까요?");
   if (!confirmed) return;
 
   try {
