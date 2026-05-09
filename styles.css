@@ -829,6 +829,11 @@ body.is-away-locked {
   color: var(--sky-dark);
 }
 
+.blog-tool-action .tree-action-icon {
+  transform: scale(0.76);
+  transform-origin: center;
+}
+
 .blog-profile-box strong {
   display: block;
   color: #20364a;
