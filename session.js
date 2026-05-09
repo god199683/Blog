@@ -122,6 +122,7 @@
     const brand = document.querySelector(".brand");
     if (!brand) return;
 
+    const brandMark = brand.querySelector(".brand-mark");
     const brandText = brand.querySelector("[data-brand-text]");
     const currentPage = getCurrentPage();
 
@@ -131,11 +132,17 @@
       if (brandText && id) {
         brandText.textContent = `${id}'s Blog`;
       }
+      if (brandMark && id) {
+        brandMark.textContent = String(id).trim().slice(0, 1).toUpperCase();
+      }
       return;
     }
 
     brand.href = "./";
     brand.setAttribute("aria-label", "Blog home");
+    if (brandMark) {
+      brandMark.textContent = "B";
+    }
     if (brandText) {
       brandText.textContent = "홈";
     }
