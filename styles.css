@@ -1496,22 +1496,35 @@ button {
 }
 
 .viewer-page.is-book-mode .viewer-shell {
+  padding: 1rem;
   background:
-    linear-gradient(90deg, rgba(15, 23, 42, 0.035), transparent 10%, transparent 90%, rgba(15, 23, 42, 0.035)),
-    rgba(255, 255, 255, 0.96);
+    radial-gradient(ellipse at 50% 100%, rgba(15, 23, 42, 0.12), transparent 48%),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.045), transparent 12%, transparent 88%, rgba(15, 23, 42, 0.045)),
+    rgba(245, 251, 255, 0.96);
+}
+
+.viewer-page.is-book-mode .viewer-main {
+  width: min(1160px, calc(100% - 1.2rem));
 }
 
 .viewer-page.is-book-mode .viewer-body {
   position: relative;
-  width: min(100%, 700px);
+  width: min(100%, 980px);
   margin: 0 auto;
-  padding: 1.1rem 1.25rem;
-  border: 1px solid rgba(216, 234, 251, 0.9);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  padding: clamp(1.2rem, 2.5vw, 2rem) clamp(1.25rem, 3vw, 2.4rem);
+  border: 1px solid rgba(186, 230, 253, 0.68);
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, #ffffff 0 48.85%, #e8f1f7 49.45%, #cfe5f2 50%, #e8f1f7 50.55%, #ffffff 51.15% 100%),
+    #fff;
+  box-shadow:
+    0 26px 58px rgba(15, 23, 42, 0.17),
+    inset 12px 0 24px rgba(15, 23, 42, 0.035),
+    inset -12px 0 24px rgba(15, 23, 42, 0.035);
+  columns: 2 18rem;
+  column-gap: clamp(2.8rem, 6vw, 4.5rem);
   font-size: 1rem;
-  line-height: 1.95;
+  line-height: 1.92;
   perspective: 1200px;
   transform-style: preserve-3d;
 }
@@ -1524,9 +1537,29 @@ button {
   pointer-events: none;
   border-radius: 8px;
   background:
-    linear-gradient(90deg, rgba(15, 23, 42, 0.08), transparent 5%, transparent 95%, rgba(15, 23, 42, 0.08)),
-    linear-gradient(90deg, transparent 0 49.5%, rgba(15, 23, 42, 0.06) 49.5% 50.5%, transparent 50.5%);
-  opacity: 0.35;
+    linear-gradient(90deg, rgba(15, 23, 42, 0.08), transparent 5.5%, transparent 44%, rgba(15, 23, 42, 0.055) 49.25%, rgba(255, 255, 255, 0.85) 50%, rgba(15, 23, 42, 0.055) 50.75%, transparent 56%, transparent 94.5%, rgba(15, 23, 42, 0.08)),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.026) 0 1px, transparent 1px 28px);
+  opacity: 0.5;
+}
+
+.viewer-page.is-book-mode .viewer-body p {
+  margin: 0 0 0.85rem;
+  break-inside: avoid;
+}
+
+.viewer-page.is-book-mode .viewer-body h1,
+.viewer-page.is-book-mode .viewer-body h2,
+.viewer-page.is-book-mode .viewer-body h3,
+.viewer-page.is-book-mode .viewer-body blockquote,
+.viewer-page.is-book-mode .viewer-body table,
+.viewer-page.is-book-mode .viewer-body img {
+  break-inside: avoid;
+}
+
+.viewer-page.is-book-mode .viewer-body img {
+  display: block;
+  margin: 0.75rem auto;
+  border-radius: 6px;
 }
 
 .viewer-page.is-book-mode .viewer-body.is-turning-next,
@@ -1603,6 +1636,14 @@ button {
   .viewer-page.is-book-mode .viewer-body.is-turning-next::after,
   .viewer-page.is-book-mode .viewer-body.is-turning-prev::after {
     animation-duration: 1ms;
+  }
+}
+
+@media (max-width: 760px) {
+  .viewer-page.is-book-mode .viewer-body {
+    columns: 1;
+    column-gap: 0;
+    background: #fff;
   }
 }
 
