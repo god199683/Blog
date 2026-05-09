@@ -38,6 +38,66 @@
     );
   }
 
+  function isPublicHome() {
+    const path = window.location.pathname.replace(/\/+$/, "");
+    return path === "" || path.endsWith("/Blog") || path.endsWith("/index.html");
+  }
+
+  function ensureTopNav() {
+    const header = document.querySelector(".site-header");
+    const actions = document.querySelector("[data-auth-actions]");
+    if (!header || !actions) return null;
+
+    let nav = header.querySelector(".top-nav");
+    if (!nav) {
+      nav = document.createElement("nav");
+      nav.className = "top-nav";
+      nav.setAttribute("aria-label", "상단 메뉴");
+
+      const homeLink = document.createElement("a");
+      homeLink.href = "./";
+      homeLink.textContent = "홈";
+      nav.append(homeLink);
+      header.insertBefore(nav, actions);
+    }
+
+    return nav;
+  }
+
+  function syncMyBlogNavLink(session) {
+    const nav = ensureTopNav();
+    if (!nav) return;
+
+    let link =
+      nav.querySelector("[data-my-blog-link]") ||
+      [...nav.querySelectorAll("a")].find((item) =>
+        (item.getAttribute("href") || "").includes("my-blog.html")
+      );
+    if (!link) {
+      link = document.createElement("a");
+      link.textContent = "내 블로그";
+      nav.append(link);
+    }
+
+    link.dataset.myBlogLink = "true";
+    link.href = "./my-blog.html";
+    if (window.location.pathname.endsWith("/my-blog.html")) {
+      link.setAttribute("aria-current", "page");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+
+    if (!getId(session)) {
+      link.onclick = (event) => {
+        event.preventDefault();
+        window.alert("로그인 하세요.");
+      };
+      return;
+    }
+
+    link.onclick = null;
+  }
+
   async function requestRest(path, token, options = {}) {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
       ...options,
@@ -197,10 +257,6 @@
     dropdown.className = "account-dropdown";
     dropdown.hidden = true;
 
-    const blogLink = document.createElement("a");
-    blogLink.href = "./my-blog.html";
-    blogLink.textContent = "내 블로그";
-
     const accountLink = document.createElement("a");
     accountLink.href = "./account.html";
     accountLink.textContent = "계정 관리";
@@ -218,7 +274,9 @@
     logoutButton.textContent = "로그아웃";
     logoutButton.addEventListener("click", logout);
 
-    dropdown.append(blogLink, accountLink, awayButton, logoutButton);
+    dropdown.append(accountLink);
+    if (!isPublicHome()) dropdown.append(awayButton);
+    dropdown.append(logoutButton);
     account.append(accountButton, dropdown);
 
     function closeDropdown() {
@@ -245,6 +303,7 @@
   }
 
   const ready = getFreshSession().then((session) => {
+    syncMyBlogNavLink(session);
     renderHeader(session);
     if (session && sessionStorage.getItem(AWAY_LOCK_KEY) === "1") {
       lockAway(session, false);
