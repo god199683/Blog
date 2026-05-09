@@ -4,6 +4,9 @@ const SUPABASE_ANON_KEY =
 
 const params = new URLSearchParams(window.location.search);
 const postId = params.get("id") || "";
+let bookMode = params.get("book") === "1";
+let currentPost = null;
+let sameFolderPosts = [];
 
 const els = {
   title: document.querySelector("[data-viewer-title]"),
@@ -12,6 +15,11 @@ const els = {
   message: document.querySelector("[data-viewer-message]"),
   back: document.querySelector("[data-viewer-back]"),
   edit: document.querySelector("[data-viewer-edit]"),
+  bookToggle: document.querySelector("[data-viewer-book-toggle]"),
+  bookNav: document.querySelector("[data-viewer-book-nav]"),
+  prev: document.querySelector("[data-viewer-prev]"),
+  next: document.querySelector("[data-viewer-next]"),
+  position: document.querySelector("[data-viewer-book-position]"),
 };
 
 function escapeHtml(value = "") {
@@ -53,6 +61,70 @@ function getPostLocation(post) {
   return [post.category || "전체", post.folder_name || post.folder || ""].filter(Boolean).join(" / ");
 }
 
+function normalizePostId(post) {
+  return String(post?.id || "");
+}
+
+function getPostSortTime(post) {
+  const time = Date.parse(post?.published_at || post?.created_at || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sortPostsForBook(posts) {
+  return [...posts].sort((a, b) => {
+    const timeDiff = getPostSortTime(a) - getPostSortTime(b);
+    if (timeDiff !== 0) return timeDiff;
+    return String(a.title || "").localeCompare(String(b.title || ""), "ko");
+  });
+}
+
+function getPostOwnerFilter(post) {
+  if (post.user_id) return ["user_id", post.user_id];
+  if (post.login_id) return ["login_id", post.login_id];
+  if (post.author) return ["author", post.author];
+  return null;
+}
+
+function buildViewerUrl(nextPostId, useBookMode = bookMode) {
+  const nextParams = new URLSearchParams();
+  nextParams.set("id", nextPostId);
+  if (useBookMode) nextParams.set("book", "1");
+  return `./viewer.html?${nextParams.toString()}`;
+}
+
+function syncBookModeUrl() {
+  if (!postId) return;
+  const nextUrl = buildViewerUrl(postId, bookMode);
+  window.history.replaceState(null, "", nextUrl);
+}
+
+function updateBookModeUi() {
+  document.body.classList.toggle("is-book-mode", bookMode);
+  els.bookToggle.textContent = bookMode ? "일반 보기" : "책 읽기";
+  els.bookToggle.setAttribute("aria-pressed", String(bookMode));
+  els.bookNav.hidden = !bookMode;
+}
+
+function renderBookNavigation() {
+  if (!bookMode || !currentPost) {
+    updateBookModeUi();
+    return;
+  }
+
+  const currentIndex = sameFolderPosts.findIndex((post) => normalizePostId(post) === normalizePostId(currentPost));
+  const postCount = sameFolderPosts.length || 1;
+  const visibleIndex = currentIndex >= 0 ? currentIndex + 1 : 1;
+  const prevPost = currentIndex > 0 ? sameFolderPosts[currentIndex - 1] : null;
+  const nextPost = currentIndex >= 0 && currentIndex < sameFolderPosts.length - 1 ? sameFolderPosts[currentIndex + 1] : null;
+
+  els.position.textContent = `${visibleIndex} / ${postCount}`;
+  els.prev.disabled = !prevPost;
+  els.next.disabled = !nextPost;
+  els.prev.dataset.postId = normalizePostId(prevPost);
+  els.next.dataset.postId = normalizePostId(nextPost);
+  updateBookModeUi();
+}
+
 async function fetchPost() {
   if (!postId) {
     throw new Error("글 주소가 올바르지 않습니다.");
@@ -83,9 +155,55 @@ async function fetchPost() {
   return post;
 }
 
+async function fetchSameFolderPosts(post) {
+  const session = getSession();
+  const token = session?.access_token || SUPABASE_ANON_KEY;
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
+  endpoint.searchParams.set(
+    "select",
+    "id,title,category,author,login_id,user_id,folder,folder_id,folder_name,folder_path,published,published_at,created_at"
+  );
+  endpoint.searchParams.set("limit", "1000");
+  endpoint.searchParams.set("order", "published_at.asc.nullslast,created_at.asc.nullslast");
+
+  const ownerFilter = getPostOwnerFilter(post);
+  if (ownerFilter) {
+    endpoint.searchParams.set(ownerFilter[0], `eq.${ownerFilter[1]}`);
+  }
+  if (post.category) {
+    endpoint.searchParams.set("category", `eq.${post.category}`);
+  }
+  if (post.folder_id) {
+    endpoint.searchParams.set("folder_id", `eq.${post.folder_id}`);
+  } else if (post.folder_name) {
+    endpoint.searchParams.set("folder_name", `eq.${post.folder_name}`);
+  } else if (post.folder) {
+    endpoint.searchParams.set("folder", `eq.${post.folder}`);
+  } else {
+    endpoint.searchParams.set("folder_id", "is.null");
+  }
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = await response.json().catch(() => []);
+  if (!response.ok || !Array.isArray(data)) return [post];
+
+  const byId = new Map();
+  data.forEach((item) => {
+    if (item?.id) byId.set(normalizePostId(item), item);
+  });
+  byId.set(normalizePostId(post), post);
+  return sortPostsForBook([...byId.values()]);
+}
+
 async function initViewer() {
   try {
     const post = await fetchPost();
+    currentPost = post;
     const session = getSession();
     const loginId = getSessionId(session);
     const isOwner = [post.author, post.login_id, post.user_id]
@@ -98,11 +216,15 @@ async function initViewer() {
     els.location.textContent = getPostLocation(post);
     els.body.innerHTML = post.body ? cleanViewerHtml(post.body) : `<p>${escapeHtml(post.excerpt || "")}</p>`;
     els.edit.hidden = !isOwner;
+    sameFolderPosts = await fetchSameFolderPosts(post);
+    renderBookNavigation();
   } catch (error) {
     els.title.textContent = "글을 불러오지 못했습니다";
     els.location.textContent = "";
     els.body.innerHTML = "";
     els.message.textContent = error.message;
+    bookMode = false;
+    updateBookModeUi();
   }
 }
 
@@ -115,4 +237,21 @@ els.edit.addEventListener("click", () => {
   window.location.href = `./editor.html?post=${encodeURIComponent(postId)}`;
 });
 
+els.bookToggle.addEventListener("click", () => {
+  bookMode = !bookMode;
+  syncBookModeUrl();
+  renderBookNavigation();
+});
+
+els.prev.addEventListener("click", () => {
+  if (!els.prev.dataset.postId) return;
+  window.location.href = buildViewerUrl(els.prev.dataset.postId, true);
+});
+
+els.next.addEventListener("click", () => {
+  if (!els.next.dataset.postId) return;
+  window.location.href = buildViewerUrl(els.next.dataset.postId, true);
+});
+
+updateBookModeUi();
 Promise.resolve(window.blogSession?.ready).finally(initViewer);
