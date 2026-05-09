@@ -35,6 +35,8 @@ const els = {
   searchInput: document.querySelector("[data-blog-search-input]"),
   visitorTotalPosts: document.querySelector("[data-visitor-total-posts]"),
   visitorVisiblePosts: document.querySelector("[data-visitor-visible-posts]"),
+  featureCard: document.querySelector("[data-feature-card]"),
+  miniList: document.querySelector("[data-blog-mini-list]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -99,6 +101,37 @@ function formatDate(value = "") {
     month: "numeric",
     day: "numeric",
   }).format(date);
+}
+
+function getPostLocationLabel(post = {}) {
+  return post.folder_path || post.folder_name || post.category || "전체";
+}
+
+function getPostViewHref(post = {}) {
+  return `./viewer.html?id=${encodeURIComponent(post.id || "")}`;
+}
+
+function getPostEditHref(post = {}) {
+  return `./editor.html?post=${encodeURIComponent(post.id || "")}`;
+}
+
+function getFirstImageFromHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = String(html);
+  const image = template.content.querySelector("img[src]");
+  const source = image?.getAttribute("src") || "";
+  if (!source || source.trim().toLowerCase().startsWith("javascript:")) return "";
+  return source;
+}
+
+function getPostExcerpt(post = {}, limit = 120) {
+  const text = htmlToPlainText(post.body || "");
+  if (!text) return "";
+  return text.length > limit ? `${text.slice(0, limit).trim()}...` : text;
+}
+
+function getPostMediaSource(post = {}) {
+  return post.cover_image || getFirstImageFromHtml(post.body || "");
 }
 
 function belongsToUser(post, session, id) {
@@ -299,6 +332,32 @@ function buildTrashItemsForNodes(nodes = []) {
   });
 }
 
+function buildTrashItemForPost(post = {}) {
+  return {
+    id: createTrashId("post"),
+    kind: "post",
+    label: post.title || "삭제된 글",
+    deletedAt: new Date().toISOString(),
+    node: null,
+    posts: [normalizeTrashPost(post)],
+  };
+}
+
+async function movePostToTrash(postId) {
+  const post = state.posts.find((item) => String(item.id) === String(postId));
+  if (!post) return;
+  if (!window.confirm("선택한 글을 휴지통으로 이동할까요?")) return;
+
+  state.trashItems = [buildTrashItemForPost(post), ...state.trashItems];
+  state.posts = state.posts.filter((item) => String(item.id) !== String(postId));
+  await saveTree();
+  if (els.searchInput?.value.trim()) {
+    applyBlogSearch(els.searchInput.value);
+  } else {
+    renderActivePosts();
+  }
+}
+
 function syncTreeSelectionState() {
   if (els.all) {
     if (state.activeNodeId === ALL_NODE_ID) {
@@ -358,10 +417,101 @@ function renderTree() {
   syncTreeSelectionState();
 }
 
+function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
+  renderMiniList(posts, scopeTitle);
+  if (!els.featureCard) return;
+
+  const post = posts[0];
+  if (!post) {
+    els.featureCard.hidden = true;
+    els.featureCard.innerHTML = "";
+    return;
+  }
+
+  const title = post.title || "제목 없는 글";
+  const location = getPostLocationLabel(post);
+  const date = formatDate(post.published_at || post.created_at);
+  const viewHref = getPostViewHref(post);
+  const editHref = getPostEditHref(post);
+  const mediaSource = getPostMediaSource(post);
+  const excerpt = getPostExcerpt(post, 110);
+  const initial = (state.id || "B").slice(0, 1).toUpperCase();
+
+  els.featureCard.hidden = false;
+  els.featureCard.innerHTML = `
+    <div class="blog-feature-kicker">${escapeHtml(location)}</div>
+    <a class="blog-feature-title" href="${viewHref}">${escapeHtml(title)}</a>
+    <div class="blog-feature-meta">
+      <span class="blog-feature-avatar" aria-hidden="true">${escapeHtml(initial)}</span>
+      <span class="blog-feature-author">${escapeHtml(state.id || post.author || "blog")}</span>
+      <time datetime="${escapeHtml(post.published_at || post.created_at || "")}">${escapeHtml(date)}</time>
+      <span>${escapeHtml(location)}</span>
+      <button class="blog-feature-light-button" type="button" data-feature-copy="${escapeHtml(viewHref)}">URL 복사</button>
+      <a class="blog-feature-light-button" href="${editHref}">수정</a>
+      <button class="blog-feature-light-button" type="button" data-feature-delete="${escapeHtml(post.id || "")}">삭제</button>
+    </div>
+    <a class="blog-feature-media" href="${viewHref}">
+      ${
+        mediaSource
+          ? `<img src="${escapeHtml(mediaSource)}" alt="">`
+          : `<span class="blog-feature-placeholder"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(excerpt || "본문 미리보기가 여기에 표시됩니다.")}</small></span>`
+      }
+    </a>
+    <a class="blog-feature-caption" href="${viewHref}">${escapeHtml(title)}</a>
+    <div class="blog-feature-actions" aria-label="글 기능">
+      <a class="blog-feature-icon-action" href="${viewHref}" title="읽기" aria-label="읽기">
+        <span class="feature-icon feature-icon-book" aria-hidden="true"></span>
+      </a>
+      <button class="blog-feature-icon-action" type="button" data-feature-copy="${escapeHtml(viewHref)}" title="URL 복사" aria-label="URL 복사">
+        <span class="feature-icon feature-icon-copy" aria-hidden="true"></span>
+      </button>
+      <a class="blog-feature-text-action" href="${editHref}">수정</a>
+      <button class="blog-feature-text-action" type="button" data-feature-delete="${escapeHtml(post.id || "")}">삭제</button>
+    </div>
+  `;
+}
+
+function renderMiniList(posts = [], scopeTitle = "전체보기") {
+  if (!els.miniList) return;
+  if (posts.length === 0) {
+    els.miniList.hidden = true;
+    els.miniList.innerHTML = "";
+    return;
+  }
+
+  const title = scopeTitle === "전체보기" ? "전체 카테고리" : scopeTitle;
+  els.miniList.hidden = false;
+  els.miniList.innerHTML = `
+    <div class="blog-mini-list-head">
+      <strong>이 블로그 ${escapeHtml(title)} 글</strong>
+      <button type="button" data-mini-all>전체글 보기</button>
+    </div>
+    <div class="blog-mini-rows">
+      ${posts
+        .slice(0, 5)
+        .map(
+          (post) => `
+            <a class="blog-mini-row" href="${getPostViewHref(post)}">
+              <span>${escapeHtml(post.title || "제목 없는 글")}</span>
+              <time>${escapeHtml(formatDate(post.published_at || post.created_at))}</time>
+            </a>
+          `
+        )
+        .join("")}
+    </div>
+    <div class="blog-mini-footer">
+      <span>이전</span>
+      <span>다음</span>
+      <a href="#top">TOP</a>
+    </div>
+  `;
+}
+
 function renderActivePosts() {
   const meta = getActiveTreeMeta();
   if (els.boardTitle) els.boardTitle.textContent = meta.title;
   renderPosts(meta.posts);
+  renderFeatureArea(meta.posts, meta.title);
 }
 
 function applyBlogSearch(keyword = "") {
@@ -378,6 +528,7 @@ function applyBlogSearch(keyword = "") {
   );
   if (els.boardTitle) els.boardTitle.textContent = `검색: ${keyword.trim()}`;
   renderPosts(results);
+  renderFeatureArea(results, `검색 ${keyword.trim()}`);
 }
 
 async function loadTree(session) {
@@ -682,6 +833,24 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+async function copyPostUrl(href = "") {
+  const url = new URL(href || "./my-blog.html", window.location.href).href;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    const input = document.createElement("textarea");
+    input.value = url;
+    input.setAttribute("readonly", "");
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    document.body.append(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+  }
+  window.alert("URL을 복사했습니다.");
+}
+
 function getExportPosts() {
   return getActiveTreeMeta().posts;
 }
@@ -819,6 +988,30 @@ if (listToggle && blogBoard) {
   });
   listToggle.setAttribute("aria-expanded", "true");
 }
+
+els.featureCard?.addEventListener("click", async (event) => {
+  const copy = event.target.closest("[data-feature-copy]");
+  if (copy) {
+    event.preventDefault();
+    await copyPostUrl(copy.dataset.featureCopy);
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-feature-delete]");
+  if (deleteButton) {
+    event.preventDefault();
+    await movePostToTrash(deleteButton.dataset.featureDelete);
+  }
+});
+
+els.miniList?.addEventListener("click", (event) => {
+  const allButton = event.target.closest("[data-mini-all]");
+  if (!allButton) return;
+  state.activeNodeId = ALL_NODE_ID;
+  if (els.searchInput) els.searchInput.value = "";
+  renderActivePosts();
+  syncTreeSelectionState();
+});
 
 els.toolsToggle?.addEventListener("click", () => {
   const willOpen = els.tools?.hidden;
