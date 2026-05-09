@@ -2019,13 +2019,13 @@ function renderTrashPanel() {
   const count = getTrashItemCount();
   els.trashPanel.classList.toggle("is-collapsed", state.trashCollapsed);
   els.trashPanel.classList.toggle("is-selecting", state.trashSelectionMode);
-  els.trashBody.hidden = state.trashCollapsed;
-  els.trashToggle.setAttribute("aria-expanded", String(!state.trashCollapsed));
-  els.trashCount.textContent = String(count);
-  els.trashSelectionToggle.classList.toggle("is-active", state.trashSelectionMode);
-  els.trashRestore.disabled = state.selectedTrashIds.size === 0;
-  els.trashDeleteSelected.disabled = state.selectedTrashIds.size === 0 || state.deleteBusy;
-  els.trashEmpty.disabled = count === 0 || state.deleteBusy;
+  if (els.trashBody) els.trashBody.hidden = state.trashCollapsed;
+  if (els.trashToggle) els.trashToggle.setAttribute("aria-expanded", String(!state.trashCollapsed));
+  if (els.trashCount) els.trashCount.textContent = String(count);
+  if (els.trashSelectionToggle) els.trashSelectionToggle.classList.toggle("is-active", state.trashSelectionMode);
+  if (els.trashRestore) els.trashRestore.disabled = state.selectedTrashIds.size === 0;
+  if (els.trashDeleteSelected) els.trashDeleteSelected.disabled = state.selectedTrashIds.size === 0 || state.deleteBusy;
+  if (els.trashEmpty) els.trashEmpty.disabled = count === 0 || state.deleteBusy;
   renderTrashList();
 }
 
@@ -2474,60 +2474,66 @@ els.list.addEventListener("keydown", (event) => {
   openPostViewer(postSelect.dataset.postId);
 });
 
-els.trashToggle.addEventListener("click", () => {
-  state.trashCollapsed = !state.trashCollapsed;
-  renderTrashPanel();
-});
+if (els.trashToggle) {
+  els.trashToggle.addEventListener("click", () => {
+    state.trashCollapsed = !state.trashCollapsed;
+    renderTrashPanel();
+  });
+}
 
-els.trashSelectionToggle.addEventListener("click", () => {
-  state.trashSelectionMode = !state.trashSelectionMode;
-  state.selectedTrashIds.clear();
-  renderTrashPanel();
-});
+if (els.trashSelectionToggle) {
+  els.trashSelectionToggle.addEventListener("click", () => {
+    state.trashSelectionMode = !state.trashSelectionMode;
+    state.selectedTrashIds.clear();
+    renderTrashPanel();
+  });
+}
 
-els.trashRestore.addEventListener("click", restoreTrashItems);
+if (els.trashRestore) els.trashRestore.addEventListener("click", restoreTrashItems);
 
-els.trashDeleteSelected.addEventListener("click", deleteSelectedTrashItems);
+if (els.trashDeleteSelected) els.trashDeleteSelected.addEventListener("click", deleteSelectedTrashItems);
 
-els.trashEmpty.addEventListener("click", emptyTrash);
+if (els.trashEmpty) els.trashEmpty.addEventListener("click", emptyTrash);
 
-els.trashList.addEventListener("click", (event) => {
-  if (event.target.closest("[data-trash-check]")) return;
-  const item = event.target.closest("[data-trash-item]");
-  if (!item || !state.trashSelectionMode) return;
-  const id = item.dataset.trashItem;
-  if (state.selectedTrashIds.has(id)) {
-    state.selectedTrashIds.delete(id);
-  } else {
-    state.selectedTrashIds.add(id);
-  }
-  renderTrashPanel();
-});
+if (els.trashList) {
+  els.trashList.addEventListener("click", (event) => {
+    if (event.target.closest("[data-trash-check]")) return;
+    const item = event.target.closest("[data-trash-item]");
+    if (!item || !state.trashSelectionMode) return;
+    const id = item.dataset.trashItem;
+    if (state.selectedTrashIds.has(id)) {
+      state.selectedTrashIds.delete(id);
+    } else {
+      state.selectedTrashIds.add(id);
+    }
+    renderTrashPanel();
+  });
 
-els.trashList.addEventListener("change", (event) => {
-  const checkbox = event.target.closest("[data-trash-check]");
-  if (!checkbox) return;
-  if (checkbox.checked) {
-    state.selectedTrashIds.add(checkbox.dataset.trashCheck);
-  } else {
-    state.selectedTrashIds.delete(checkbox.dataset.trashCheck);
-  }
-  renderTrashPanel();
-});
+  els.trashList.addEventListener("change", (event) => {
+    const checkbox = event.target.closest("[data-trash-check]");
+    if (!checkbox) return;
+    if (checkbox.checked) {
+      state.selectedTrashIds.add(checkbox.dataset.trashCheck);
+    } else {
+      state.selectedTrashIds.delete(checkbox.dataset.trashCheck);
+    }
+    renderTrashPanel();
+  });
 
-els.trashList.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  const item = event.target.closest("[data-trash-item]");
-  if (!item || !state.trashSelectionMode) return;
-  event.preventDefault();
-  const id = item.dataset.trashItem;
-  if (state.selectedTrashIds.has(id)) {
-    state.selectedTrashIds.delete(id);
-  } else {
-    state.selectedTrashIds.add(id);
-  }
-  renderTrashPanel();
-});
+  els.trashList.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const item = event.target.closest("[data-trash-item]");
+    if (!item || !state.trashSelectionMode) return;
+    event.preventDefault();
+    const id = item.dataset.trashItem;
+    if (state.selectedTrashIds.has(id)) {
+      state.selectedTrashIds.delete(id);
+    } else {
+      state.selectedTrashIds.add(id);
+    }
+    renderTrashPanel();
+  });
+}
 
 document.addEventListener("click", (event) => {
   if (!event.target.closest("[data-export-format-wrap]")) {

@@ -116,7 +116,7 @@
     const brandText = brand.querySelector("[data-brand-text]");
     const currentPage = getCurrentPage();
 
-    if (currentPage === "my-blog.html" || currentPage === "editor.html" || currentPage === "viewer.html") {
+    if (currentPage === "my-blog.html" || currentPage === "editor.html" || currentPage === "viewer.html" || currentPage === "trash.html") {
       brand.href = "./my-blog.html";
       brand.setAttribute("aria-label", "My blog home");
       if (brandText && id) {
@@ -155,7 +155,7 @@
     if (currentPage === "index.html") {
       homeLink.setAttribute("aria-current", "page");
     }
-    if (currentPage === "my-blog.html" || currentPage === "editor.html" || currentPage === "viewer.html") {
+    if (currentPage === "my-blog.html" || currentPage === "editor.html" || currentPage === "viewer.html" || currentPage === "trash.html") {
       blogLink.setAttribute("aria-current", "page");
     }
 
