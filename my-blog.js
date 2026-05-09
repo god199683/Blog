@@ -9,6 +9,7 @@ const state = {
   id: "",
   posts: [],
   tree: [],
+  trashItems: [],
   activeNodeId: ALL_NODE_ID,
   selectionMode: false,
   selectedNodeIds: new Set(),
@@ -129,6 +130,61 @@ function cloneNode(node) {
   };
 }
 
+function createTrashId(prefix = "trash") {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeTrashPost(post = {}) {
+  return {
+    id: post.id || "",
+    title: post.title || "제목 없는 글",
+    category: post.category || "전체",
+    folder: post.folder || "",
+    folder_id: post.folder_id || "",
+    folder_name: post.folder_name || "",
+    folder_path: post.folder_path || "",
+    user_id: post.user_id || "",
+    login_id: post.login_id || "",
+    body: post.body || "",
+    cover_image: post.cover_image || "",
+    author: post.author || "",
+    reading_time: post.reading_time || "",
+    published: post.published !== false,
+    published_at: post.published_at || post.created_at || "",
+    created_at: post.created_at || "",
+  };
+}
+
+function normalizeTrashItem(item = {}) {
+  return {
+    id: item.id || createTrashId(),
+    kind: item.kind === "post" ? "post" : "node",
+    label: item.label || item.node?.label || item.posts?.[0]?.title || "삭제된 항목",
+    deletedAt: item.deletedAt || new Date().toISOString(),
+    node: item.node ? cloneNode(item.node) : null,
+    posts: Array.isArray(item.posts) ? item.posts.map(normalizeTrashPost) : [],
+  };
+}
+
+function normalizeTrashItems(items = []) {
+  return Array.isArray(items) ? items.map(normalizeTrashItem) : [];
+}
+
+function getTrashPostIdSet(items = state.trashItems) {
+  const ids = new Set();
+  items.forEach((item) => {
+    (item.posts || []).forEach((post) => {
+      if (post.id) ids.add(String(post.id));
+    });
+  });
+  return ids;
+}
+
+function filterPostsOutsideTrash(posts = []) {
+  const trashPostIds = getTrashPostIdSet();
+  return posts.filter((post) => !trashPostIds.has(String(post.id)));
+}
+
 function normalizeTree(tree) {
   return Array.isArray(tree)
     ? tree
@@ -196,6 +252,51 @@ function removeSelectedNodes(nodes, selectedIds) {
       ...node,
       children: removeSelectedNodes(node.children || [], selectedIds),
     }));
+}
+
+function getTopLevelSelectedNodes(nodes, selectedIds, ancestorSelected = false) {
+  return nodes.flatMap((node) => {
+    const isSelected = selectedIds.has(node.id);
+    const children = getTopLevelSelectedNodes(node.children || [], selectedIds, ancestorSelected || isSelected);
+    return isSelected && !ancestorSelected ? [node] : children;
+  });
+}
+
+function collectNodeFolderIds(node, ids = new Set()) {
+  if (node.type === "folder") ids.add(node.id);
+  (node.children || []).forEach((child) => collectNodeFolderIds(child, ids));
+  return ids;
+}
+
+function getPostsForNode(node) {
+  const folderIds = collectNodeFolderIds(node);
+  return state.posts.filter((post) => {
+    if (folderIds.has(post.folder_id)) return true;
+    if (node.type !== "category") return false;
+    const category = node.filterCategory || node.label || "전체";
+    return (post.category || "전체") === category;
+  });
+}
+
+function buildTrashItemsForNodes(nodes = []) {
+  const usedPostIds = new Set();
+  return nodes.map((node) => {
+    const posts = getPostsForNode(node).filter((post) => {
+      const key = String(post.id || "");
+      if (!key || usedPostIds.has(key)) return false;
+      usedPostIds.add(key);
+      return true;
+    });
+
+    return {
+      id: createTrashId(node.type),
+      kind: "node",
+      label: node.label || "삭제된 항목",
+      deletedAt: new Date().toISOString(),
+      node: cloneNode(node),
+      posts: posts.map(normalizeTrashPost),
+    };
+  });
 }
 
 function syncTreeSelectionState() {
@@ -282,11 +383,12 @@ function applyBlogSearch(keyword = "") {
 async function loadTree(session) {
   if (!session?.access_token || !session.user?.id) return [];
   const rows = await requestRest(
-    `blog_trees?select=tree,tree_collapsed_ids&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
+    `blog_trees?select=tree,tree_collapsed_ids,trash&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
     session.access_token
   );
   const row = Array.isArray(rows) ? rows[0] : null;
   state.collapsedNodeIds = new Set(Array.isArray(row?.tree_collapsed_ids) ? row.tree_collapsed_ids : []);
+  state.trashItems = normalizeTrashItems(row?.trash);
   return normalizeTree(row?.tree);
 }
 
@@ -303,6 +405,7 @@ async function saveTree() {
       login_id: state.id,
       tree: state.tree,
       tree_collapsed_ids: [...state.collapsedNodeIds],
+      trash: state.trashItems,
       updated_at: new Date().toISOString(),
     }),
   });
@@ -382,9 +485,13 @@ async function deleteSelectedNodes() {
     return;
   }
 
-  if (!window.confirm("선택한 항목을 삭제할까요?")) return;
+  if (!window.confirm("선택한 항목을 휴지통으로 이동할까요?")) return;
 
+  const selectedNodes = getTopLevelSelectedNodes(state.tree, state.selectedNodeIds);
+  const trashItems = buildTrashItemsForNodes(selectedNodes);
   state.tree = removeSelectedNodes(state.tree, state.selectedNodeIds);
+  state.trashItems = [...trashItems, ...state.trashItems];
+  state.posts = filterPostsOutsideTrash(state.posts);
   if (state.activeNodeId !== ALL_NODE_ID && !findNode(state.tree, state.activeNodeId)) {
     state.activeNodeId = ALL_NODE_ID;
   }
@@ -694,10 +801,11 @@ function renderPosts(posts = []) {
 
 async function fetchUserPosts(session, id) {
   const rows = await requestRest(
-    "posts?select=id,title,body,category,folder_id,folder_name,folder_path,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=100",
+    "posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=100",
     session.access_token
   );
-  return Array.isArray(rows) ? rows.filter((post) => belongsToUser(post, session, id)) : [];
+  const posts = Array.isArray(rows) ? rows.filter((post) => belongsToUser(post, session, id)) : [];
+  return filterPostsOutsideTrash(posts);
 }
 
 const listToggle = document.querySelector("[data-list-toggle]");
