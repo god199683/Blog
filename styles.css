@@ -40,6 +40,15 @@ a {
   text-decoration: none;
 }
 
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
 .site-header {
   position: sticky;
   top: 0;
@@ -79,6 +88,7 @@ a {
 .top-nav {
   display: inline-flex;
   align-items: center;
+  margin-left: auto;
 }
 
 .top-nav a {
@@ -94,6 +104,50 @@ a {
 .top-nav a:focus-visible,
 .top-nav a[aria-current="page"] {
   background: var(--surface-soft);
+}
+
+.auth-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.auth-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.72rem;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--sky-dark);
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.auth-button:hover,
+.auth-button:focus-visible,
+.auth-button[aria-current="page"] {
+  background: var(--surface-soft);
+}
+
+.auth-button-primary {
+  background: var(--sky-dark);
+  color: #fff;
+}
+
+.account-name {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.72rem;
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 820;
 }
 
 .home-main {
@@ -234,6 +288,136 @@ a {
   margin: 0;
 }
 
+.auth-main {
+  width: min(820px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(1.7rem, 7vw, 3.6rem) 0 2.2rem;
+}
+
+.auth-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 0.86fr) minmax(300px, 380px);
+  gap: clamp(1rem, 5vw, 2.25rem);
+  align-items: start;
+}
+
+.auth-copy {
+  display: grid;
+  gap: 0.48rem;
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: var(--shadow);
+}
+
+.auth-copy h1 {
+  margin: 0;
+  font-size: clamp(1.25rem, 4vw, 1.65rem);
+  line-height: 1.25;
+}
+
+.auth-copy p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.auth-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.form-field {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.form-field label {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 820;
+}
+
+.form-field input {
+  width: 100%;
+  min-height: 2.55rem;
+  padding: 0 0.8rem;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.form-field input:focus {
+  border-color: rgba(56, 189, 248, 0.62);
+  box-shadow: 0 0 0 3px rgba(186, 230, 253, 0.4);
+}
+
+.field-help,
+.password-hint-result,
+.auth-message,
+.auth-link {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.password-hint-button {
+  width: fit-content;
+  min-height: 1.6rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sky-dark);
+  font-size: 0.78rem;
+  font-weight: 820;
+}
+
+.password-hint-result {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(216, 234, 251, 0.9);
+  border-radius: 8px;
+  background: rgba(234, 247, 255, 0.58);
+}
+
+.password-hint-result[data-type="error"],
+.auth-message[data-type="error"] {
+  color: #b42318;
+}
+
+.password-hint-result[data-type="success"],
+.auth-message[data-type="success"] {
+  color: var(--sky-dark);
+}
+
+.auth-submit {
+  min-height: 2.55rem;
+  border: 1px solid var(--sky-dark);
+  border-radius: 8px;
+  background: var(--sky-dark);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 820;
+}
+
+.auth-submit:disabled {
+  cursor: default;
+  opacity: 0.66;
+}
+
+.auth-link a {
+  color: var(--sky-dark);
+  font-weight: 820;
+}
+
 @media (max-width: 640px) {
   body {
     font-size: 14px;
@@ -241,6 +425,8 @@ a {
 
   .site-header {
     min-height: 3.5rem;
+    flex-wrap: wrap;
+    padding-block: 0.7rem;
   }
 
   .home-main {
@@ -254,5 +440,9 @@ a {
   .home-hero p:last-child {
     max-width: none;
     text-align: left;
+  }
+
+  .auth-shell {
+    grid-template-columns: 1fr;
   }
 }
