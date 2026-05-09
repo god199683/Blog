@@ -27,6 +27,10 @@ const state = {
   deleteBusy: false,
   editingNodeId: "",
   storedTreeData: null,
+  listBoardCollapsed: false,
+  listManageOpen: false,
+  listBoardPage: 1,
+  listBoardPageSize: 5,
 };
 
 const els = {
@@ -74,6 +78,17 @@ function formatDate(value) {
   }).format(date);
 }
 
+function formatListDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).format(date);
+}
+
 function getSession() {
   return window.blogSession?.read?.() || null;
 }
@@ -104,6 +119,8 @@ function normalizePost(raw, index) {
     author: raw.author || raw.author_name || raw.writer || "",
     published_at: publishedAt,
     reading_time: raw.reading_time || raw.read_time || "",
+    published: isPublicPost(raw),
+    views: raw.views || raw.view_count || raw.hit_count || raw.read_count || 0,
   };
 }
 
@@ -624,6 +641,7 @@ function toggleSelectionMode() {
 function togglePanelSelectionMode() {
   state.panelSelectionMode = !state.panelSelectionMode;
   state.panelSelectedIds.clear();
+  if (state.panelSelectionMode) state.listManageOpen = true;
   renderList();
 }
 
@@ -1499,6 +1517,155 @@ function renderActiveNodeContent(posts) {
   return [folders, postItems].filter(Boolean).join("");
 }
 
+function getListBoardTitle() {
+  const title = getActivePanelTitle();
+  return `${title || DEFAULT_CATEGORY}보기`;
+}
+
+function getPostVisibilityLabel(post) {
+  return post.published === false ? "비공개" : "공개";
+}
+
+function getPostViewCount(post) {
+  const count = Number.parseInt(post.views, 10);
+  return Number.isFinite(count) ? count : 0;
+}
+
+function clampListBoardPage(totalPages) {
+  state.listBoardPage = Math.min(Math.max(state.listBoardPage, 1), Math.max(totalPages, 1));
+}
+
+function renderListBoardPagination(totalPages) {
+  if (totalPages <= 1) return "";
+
+  const current = state.listBoardPage;
+  const maxButtons = 10;
+  const start = Math.max(1, Math.min(current - 4, Math.max(1, totalPages - maxButtons + 1)));
+  const end = Math.min(totalPages, start + maxButtons - 1);
+  const pages = [];
+
+  for (let page = start; page <= end; page += 1) {
+    pages.push(`
+      <button
+        class="blog-list-page ${page === current ? "is-active" : ""}"
+        type="button"
+        data-list-board-page="${page}"
+        aria-current="${page === current ? "page" : "false"}"
+      >
+        ${page}
+      </button>
+    `);
+  }
+
+  const previousButton =
+    current > 1 ? `<button class="blog-list-page blog-list-prev" type="button" data-list-board-page="${current - 1}">‹ 이전</button>` : "";
+  const nextButton =
+    current < totalPages ? `<button class="blog-list-page blog-list-next" type="button" data-list-board-page="${current + 1}">다음 ›</button>` : "";
+
+  return `<nav class="blog-list-pagination" aria-label="글 목록 페이지">${previousButton}${pages.join("")}${nextButton}</nav>`;
+}
+
+function renderSimpleCategoryList(posts, total, start, totalPages) {
+  const rows = posts
+    .map(
+      (post, index) => `
+        <button class="simple-list-row" type="button" data-board-post="${escapeHtml(post.id)}">
+          <span>${total - (start + index)}</span>
+          <time>${escapeHtml(formatListDate(post.published_at))}</time>
+        </button>
+      `
+    )
+    .join("");
+
+  return `
+    <section class="simple-blog-list" aria-label="전체 카테고리 글">
+      <div class="simple-list-head">
+        <p>이 블로그 <strong>${escapeHtml(getActivePanelTitle())}</strong> 카테고리 글</p>
+        <button type="button" data-list-board-page="1">전체글 보기</button>
+      </div>
+      <div class="simple-list-rows">
+        ${rows || `<div class="simple-list-empty">표시할 글이 없습니다.</div>`}
+      </div>
+      <div class="simple-list-foot">
+        <button type="button" data-list-board-page="${Math.max(1, state.listBoardPage - 1)}" ${state.listBoardPage <= 1 ? "disabled" : ""}>‹ 이전</button>
+        <button type="button" data-list-board-page="${Math.min(totalPages, state.listBoardPage + 1)}" ${
+          state.listBoardPage >= totalPages ? "disabled" : ""
+        }>다음 ›</button>
+        <a href="#top">▲ TOP</a>
+      </div>
+    </section>
+  `;
+}
+
+function renderListBoard(posts) {
+  const total = posts.length;
+  const pageSize = state.listBoardPageSize;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  clampListBoardPage(totalPages);
+
+  const start = (state.listBoardPage - 1) * pageSize;
+  const pagePosts = posts.slice(start, start + pageSize);
+  const rows = pagePosts
+    .map((post, index) => {
+      const number = total - (start + index);
+      return `
+        <button class="blog-list-row" type="button" data-board-post="${escapeHtml(post.id)}">
+          <span class="blog-list-title-cell">
+            <span class="blog-list-number">${number}</span>
+            <span class="blog-list-title">${escapeHtml(post.title)}</span>
+            <span class="blog-list-chip">${escapeHtml(getPostVisibilityLabel(post))}</span>
+          </span>
+          <span class="blog-list-views">${getPostViewCount(post)}</span>
+          <span class="blog-list-date">${escapeHtml(formatListDate(post.published_at))}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  const body = state.listBoardCollapsed
+    ? ""
+    : `
+      <div class="blog-list-table" role="table" aria-label="내 글 목록">
+        <div class="blog-list-head" role="row">
+          <span>글 제목</span>
+          <span>조회수</span>
+          <span>작성일</span>
+        </div>
+        <div class="blog-list-rows">
+          ${rows || `<div class="blog-list-empty">표시할 글이 없습니다.</div>`}
+        </div>
+      </div>
+      <div class="blog-list-footer">
+        <button class="blog-list-manage" type="button" data-list-manage-toggle>
+          ${state.listManageOpen ? "글관리 닫기" : "글관리 열기"}
+        </button>
+        <div class="blog-list-footer-right">
+          ${renderListBoardPagination(totalPages)}
+          <label class="blog-list-page-size">
+            <select data-list-board-size aria-label="목록 줄 수">
+              ${[5, 10, 15, 20]
+                .map((size) => `<option value="${size}" ${size === pageSize ? "selected" : ""}>${size}줄 보기</option>`)
+                .join("")}
+            </select>
+          </label>
+        </div>
+      </div>
+      ${renderSimpleCategoryList(pagePosts, total, start, totalPages)}
+    `;
+
+  return `
+    <section class="blog-list-board ${state.listBoardCollapsed ? "is-collapsed" : ""}" aria-label="글 목록 표">
+      <div class="blog-list-board-head">
+        <p><strong>${escapeHtml(getListBoardTitle())}</strong> <span>${total}개의 글</span></p>
+        <button type="button" data-list-board-toggle>
+          ${state.listBoardCollapsed ? "목록열기" : "목록닫기"}
+        </button>
+      </div>
+      ${body}
+    </section>
+  `;
+}
+
 function renderList() {
   const posts = getFilteredPosts();
   els.count.textContent = `${posts.length}개 글`;
@@ -1519,6 +1686,20 @@ function renderList() {
   els.status.textContent = state.error || "";
 
   const content = renderActiveNodeContent(posts);
+  const board = renderListBoard(posts);
+  const manageContent = state.listManageOpen
+    ? content ||
+      `
+        <div class="empty-state">
+          <h3>표시할 글이 없습니다</h3>
+        </div>
+      `
+    : "";
+
+  if (!content) {
+    els.list.innerHTML = renderPostPanel(`${board}${manageContent}`, false);
+    return;
+  }
 
   if (!content) {
     els.list.innerHTML = renderPostPanel(
@@ -1532,7 +1713,7 @@ function renderList() {
     return;
   }
 
-  els.list.innerHTML = renderPostPanel(content);
+  els.list.innerHTML = renderPostPanel(`${board}${manageContent}`, false);
 }
 
 function render() {
@@ -2105,6 +2286,7 @@ els.nav.addEventListener("click", (event) => {
   const selectButton = event.target.closest("[data-node-select]");
   if (!selectButton) return;
   state.activeNodeId = selectButton.dataset.nodeSelect;
+  state.listBoardPage = 1;
   state.panelSelectedIds.clear();
   render();
 });
@@ -2145,6 +2327,33 @@ els.nav.addEventListener("keydown", (event) => {
 });
 
 els.list.addEventListener("click", (event) => {
+  const boardToggle = event.target.closest("[data-list-board-toggle]");
+  if (boardToggle) {
+    state.listBoardCollapsed = !state.listBoardCollapsed;
+    renderList();
+    return;
+  }
+
+  const manageToggle = event.target.closest("[data-list-manage-toggle]");
+  if (manageToggle) {
+    state.listManageOpen = !state.listManageOpen;
+    renderList();
+    return;
+  }
+
+  const pageButton = event.target.closest("[data-list-board-page]");
+  if (pageButton) {
+    state.listBoardPage = Number.parseInt(pageButton.dataset.listBoardPage, 10) || 1;
+    renderList();
+    return;
+  }
+
+  const boardPost = event.target.closest("[data-board-post]");
+  if (boardPost) {
+    openPostViewer(boardPost.dataset.boardPost);
+    return;
+  }
+
   if (event.target.closest("[data-panel-check]")) {
     return;
   }
@@ -2219,11 +2428,20 @@ els.list.addEventListener("click", (event) => {
     return;
   }
   state.activeNodeId = selectButton.dataset.panelFolderSelect;
+  state.listBoardPage = 1;
   state.panelSelectedIds.clear();
   render();
 });
 
 els.list.addEventListener("change", (event) => {
+  const pageSize = event.target.closest("[data-list-board-size]");
+  if (pageSize) {
+    state.listBoardPageSize = Number.parseInt(pageSize.value, 10) || 5;
+    state.listBoardPage = 1;
+    renderList();
+    return;
+  }
+
   const checkbox = event.target.closest("[data-panel-check]");
   if (!checkbox) return;
 
@@ -2238,6 +2456,12 @@ els.list.addEventListener("change", (event) => {
 
 els.list.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
+  const boardPost = event.target.closest("[data-board-post]");
+  if (boardPost) {
+    event.preventDefault();
+    openPostViewer(boardPost.dataset.boardPost);
+    return;
+  }
   if (event.target.closest("[data-panel-check]")) return;
   const postSelect = event.target.closest("[data-panel-post-select]");
   if (!postSelect) return;
