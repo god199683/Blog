@@ -965,13 +965,6 @@ body.is-away-locked {
   white-space: nowrap;
 }
 
-.blog-tree-type {
-  flex: 0 0 auto;
-  color: #9aacbb;
-  font-size: 0.64rem;
-  font-weight: 760;
-}
-
 .blog-tree-node-actions {
   display: inline-flex;
   gap: 0.1rem;

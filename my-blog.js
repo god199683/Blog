@@ -194,7 +194,6 @@ function renderTreeNode(node, depth = 0) {
   const hasChildren = (node.children || []).length > 0;
   const isCollapsed = state.collapsedNodeIds.has(node.id);
   const isChecked = state.selectedNodeIds.has(node.id);
-  const typeLabel = node.type === "category" ? "카테고리" : "폴더";
   const children = hasChildren && !isCollapsed ? node.children.map((child) => renderTreeNode(child, depth + 1)).join("") : "";
 
   return `
@@ -209,7 +208,6 @@ function renderTreeNode(node, depth = 0) {
           <span aria-hidden="true">${hasChildren ? (isCollapsed ? "+" : "-") : ""}</span>
         </button>
         <button class="blog-tree-label" type="button" data-tree-select="${escapeHtml(node.id)}">
-          <span class="blog-tree-type">${typeLabel}</span>
           <span>${escapeHtml(node.label)}</span>
         </button>
         <span class="blog-tree-node-actions">
