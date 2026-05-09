@@ -30,6 +30,10 @@ const els = {
   toolsToggle: document.querySelector("[data-tree-tools-toggle]"),
   tools: document.querySelector("[data-tree-tools]"),
   importInput: document.querySelector("[data-file-import]"),
+  searchForm: document.querySelector("[data-blog-search-form]"),
+  searchInput: document.querySelector("[data-blog-search-input]"),
+  visitorTotalPosts: document.querySelector("[data-visitor-total-posts]"),
+  visitorVisiblePosts: document.querySelector("[data-visitor-visible-posts]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -257,6 +261,22 @@ function renderActivePosts() {
   const meta = getActiveTreeMeta();
   if (els.boardTitle) els.boardTitle.textContent = meta.title;
   renderPosts(meta.posts);
+}
+
+function applyBlogSearch(keyword = "") {
+  const query = keyword.trim().toLowerCase();
+  if (!query) {
+    renderActivePosts();
+    return;
+  }
+
+  const results = state.posts.filter((post) =>
+    [post.title, post.body, post.category, post.folder_name, post.folder_path]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query))
+  );
+  if (els.boardTitle) els.boardTitle.textContent = `검색: ${keyword.trim()}`;
+  renderPosts(results);
 }
 
 async function loadTree(session) {
@@ -638,6 +658,8 @@ function exportActivePosts() {
 
 function renderPosts(posts = []) {
   if (els.count) els.count.textContent = `${posts.length}개의 글`;
+  if (els.visitorTotalPosts) els.visitorTotalPosts.textContent = String(state.posts.length);
+  if (els.visitorVisiblePosts) els.visitorVisiblePosts.textContent = String(posts.length);
   if (!els.postList) return;
 
   if (posts.length === 0) {
@@ -737,8 +759,18 @@ els.importInput?.addEventListener("change", async (event) => {
 
 els.all?.addEventListener("click", () => {
   state.activeNodeId = ALL_NODE_ID;
+  if (els.searchInput) els.searchInput.value = "";
   renderActivePosts();
   syncTreeSelectionState();
+});
+
+els.searchForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  applyBlogSearch(els.searchInput?.value || "");
+});
+
+els.searchInput?.addEventListener("input", () => {
+  if (!els.searchInput.value.trim()) renderActivePosts();
 });
 
 els.tree?.addEventListener("change", (event) => {
@@ -776,6 +808,7 @@ els.tree?.addEventListener("click", async (event) => {
   const select = event.target.closest("[data-tree-select]");
   if (select) {
     state.activeNodeId = select.dataset.treeSelect;
+    if (els.searchInput) els.searchInput.value = "";
     renderActivePosts();
     syncTreeSelectionState();
   }
