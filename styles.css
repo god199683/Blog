@@ -1528,6 +1528,10 @@ button {
   padding-right: 0.25rem;
 }
 
+.viewer-page-content {
+  max-width: 100%;
+}
+
 .viewer-body p {
   margin: 0 0 0.9rem;
 }
@@ -1737,11 +1741,22 @@ button {
   font-family: "Noto Serif KR", "Batang", "Georgia", serif;
   font-size: var(--reader-font-size, 18px);
   line-height: 2.65;
-  overflow: auto;
+  overflow: hidden;
+  scrollbar-width: none;
 }
 
 .viewer-page.is-book-mode[data-reader-font="sans"] .viewer-body {
   font-family: "Noto Sans KR", "Segoe UI", system-ui, sans-serif;
+}
+
+.viewer-page.is-book-mode .viewer-page-content {
+  max-width: none;
+  overflow: visible;
+  column-fill: auto;
+  overflow-wrap: anywhere;
+  transform: translate3d(0, 0, 0);
+  transition: none;
+  will-change: transform;
 }
 
 .viewer-page.is-book-mode .viewer-body::before {

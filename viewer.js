@@ -9,6 +9,11 @@ let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize")
 let readerFont = localStorage.getItem("blog.readerFont") || "serif";
 let currentPost = null;
 let sameFolderPosts = [];
+let bookPageIndex = 0;
+let bookPageCount = 1;
+let bookPageStep = 0;
+let pendingBookPage = params.get("page") || "";
+let paginationFrame = 0;
 
 const els = {
   title: document.querySelector("[data-viewer-title]"),
@@ -76,6 +81,10 @@ function normalizePostId(post) {
   return String(post?.id || "");
 }
 
+function getBookContent() {
+  return els.body.querySelector("[data-viewer-page-content]");
+}
+
 function getPostSortTime(post) {
   const time = Date.parse(post?.published_at || post?.created_at || "");
   return Number.isFinite(time) ? time : 0;
@@ -96,16 +105,20 @@ function getPostOwnerFilter(post) {
   return null;
 }
 
-function buildViewerUrl(nextPostId, useBookMode = bookMode) {
+function buildViewerUrl(nextPostId, useBookMode = bookMode, pageTarget = "") {
   const nextParams = new URLSearchParams();
   nextParams.set("id", nextPostId);
-  if (useBookMode) nextParams.set("book", "1");
+  if (useBookMode) {
+    nextParams.set("book", "1");
+    if (pageTarget) nextParams.set("page", pageTarget);
+  }
   return `./viewer.html?${nextParams.toString()}`;
 }
 
 function syncBookModeUrl() {
   if (!postId) return;
-  const nextUrl = buildViewerUrl(postId, bookMode);
+  const pageTarget = bookMode && bookPageIndex > 0 ? String(bookPageIndex + 1) : "";
+  const nextUrl = buildViewerUrl(postId, bookMode, pageTarget);
   window.history.replaceState(null, "", nextUrl);
 }
 
@@ -134,6 +147,7 @@ function updateBookModeUi() {
 
 function closeBookMode() {
   bookMode = false;
+  clearBookPagination();
   syncBookModeUrl();
   updateBookModeUi();
 }
@@ -141,6 +155,139 @@ function closeBookMode() {
 function changeReaderFontSize(delta) {
   readerFontSize = clampReaderFontSize(readerFontSize + delta);
   syncReaderControls();
+  scheduleBookPagination();
+}
+
+function renderPostBody(post) {
+  const content = post.body ? cleanViewerHtml(post.body) : `<p>${escapeHtml(post.excerpt || "")}</p>`;
+  els.body.innerHTML = `<div class="viewer-page-content" data-viewer-page-content>${content}</div>`;
+}
+
+function getBookSiblings() {
+  const currentIndex = sameFolderPosts.findIndex((post) => normalizePostId(post) === normalizePostId(currentPost));
+  return {
+    currentIndex,
+    prevPost: currentIndex > 0 ? sameFolderPosts[currentIndex - 1] : null,
+    nextPost: currentIndex >= 0 && currentIndex < sameFolderPosts.length - 1 ? sameFolderPosts[currentIndex + 1] : null,
+  };
+}
+
+function clearBookPagination() {
+  if (paginationFrame) {
+    window.cancelAnimationFrame(paginationFrame);
+    paginationFrame = 0;
+  }
+
+  const content = getBookContent();
+  if (content) {
+    content.style.removeProperty("width");
+    content.style.removeProperty("height");
+    content.style.removeProperty("column-width");
+    content.style.removeProperty("column-gap");
+    content.style.removeProperty("transform");
+  }
+
+  bookPageIndex = 0;
+  bookPageCount = 1;
+  bookPageStep = 0;
+}
+
+function applyPendingBookPage() {
+  if (!pendingBookPage) return;
+
+  if (pendingBookPage === "last") {
+    bookPageIndex = Math.max(0, bookPageCount - 1);
+  } else {
+    const pageNumber = Number.parseInt(pendingBookPage, 10);
+    if (Number.isFinite(pageNumber)) {
+      bookPageIndex = Math.min(Math.max(pageNumber - 1, 0), Math.max(0, bookPageCount - 1));
+    }
+  }
+
+  pendingBookPage = "";
+}
+
+function applyBookPageOffset() {
+  const content = getBookContent();
+  if (!content) return;
+
+  const offset = bookPageIndex * bookPageStep;
+  content.style.transform = `translate3d(-${offset}px, 0, 0)`;
+}
+
+function measureBookPages() {
+  paginationFrame = 0;
+  const content = getBookContent();
+
+  if (!bookMode || !content) {
+    renderBookNavigation();
+    return;
+  }
+
+  const bodyStyle = window.getComputedStyle(els.body);
+  const horizontalPadding = Number.parseFloat(bodyStyle.paddingLeft) + Number.parseFloat(bodyStyle.paddingRight);
+  const verticalPadding = Number.parseFloat(bodyStyle.paddingTop) + Number.parseFloat(bodyStyle.paddingBottom);
+  const pageWidth = Math.max(260, Math.floor(els.body.clientWidth - horizontalPadding));
+  const pageHeight = Math.max(260, Math.floor(els.body.clientHeight - verticalPadding));
+  const pageGap = Math.round(Math.min(80, Math.max(28, pageWidth * 0.06)));
+
+  content.style.width = `${pageWidth}px`;
+  content.style.height = `${pageHeight}px`;
+  content.style.columnWidth = `${pageWidth}px`;
+  content.style.columnGap = `${pageGap}px`;
+  bookPageStep = pageWidth + pageGap;
+
+  bookPageCount = Math.max(1, Math.ceil((content.scrollWidth + pageGap) / bookPageStep));
+  applyPendingBookPage();
+  bookPageIndex = Math.min(Math.max(bookPageIndex, 0), bookPageCount - 1);
+  applyBookPageOffset();
+  renderBookNavigation();
+}
+
+function scheduleBookPagination(resetPage = false) {
+  if (!bookMode) return;
+  if (resetPage) {
+    bookPageIndex = 0;
+    pendingBookPage = "";
+  }
+  if (paginationFrame) window.cancelAnimationFrame(paginationFrame);
+  paginationFrame = window.requestAnimationFrame(measureBookPages);
+}
+
+function setBookPage(nextPageIndex) {
+  if (!bookMode) return;
+  bookPageIndex = Math.min(Math.max(nextPageIndex, 0), Math.max(0, bookPageCount - 1));
+  applyBookPageOffset();
+  renderBookNavigation();
+  syncBookModeUrl();
+}
+
+function moveBookPrevious() {
+  const { prevPost } = getBookSiblings();
+  if (bookMode && bookPageIndex > 0) {
+    setBookPage(bookPageIndex - 1);
+    return;
+  }
+  if (prevPost) goToBookPost(normalizePostId(prevPost), "last");
+}
+
+function moveBookNext() {
+  const { nextPost } = getBookSiblings();
+  if (bookMode && bookPageIndex < bookPageCount - 1) {
+    setBookPage(bookPageIndex + 1);
+    return;
+  }
+  if (nextPost) goToBookPost(normalizePostId(nextPost), "1");
+}
+
+function refreshPaginationWhenMediaLoads() {
+  getBookContent()
+    ?.querySelectorAll("img")
+    .forEach((image) => {
+      if (image.complete) return;
+      image.addEventListener("load", () => scheduleBookPagination(), { once: true });
+      image.addEventListener("error", () => scheduleBookPagination(), { once: true });
+    });
 }
 
 function renderBookNavigation() {
@@ -149,31 +296,32 @@ function renderBookNavigation() {
     return;
   }
 
-  const currentIndex = sameFolderPosts.findIndex((post) => normalizePostId(post) === normalizePostId(currentPost));
-  const postCount = sameFolderPosts.length || 1;
-  const visibleIndex = currentIndex >= 0 ? currentIndex + 1 : 1;
-  const prevPost = currentIndex > 0 ? sameFolderPosts[currentIndex - 1] : null;
-  const nextPost = currentIndex >= 0 && currentIndex < sameFolderPosts.length - 1 ? sameFolderPosts[currentIndex + 1] : null;
+  const { prevPost, nextPost } = getBookSiblings();
+  const hasPrevPage = bookPageIndex > 0;
+  const hasNextPage = bookPageIndex < bookPageCount - 1;
+  const canMovePrev = hasPrevPage || Boolean(prevPost);
+  const canMoveNext = hasNextPage || Boolean(nextPost);
 
-  els.position.textContent = `${visibleIndex} / ${postCount}`;
-  els.prev.disabled = !prevPost;
-  els.next.disabled = !nextPost;
-  els.prevSide.disabled = !prevPost;
-  els.nextSide.disabled = !nextPost;
-  els.prev.dataset.postId = prevPost ? normalizePostId(prevPost) : "";
-  els.next.dataset.postId = nextPost ? normalizePostId(nextPost) : "";
-  els.prevSide.dataset.postId = prevPost ? normalizePostId(prevPost) : "";
-  els.nextSide.dataset.postId = nextPost ? normalizePostId(nextPost) : "";
-  els.prev.textContent = prevPost ? `← 이전편: ${prevPost.title || "이전 글"}` : "← 이전 글";
-  els.next.textContent = nextPost ? `다음편: ${nextPost.title || "다음 글"} →` : "다음 글 →";
-  els.progress.max = String(postCount);
-  els.progress.value = String(visibleIndex);
+  els.position.textContent = `${bookPageIndex + 1} / ${bookPageCount}`;
+  els.prev.disabled = !canMovePrev;
+  els.next.disabled = !canMoveNext;
+  els.prevSide.disabled = !canMovePrev;
+  els.nextSide.disabled = !canMoveNext;
+  els.prev.dataset.postId = !hasPrevPage && prevPost ? normalizePostId(prevPost) : "";
+  els.next.dataset.postId = !hasNextPage && nextPost ? normalizePostId(nextPost) : "";
+  els.prevSide.dataset.postId = els.prev.dataset.postId;
+  els.nextSide.dataset.postId = els.next.dataset.postId;
+  els.prev.textContent = hasPrevPage ? "← 이전 페이지" : prevPost ? `← 이전 글: ${prevPost.title || "이전 글"}` : "← 이전 페이지";
+  els.next.textContent = hasNextPage ? "다음 페이지 →" : nextPost ? `다음 글: ${nextPost.title || "다음 글"} →` : "다음 페이지 →";
+  els.progress.max = String(bookPageCount);
+  els.progress.value = String(bookPageIndex + 1);
+  els.progress.disabled = bookPageCount <= 1;
   updateBookModeUi();
 }
 
-function goToBookPost(targetPostId) {
+function goToBookPost(targetPostId, pageTarget = "") {
   if (!targetPostId) return;
-  window.location.href = buildViewerUrl(targetPostId, bookMode);
+  window.location.href = buildViewerUrl(targetPostId, bookMode, pageTarget);
 }
 
 async function fetchPost() {
@@ -265,10 +413,12 @@ async function initViewer() {
 
     els.title.textContent = post.title || "제목 없는 글";
     els.location.textContent = getPostLocation(post);
-    els.body.innerHTML = post.body ? cleanViewerHtml(post.body) : `<p>${escapeHtml(post.excerpt || "")}</p>`;
+    renderPostBody(post);
+    refreshPaginationWhenMediaLoads();
     els.edit.hidden = !isOwner;
     sameFolderPosts = await fetchSameFolderPosts(post);
     renderBookNavigation();
+    scheduleBookPagination();
   } catch (error) {
     els.title.textContent = "글을 불러오지 못했습니다";
     els.location.textContent = "";
@@ -290,6 +440,11 @@ els.edit.addEventListener("click", () => {
 
 els.bookToggle.addEventListener("click", () => {
   bookMode = !bookMode;
+  if (bookMode) {
+    scheduleBookPagination(true);
+  } else {
+    clearBookPagination();
+  }
   syncBookModeUrl();
   renderBookNavigation();
 });
@@ -301,6 +456,7 @@ els.bookClose.addEventListener("click", () => {
 els.fontSelect.addEventListener("change", (event) => {
   readerFont = event.target.value === "sans" ? "sans" : "serif";
   syncReaderControls();
+  scheduleBookPagination();
 });
 
 els.fontDown.addEventListener("click", () => {
@@ -312,23 +468,23 @@ els.fontUp.addEventListener("click", () => {
 });
 
 els.prev.addEventListener("click", () => {
-  if (!els.prev.dataset.postId) return;
-  goToBookPost(els.prev.dataset.postId);
+  moveBookPrevious();
 });
 
 els.next.addEventListener("click", () => {
-  if (!els.next.dataset.postId) return;
-  goToBookPost(els.next.dataset.postId);
+  moveBookNext();
 });
 
 els.prevSide.addEventListener("click", () => {
-  if (!els.prevSide.dataset.postId) return;
-  goToBookPost(els.prevSide.dataset.postId);
+  moveBookPrevious();
 });
 
 els.nextSide.addEventListener("click", () => {
-  if (!els.nextSide.dataset.postId) return;
-  goToBookPost(els.nextSide.dataset.postId);
+  moveBookNext();
+});
+
+els.progress.addEventListener("input", () => {
+  setBookPage(Number.parseInt(els.progress.value, 10) - 1);
 });
 
 document.addEventListener("keydown", (event) => {
@@ -336,16 +492,16 @@ document.addEventListener("keydown", (event) => {
   if (["INPUT", "SELECT", "TEXTAREA"].includes(event.target?.tagName)) return;
 
   if (event.key === "ArrowLeft" || event.key === "PageUp") {
-    if (!els.prevSide.dataset.postId || els.prevSide.disabled) return;
+    if (els.prevSide.disabled) return;
     event.preventDefault();
-    goToBookPost(els.prevSide.dataset.postId);
+    moveBookPrevious();
     return;
   }
 
   if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
-    if (!els.nextSide.dataset.postId || els.nextSide.disabled) return;
+    if (els.nextSide.disabled) return;
     event.preventDefault();
-    goToBookPost(els.nextSide.dataset.postId);
+    moveBookNext();
     return;
   }
 
@@ -366,6 +522,9 @@ document.addEventListener("keydown", (event) => {
     changeReaderFontSize(-1);
   }
 });
+
+window.addEventListener("resize", () => scheduleBookPagination());
+document.fonts?.ready?.then(() => scheduleBookPagination());
 
 updateBookModeUi();
 Promise.resolve(window.blogSession?.ready).finally(initViewer);
