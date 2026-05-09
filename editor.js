@@ -729,6 +729,21 @@ function getCurrentLocationKey() {
   return categoryOption?.key || "all";
 }
 
+function getLocationCategoryKey(option, options = state.locationOptions) {
+  if (!option || option.type === "all") return "all";
+  if (option.type === "category") return option.key;
+
+  const categoryOption = options.find(
+    (item) => item.type === "category" && item.category === option.category
+  );
+  return categoryOption?.key || "all";
+}
+
+function getActiveLocationCategoryKey(options = state.locationOptions) {
+  const pending = options.find((option) => option.key === state.pendingLocationKey);
+  return getLocationCategoryKey(pending, options);
+}
+
 function renderLocationOptions(selectedKey = "all") {
   if (!els.locationOptions) return;
 
@@ -740,9 +755,33 @@ function renderLocationOptions(selectedKey = "all") {
     els.locationConfirm.textContent = state.editPostId ? "선택 후 수정" : "선택 후 게시";
   }
 
-  els.locationOptions.innerHTML = state.locationOptions
-    .map(
-      (option) => `
+  const activeCategoryKey = getActiveLocationCategoryKey();
+  const categories = state.locationOptions.filter((option) => option.type === "all" || option.type === "category");
+  const selectedCategory = state.locationOptions.find((option) => option.key === activeCategoryKey);
+  const folders = state.locationOptions.filter(
+    (option) =>
+      option.type === "folder" &&
+      (activeCategoryKey === "all" || getLocationCategoryKey(option) === activeCategoryKey)
+  );
+  const categorySaveOption =
+    selectedCategory?.type === "category"
+      ? `
+        <button
+          class="editor-location-option editor-location-folder-save${
+            selectedCategory.key === state.pendingLocationKey ? " is-selected" : ""
+          }"
+          type="button"
+          data-location-key="${escapeHtml(selectedCategory.key)}"
+          aria-pressed="${selectedCategory.key === state.pendingLocationKey}"
+        >
+          <span>폴더 없음</span>
+          <strong>${escapeHtml(selectedCategory.label)}</strong>
+          <small>선택한 카테고리에 바로 저장</small>
+        </button>
+      `
+      : "";
+  const folderOptions = folders.map(
+    (option) => `
         <button
           class="editor-location-option${option.key === state.pendingLocationKey ? " is-selected" : ""}"
           type="button"
@@ -754,8 +793,45 @@ function renderLocationOptions(selectedKey = "all") {
           <small>${escapeHtml(option.path)}</small>
         </button>
       `
-    )
-    .join("");
+  );
+  const folderList = [categorySaveOption, ...folderOptions].join("");
+
+  els.locationOptions.innerHTML = `
+    <section class="editor-location-column" aria-label="카테고리">
+      <h3>카테고리</h3>
+      <div class="editor-location-column-list">
+        ${categories
+          .map(
+            (option) => `
+              <button
+                class="editor-location-option editor-location-category${
+                  option.key === activeCategoryKey ? " is-active-category" : ""
+                }${option.key === state.pendingLocationKey ? " is-selected" : ""}"
+                type="button"
+                data-location-key="${escapeHtml(option.key)}"
+                aria-pressed="${option.key === state.pendingLocationKey}"
+              >
+                <span>${escapeHtml(option.typeLabel)}</span>
+                <strong>${escapeHtml(option.label)}</strong>
+                <small>${escapeHtml(option.path)}</small>
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    </section>
+    <section class="editor-location-column" aria-label="폴더">
+      <h3>폴더</h3>
+      <div class="editor-location-column-list">
+        ${
+          folderList ||
+          `<p class="editor-location-empty">${
+            activeCategoryKey === "all" ? "카테고리를 선택하면 폴더가 보입니다." : "폴더가 없습니다."
+          }</p>`
+        }
+      </div>
+    </section>
+  `;
 
   if (els.locationConfirm) {
     els.locationConfirm.disabled = !state.pendingLocationKey;
@@ -1793,11 +1869,7 @@ els.locationOptions?.addEventListener("click", (event) => {
   if (!optionButton) return;
 
   state.pendingLocationKey = optionButton.dataset.locationKey;
-  els.locationOptions.querySelectorAll("[data-location-key]").forEach((button) => {
-    const isSelected = button.dataset.locationKey === state.pendingLocationKey;
-    button.classList.toggle("is-selected", isSelected);
-    button.setAttribute("aria-pressed", String(isSelected));
-  });
+  renderLocationOptions(state.pendingLocationKey);
   if (els.locationConfirm) els.locationConfirm.disabled = false;
 });
 

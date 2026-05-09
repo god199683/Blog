@@ -2042,7 +2042,7 @@ body.is-away-locked {
 .editor-location-dialog {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: min(25rem, 100%);
+  width: min(42rem, 100%);
   max-height: min(34rem, calc(100svh - 2rem));
   overflow: hidden;
   border: 1px solid rgba(197, 219, 238, 0.98);
@@ -2088,10 +2088,40 @@ body.is-away-locked {
 
 .editor-location-list {
   display: grid;
-  gap: 0.35rem;
+  grid-template-columns: minmax(10rem, 0.82fr) minmax(0, 1.18fr);
+  gap: 0.65rem;
   max-height: 24rem;
   overflow: auto;
   padding: 0.72rem;
+}
+
+.editor-location-column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(216, 234, 251, 0.84);
+  border-radius: 8px;
+  background: rgba(248, 252, 255, 0.76);
+}
+
+.editor-location-column h3 {
+  margin: 0;
+  padding: 0.52rem 0.62rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.86);
+  color: #20364a;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.editor-location-column-list {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.5rem;
 }
 
 .editor-location-option {
@@ -2110,9 +2140,14 @@ body.is-away-locked {
 
 .editor-location-option:hover,
 .editor-location-option:focus-visible,
-.editor-location-option.is-selected {
+.editor-location-option.is-selected,
+.editor-location-option.is-active-category {
   border-color: rgba(56, 189, 248, 0.52);
   background: #f0f9ff;
+}
+
+.editor-location-option.is-active-category:not(.is-selected) {
+  background: rgba(240, 249, 255, 0.58);
 }
 
 .editor-location-option span {
@@ -2144,6 +2179,14 @@ body.is-away-locked {
   font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.editor-location-empty {
+  margin: 0;
+  padding: 0.65rem 0.55rem;
+  color: #8aa0b2;
+  font-size: 0.76rem;
+  line-height: 1.5;
 }
 
 .editor-location-actions {
@@ -2959,6 +3002,10 @@ body.is-book-mode .viewer-page-content {
 
   .editor-fields,
   .editor-side-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-location-list {
     grid-template-columns: 1fr;
   }
 
