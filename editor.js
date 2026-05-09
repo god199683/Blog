@@ -21,6 +21,8 @@ const state = {
   hiddenCategoryIds: new Set(),
   storedTreeData: null,
   editorSaving: false,
+  locationOptions: [],
+  pendingLocationKey: "",
 };
 
 const els = {
@@ -44,12 +46,18 @@ const els = {
   visibilityButtons: document.querySelectorAll("[data-editor-visibility]"),
   brandTitle: document.querySelector("[data-editor-brand-title]"),
   brandInitial: document.querySelector("[data-editor-brand-initial]"),
+  locationDialog: document.querySelector("[data-location-dialog]"),
+  locationOptions: document.querySelector("[data-location-options]"),
+  locationConfirm: document.querySelector("[data-location-confirm]"),
+  locationCancel: document.querySelector("[data-location-cancel]"),
+  locationClose: document.querySelector("[data-location-close]"),
 };
 
 let savedEditorRange = null;
 let colorDialogTarget = "foreground";
 let colorDialogValue = "#000000";
 let colorDialogPointerActive = false;
+let locationDialogResolver = null;
 
 const BUILTIN_EDITOR_FONTS = ["Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
 
@@ -653,6 +661,142 @@ function renderEditorFolderOptions(selectedFolderId = "") {
       `
     ),
   ].join("");
+}
+
+function collectLocationOptions() {
+  const options = [
+    {
+      key: "all",
+      type: "all",
+      typeLabel: "전체",
+      label: "전체",
+      path: "전체",
+      category: "",
+      folderId: "",
+    },
+  ];
+
+  function walk(nodes = [], path = [], category = "") {
+    nodes.forEach((node) => {
+      if (node.id === ALL_FILTER) {
+        walk(node.children || [], path, category);
+        return;
+      }
+
+      const isCategory = node.type === "category";
+      const nextCategory = isCategory ? node.filterCategory || node.label : category;
+      const nextPath = [...path, node.label || (isCategory ? "카테고리" : "폴더")];
+
+      if (isCategory) {
+        options.push({
+          key: `category:${node.id}`,
+          type: "category",
+          typeLabel: "카테고리",
+          label: node.label,
+          path: nextPath.join(" / "),
+          category: nextCategory,
+          folderId: "",
+        });
+      } else if (node.type === "folder") {
+        options.push({
+          key: `folder:${node.id}`,
+          type: "folder",
+          typeLabel: "폴더",
+          label: node.label,
+          path: nextPath.join(" / "),
+          category: nextCategory,
+          folderId: node.id,
+        });
+      }
+
+      walk(node.children || [], nextPath, nextCategory);
+    });
+  }
+
+  walk(state.tree);
+  return options;
+}
+
+function getCurrentLocationKey() {
+  if (els.folder.value) return `folder:${els.folder.value}`;
+
+  const category = els.category.value;
+  if (!category) return "all";
+
+  const categoryOption = collectLocationOptions().find(
+    (option) => option.type === "category" && option.category === category
+  );
+  return categoryOption?.key || "all";
+}
+
+function renderLocationOptions(selectedKey = "all") {
+  if (!els.locationOptions) return;
+
+  state.locationOptions = collectLocationOptions();
+  state.pendingLocationKey = state.locationOptions.some((option) => option.key === selectedKey)
+    ? selectedKey
+    : "all";
+  if (els.locationConfirm) {
+    els.locationConfirm.textContent = state.editPostId ? "선택 후 수정" : "선택 후 게시";
+  }
+
+  els.locationOptions.innerHTML = state.locationOptions
+    .map(
+      (option) => `
+        <button
+          class="editor-location-option${option.key === state.pendingLocationKey ? " is-selected" : ""}"
+          type="button"
+          data-location-key="${escapeHtml(option.key)}"
+          aria-pressed="${option.key === state.pendingLocationKey}"
+        >
+          <span>${escapeHtml(option.typeLabel)}</span>
+          <strong>${escapeHtml(option.label)}</strong>
+          <small>${escapeHtml(option.path)}</small>
+        </button>
+      `
+    )
+    .join("");
+
+  if (els.locationConfirm) {
+    els.locationConfirm.disabled = !state.pendingLocationKey;
+  }
+}
+
+function getPendingLocation() {
+  return state.locationOptions.find((option) => option.key === state.pendingLocationKey) || null;
+}
+
+function applyEditorLocation(location) {
+  if (!location) return;
+  const category = location.category || "";
+  renderEditorCategoryOptions(category);
+  els.category.value = category;
+  renderEditorFolderOptions(location.folderId || "");
+  els.folder.value = location.folderId || "";
+}
+
+function closeLocationDialog(result = null) {
+  if (els.locationDialog) els.locationDialog.hidden = true;
+  if (locationDialogResolver) {
+    locationDialogResolver(result);
+    locationDialogResolver = null;
+  }
+}
+
+function openLocationDialog() {
+  if (!els.locationDialog || !els.locationOptions) {
+    return Promise.resolve({ key: "all", category: "", folderId: "" });
+  }
+
+  renderLocationOptions(getCurrentLocationKey());
+  els.locationDialog.hidden = false;
+
+  return new Promise((resolve) => {
+    locationDialogResolver = resolve;
+    window.setTimeout(() => {
+      els.locationOptions.querySelector(".is-selected")?.focus();
+    }, 0);
+  });
 }
 
 function getTextFromHtml(html = "") {
@@ -1341,6 +1485,21 @@ async function handleEditorSubmit(event) {
   event.preventDefault();
 
   try {
+    const previewValues = collectEditorValues();
+    if (!getSession()?.access_token) {
+      throw new Error("로그인이 필요합니다.");
+    }
+    if (!previewValues.title) {
+      throw new Error("제목을 입력해주세요.");
+    }
+    if (!previewValues.plainText) {
+      throw new Error("본문을 입력해주세요.");
+    }
+
+    const location = await openLocationDialog();
+    if (!location) return;
+    applyEditorLocation(location);
+
     setEditorBusy(true);
     setEditorMessage(state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
     await publishEditorPost();
@@ -1617,6 +1776,38 @@ document.addEventListener("pointermove", (event) => {
 
 document.addEventListener("pointerup", () => {
   colorDialogPointerActive = false;
+});
+
+els.locationOptions?.addEventListener("click", (event) => {
+  const optionButton = event.target.closest("[data-location-key]");
+  if (!optionButton) return;
+
+  state.pendingLocationKey = optionButton.dataset.locationKey;
+  els.locationOptions.querySelectorAll("[data-location-key]").forEach((button) => {
+    const isSelected = button.dataset.locationKey === state.pendingLocationKey;
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+  if (els.locationConfirm) els.locationConfirm.disabled = false;
+});
+
+els.locationConfirm?.addEventListener("click", () => {
+  closeLocationDialog(getPendingLocation());
+});
+
+els.locationCancel?.addEventListener("click", () => closeLocationDialog(null));
+els.locationClose?.addEventListener("click", () => closeLocationDialog(null));
+
+els.locationDialog?.addEventListener("click", (event) => {
+  if (event.target === els.locationDialog) {
+    closeLocationDialog(null);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && els.locationDialog && !els.locationDialog.hidden) {
+    closeLocationDialog(null);
+  }
 });
 
 els.form.addEventListener("keydown", (event) => {

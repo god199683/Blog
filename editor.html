@@ -45,7 +45,7 @@
               autocomplete="off"
             >
 
-            <div class="editor-fields">
+            <div class="editor-fields" hidden aria-hidden="true">
               <label>
                 <span>카테고리</span>
                 <select data-editor-category>
@@ -211,6 +211,20 @@
         </div>
       </form>
     </main>
+
+    <div class="editor-location-backdrop" data-location-dialog hidden>
+      <section class="editor-location-dialog" role="dialog" aria-modal="true" aria-labelledby="location-title">
+        <header class="editor-location-head">
+          <h2 id="location-title">저장 위치 선택</h2>
+          <button type="button" data-location-close aria-label="닫기">×</button>
+        </header>
+        <div class="editor-location-list" data-location-options></div>
+        <footer class="editor-location-actions">
+          <button class="editor-ghost-button" type="button" data-location-cancel>취소</button>
+          <button class="editor-primary-button" type="button" data-location-confirm disabled>선택 후 게시</button>
+        </footer>
+      </section>
+    </div>
 
     <script src="./session.js" defer></script>
     <script src="./editor.js" defer></script>

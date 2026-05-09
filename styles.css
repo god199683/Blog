@@ -1376,6 +1376,10 @@ body.is-away-locked {
   margin-top: 0.62rem;
 }
 
+.editor-fields[hidden] {
+  display: none !important;
+}
+
 .editor-fields label {
   display: grid;
   gap: 0.28rem;
@@ -1809,6 +1813,134 @@ body.is-away-locked {
 
 .editor-message[data-type="success"] {
   color: var(--sky-dark);
+}
+
+.editor-location-backdrop {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(16, 32, 51, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.editor-location-backdrop[hidden] {
+  display: none;
+}
+
+.editor-location-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(25rem, 100%);
+  max-height: min(34rem, calc(100svh - 2rem));
+  overflow: hidden;
+  border: 1px solid rgba(197, 219, 238, 0.98);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+}
+
+.editor-location-head,
+.editor-location-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.72rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.9);
+}
+
+.editor-location-head h2 {
+  margin: 0;
+  color: #183047;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.editor-location-head button {
+  display: inline-grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #557085;
+  font-size: 1rem;
+}
+
+.editor-location-head button:hover,
+.editor-location-head button:focus-visible {
+  background: #f0f9ff;
+  color: var(--sky-dark);
+}
+
+.editor-location-list {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 24rem;
+  overflow: auto;
+  padding: 0.72rem;
+}
+
+.editor-location-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.08rem 0.55rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.52rem 0.62rem;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 8px;
+  background: #fff;
+  color: #40586d;
+  text-align: left;
+}
+
+.editor-location-option:hover,
+.editor-location-option:focus-visible,
+.editor-location-option.is-selected {
+  border-color: rgba(56, 189, 248, 0.52);
+  background: #f0f9ff;
+}
+
+.editor-location-option span {
+  align-self: start;
+  min-width: 3.1rem;
+  padding: 0.1rem 0.32rem;
+  border-radius: 999px;
+  background: #eaf7ff;
+  color: var(--sky-dark);
+  font-size: 0.68rem;
+  font-weight: 780;
+  text-align: center;
+}
+
+.editor-location-option strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #20364a;
+  font-size: 0.84rem;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-location-option small {
+  grid-column: 2;
+  overflow: hidden;
+  color: #8aa0b2;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-location-actions {
+  justify-content: flex-end;
+  border-top: 1px solid rgba(216, 234, 251, 0.9);
+  border-bottom: 0;
 }
 
 .color-dialog-backdrop {
