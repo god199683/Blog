@@ -46,15 +46,30 @@
               <strong data-profile-title>Blog</strong>
               <span data-profile-id>@blog</span>
             </div>
+            <button class="blog-profile-tool" type="button" data-tree-tools-toggle aria-expanded="false" aria-label="도구">
+              <span aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="blog-tool-panel" data-tree-tools hidden>
+            <button class="blog-tool-action" type="button" data-tree-action="add-category" title="카테고리 추가" aria-label="카테고리 추가">
+              <span class="tree-action-icon tree-action-plus" aria-hidden="true"></span>
+            </button>
+            <button class="blog-tool-action" type="button" data-tree-action="toggle-selection" title="선택 모드" aria-label="선택 모드">
+              <span class="tree-action-icon tree-action-check" aria-hidden="true"></span>
+            </button>
+            <button class="blog-tool-action" type="button" data-tree-action="delete-selected" title="삭제" aria-label="삭제">
+              <span class="tree-action-icon tree-action-trash" aria-hidden="true"></span>
+            </button>
           </div>
           <nav class="blog-side-links" aria-label="블로그 바로가기">
-            <a href="./my-blog.html" aria-current="page">전체글</a>
+            <button type="button" data-tree-all aria-current="page">전체글</button>
           </nav>
+          <div class="blog-tree" data-blog-tree aria-label="카테고리와 폴더"></div>
         </aside>
 
         <section class="blog-board" id="blog-posts" aria-labelledby="personal-feed-title" data-blog-board>
           <div class="blog-board-head">
-            <h2 id="personal-feed-title">전체보기 <span data-blog-count>0개의 글</span></h2>
+            <h2 id="personal-feed-title"><span data-board-title>전체보기</span> <span data-blog-count>0개의 글</span></h2>
             <button class="blog-board-toggle" type="button" data-list-toggle>목록닫기</button>
           </div>
 
