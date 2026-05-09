@@ -23,6 +23,11 @@
     localStorage.removeItem(SESSION_KEY);
   }
 
+  function logout() {
+    clearSession();
+    window.location.href = "./";
+  }
+
   function getId(session) {
     return (
       session?.id ||
@@ -85,20 +90,53 @@
     const id = getId(session);
     if (!id) return;
 
-    const account = document.createElement("span");
-    account.className = "account-name";
-    account.textContent = id;
+    const account = document.createElement("div");
+    account.className = "account-menu";
+
+    const accountButton = document.createElement("button");
+    accountButton.className = "account-menu-button";
+    accountButton.type = "button";
+    accountButton.setAttribute("aria-haspopup", "true");
+    accountButton.setAttribute("aria-expanded", "false");
+    accountButton.textContent = id;
+
+    const dropdown = document.createElement("div");
+    dropdown.className = "account-dropdown";
+    dropdown.hidden = true;
+
+    const accountLink = document.createElement("a");
+    accountLink.href = "./account.html";
+    accountLink.textContent = "계정 관리";
 
     const logoutButton = document.createElement("button");
-    logoutButton.className = "auth-button";
     logoutButton.type = "button";
     logoutButton.textContent = "로그아웃";
-    logoutButton.addEventListener("click", () => {
-      clearSession();
-      window.location.href = "./";
+    logoutButton.addEventListener("click", logout);
+
+    dropdown.append(accountLink, logoutButton);
+    account.append(accountButton, dropdown);
+
+    function closeDropdown() {
+      dropdown.hidden = true;
+      accountButton.setAttribute("aria-expanded", "false");
+    }
+
+    accountButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const willOpen = dropdown.hidden;
+      dropdown.hidden = !willOpen;
+      accountButton.setAttribute("aria-expanded", String(willOpen));
     });
 
-    actions.replaceChildren(account, logoutButton);
+    document.addEventListener("click", (event) => {
+      if (!account.contains(event.target)) closeDropdown();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDropdown();
+    });
+
+    actions.replaceChildren(account);
   }
 
   const ready = getFreshSession().then((session) => {
@@ -110,6 +148,7 @@
     ready,
     read: readSession,
     clear: clearSession,
+    logout,
     getId,
   };
 })();

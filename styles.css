@@ -150,6 +150,74 @@ button {
   font-weight: 820;
 }
 
+.account-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.account-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.78rem;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 820;
+}
+
+.account-menu-button:hover,
+.account-menu-button:focus-visible,
+.account-menu-button[aria-expanded="true"] {
+  background: var(--surface-soft);
+  color: var(--sky-dark);
+}
+
+.account-dropdown {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  display: grid;
+  min-width: 8.4rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 36px rgba(14, 116, 144, 0.12);
+}
+
+.account-dropdown[hidden] {
+  display: none;
+}
+
+.account-dropdown a,
+.account-dropdown button {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 760;
+  text-align: left;
+}
+
+.account-dropdown a:hover,
+.account-dropdown a:focus-visible,
+.account-dropdown button:hover,
+.account-dropdown button:focus-visible {
+  background: var(--surface-soft);
+  color: var(--sky-dark);
+}
+
 .home-main {
   width: min(820px, calc(100% - 2rem));
   margin: 0 auto;
@@ -416,6 +484,62 @@ button {
 .auth-link a {
   color: var(--sky-dark);
   font-weight: 820;
+}
+
+.account-main {
+  width: min(620px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(1.7rem, 7vw, 3.6rem) 0 2.2rem;
+}
+
+.account-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.account-card h1 {
+  margin: 0;
+  font-size: clamp(1.25rem, 4vw, 1.65rem);
+  line-height: 1.25;
+}
+
+.account-list {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid rgba(216, 234, 251, 0.9);
+}
+
+.account-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.9);
+}
+
+.account-list dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.account-list dd {
+  margin: 0;
+  color: var(--sky-dark);
+  font-size: 0.88rem;
+  font-weight: 820;
+}
+
+.account-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 @media (max-width: 640px) {
