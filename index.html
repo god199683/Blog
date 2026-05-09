@@ -15,13 +15,16 @@
       </a>
       <nav class="top-nav" aria-label="상단 메뉴">
         <a href="./" aria-current="page">홈</a>
+        <a href="#feed-title">피드</a>
       </nav>
     </header>
 
     <main class="home-main">
       <section class="home-hero" aria-labelledby="home-title">
-        <p class="eyebrow">공용 블로그 홈</p>
-        <h1 id="home-title">블로그 홈</h1>
+        <div>
+          <p class="eyebrow">공용 블로그 홈</p>
+          <h1 id="home-title">블로그 홈</h1>
+        </div>
         <p>가볍게 읽고, 차분하게 기록을 모으는 공간입니다.</p>
       </section>
 
@@ -30,10 +33,20 @@
           <h2 id="feed-title">피드</h2>
           <span>TODAY</span>
         </div>
-        <div class="feed-empty">
-          <p>공개된 글이 이곳에 표시됩니다.</p>
+        <div class="feed-list" aria-label="공개 글 목록">
+          <div class="feed-list-head" aria-hidden="true">
+            <span>글 제목</span>
+            <span>작성일</span>
+          </div>
+          <div class="feed-empty">
+            <p>공개된 글이 이곳에 표시됩니다.</p>
+          </div>
         </div>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <p>천천히 읽기 좋은 블로그.</p>
+    </footer>
   </body>
 </html>
