@@ -4,6 +4,7 @@ const SUPABASE_ANON_KEY =
 
 const els = {
   title: document.querySelector("[data-blog-title]"),
+  brandTitle: document.querySelector("[data-brand-title]"),
   owner: document.querySelector("[data-blog-owner]"),
   initials: document.querySelectorAll("[data-blog-initial]"),
   profileTitle: document.querySelector("[data-profile-title]"),
@@ -29,6 +30,7 @@ async function requestRest(path, token, options = {}) {
 function renderBlog(id, profile = null) {
   const title = profile?.blog_title || `${id}'s Blog`;
   if (els.title) els.title.textContent = title;
+  if (els.brandTitle) els.brandTitle.textContent = title;
   if (els.profileTitle) els.profileTitle.textContent = title;
   if (els.profileId) els.profileId.textContent = `@${id}`;
   if (els.owner) els.owner.textContent = `${id} 계정의 개인 블로그입니다.`;
