@@ -2311,4 +2311,4 @@ document.addEventListener("click", (event) => {
   }
 });
 
-initMyBlog();
+Promise.resolve(window.blogSession?.ready).finally(initMyBlog);

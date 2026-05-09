@@ -1616,4 +1616,4 @@ els.form.addEventListener("keydown", (event) => {
   }
 });
 
-initEditor();
+Promise.resolve(window.blogSession?.ready).finally(initEditor);

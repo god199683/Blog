@@ -115,4 +115,4 @@ els.edit.addEventListener("click", () => {
   window.location.href = `./editor.html?post=${encodeURIComponent(postId)}`;
 });
 
-initViewer();
+Promise.resolve(window.blogSession?.ready).finally(initViewer);
