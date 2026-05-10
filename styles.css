@@ -3896,6 +3896,21 @@ body.is-book-mode .viewer-page-content {
   font-size: 0.74rem;
 }
 
+.materials-tree .blog-tree-node-actions {
+  gap: 0.04rem;
+}
+
+.materials-tree .blog-tree-node-actions button {
+  width: 1.08rem;
+  height: 1.08rem;
+  border-radius: 4px;
+}
+
+.materials-tree .blog-tree-node-actions .tree-action-icon {
+  transform: scale(0.68);
+  transform-origin: center;
+}
+
 .materials-side-form {
   grid-template-columns: 1fr;
   gap: 0.46rem;
