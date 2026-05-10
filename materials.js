@@ -82,6 +82,7 @@ function normalizeMaterial(row = {}) {
     source_post_id: row.source_post_id || "",
     created_at: row.created_at || "",
     updated_at: row.updated_at || "",
+    deleted_at: row.deleted_at || "",
   };
 }
 
@@ -231,9 +232,9 @@ async function loadBlogProfile(session) {
 
 async function loadMaterials(session) {
   const rows = await requestRest(
-    `blog_materials?select=id,user_id,login_id,title,material_type,url,content,source_post_id,created_at,updated_at&user_id=eq.${encodeURIComponent(
+    `blog_materials?select=id,user_id,login_id,title,material_type,url,content,source_post_id,created_at,updated_at,deleted_at&user_id=eq.${encodeURIComponent(
       session.user.id
-    )}&order=created_at.desc&limit=1000`,
+    )}&deleted_at=is.null&order=created_at.desc&limit=1000`,
     session.access_token
   );
   return Array.isArray(rows) ? rows.map(normalizeMaterial) : [];
@@ -255,7 +256,14 @@ async function deleteMaterial(materialId) {
     `blog_materials?id=eq.${encodeURIComponent(materialId)}&user_id=eq.${encodeURIComponent(state.session.user.id)}`,
     state.session.access_token,
     {
-      method: "DELETE",
+      method: "PATCH",
+      headers: {
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
     }
   );
 }
@@ -296,7 +304,7 @@ els.materialSpace?.addEventListener("click", async (event) => {
   if (!deleteButton) return;
 
   const materialId = deleteButton.getAttribute("data-material-delete");
-  if (!materialId || !window.confirm("자료를 삭제할까요?")) return;
+  if (!materialId || !window.confirm("자료를 휴지통으로 이동할까요?")) return;
 
   deleteButton.disabled = true;
   try {
@@ -305,7 +313,7 @@ els.materialSpace?.addEventListener("click", async (event) => {
     renderDashboard();
   } catch (error) {
     deleteButton.disabled = false;
-    window.alert(error.message || "자료를 삭제하지 못했습니다.");
+    window.alert(error.message || "자료를 휴지통으로 이동하지 못했습니다.");
   }
 });
 

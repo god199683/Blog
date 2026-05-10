@@ -64,7 +64,8 @@ create table if not exists public.blog_materials (
   content text,
   source_post_id uuid,
   created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  deleted_at timestamptz
 );
 
 alter table public.posts add column if not exists title text;
@@ -119,6 +120,7 @@ alter table public.blog_materials add column if not exists content text;
 alter table public.blog_materials add column if not exists source_post_id uuid;
 alter table public.blog_materials add column if not exists created_at timestamptz default now();
 alter table public.blog_materials add column if not exists updated_at timestamptz default now();
+alter table public.blog_materials add column if not exists deleted_at timestamptz;
 
 update public.blog_materials
 set id = gen_random_uuid()
