@@ -3583,6 +3583,41 @@ body.is-book-mode .viewer-page-content {
   white-space: nowrap;
 }
 
+.materials-room-dashboard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.58rem;
+  padding: 0.76rem 0.82rem 0;
+}
+
+.materials-room-dashboard article {
+  display: grid;
+  gap: 0.2rem;
+  min-height: 4.15rem;
+  padding: 0.68rem 0.72rem;
+  border: 1px solid rgba(186, 230, 253, 0.82);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(240, 249, 255, 0.95), rgba(255, 255, 255, 0.98)),
+    #fff;
+}
+
+.materials-room-dashboard span {
+  color: #6b8296;
+  font-size: 0.72rem;
+  font-weight: 740;
+}
+
+.materials-room-dashboard strong {
+  overflow: hidden;
+  color: #0f5f91;
+  font-size: 1rem;
+  font-weight: 840;
+  line-height: 1.16;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .materials-form {
   display: grid;
   grid-template-columns: minmax(160px, 1.2fr) minmax(120px, 0.55fr) minmax(220px, 1.25fr) auto;
@@ -3837,6 +3872,10 @@ body.is-book-mode .viewer-page-content {
     grid-template-columns: minmax(0, 1fr) minmax(8rem, 0.45fr);
   }
 
+  .materials-room-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .materials-form-wide,
   .materials-form-note,
   .materials-form button {
@@ -3861,6 +3900,10 @@ body.is-book-mode .viewer-page-content {
   }
 
   .materials-form {
+    grid-template-columns: 1fr;
+  }
+
+  .materials-room-dashboard {
     grid-template-columns: 1fr;
   }
 

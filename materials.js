@@ -29,6 +29,7 @@ const els = {
   materialContent: document.querySelector("[data-material-content]"),
   materialSpace: document.querySelector("[data-materials-space]"),
   materialCount: document.querySelector("[data-materials-space-count]"),
+  materialDashboard: document.querySelector("[data-materials-room-dashboard]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -100,12 +101,12 @@ function normalizeMaterial(row = {}) {
 function renderBlog(id, profile = null) {
   const title = profile?.blog_title || `${id}'s Blog`;
   if (els.brandTitle) els.brandTitle.textContent = title;
-  if (els.title) els.title.textContent = "자료 공간";
-  if (els.owner) els.owner.textContent = `${id} 계정의 블로그 자료를 따로 정리합니다.`;
+  if (els.title) els.title.textContent = "자료실";
+  if (els.owner) els.owner.textContent = `${id} 계정의 블로그 자료를 보기 좋게 정리합니다.`;
   els.initials.forEach((initial) => {
     initial.textContent = id.slice(0, 1).toUpperCase();
   });
-  document.title = `자료 | ${title}`;
+  document.title = `자료실 | ${title}`;
 }
 
 function belongsToUser(post, session, id) {
@@ -370,6 +371,35 @@ function renderMaterialSpace() {
     .join("");
 }
 
+function renderMaterialDashboard() {
+  if (!els.materialDashboard) return;
+
+  const linkCount = state.materials.filter((material) => material.material_type === "link").length;
+  const fileCount = state.materials.filter((material) => material.material_type === "file").length;
+  const latest = [...state.materials].sort((a, b) => {
+    const aTime = Date.parse(a.created_at || a.updated_at || "");
+    const bTime = Date.parse(b.created_at || b.updated_at || "");
+    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+  })[0];
+  const cards = [
+    ["저장 자료", `${state.materials.length}`],
+    ["링크 자료", `${linkCount}`],
+    ["파일 자료", `${fileCount}`],
+    ["최근 등록", latest ? formatDate(latest.created_at || latest.updated_at) : "-"],
+  ];
+
+  els.materialDashboard.innerHTML = cards
+    .map(
+      ([label, value]) => `
+        <article>
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </article>
+      `
+    )
+    .join("");
+}
+
 function renderRecentPosts() {
   const posts = [...state.posts].sort((a, b) => getPostSortTime(b) - getPostSortTime(a)).slice(0, 6);
   if (posts.length === 0) {
@@ -468,6 +498,7 @@ function renderStatus() {
 
 function renderDashboard() {
   renderStats();
+  renderMaterialDashboard();
   renderMaterialSpace();
   renderRecentPosts();
   renderCategories();
@@ -620,7 +651,7 @@ window.blogSession?.ready.then(async (session) => {
     state.materialError = "";
   } catch (error) {
     state.materials = [];
-    state.materialError = error.message || "자료 공간을 불러오지 못했습니다.";
+    state.materialError = error.message || "자료실을 불러오지 못했습니다.";
   }
 
   renderDashboard();
