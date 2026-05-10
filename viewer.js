@@ -7,7 +7,7 @@ const postId = params.get("id") || "";
 let bookMode = params.get("book") === "1";
 let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize") || "18", 10);
 let readerFont = localStorage.getItem("blog.readerFont") || "serif";
-let readerTheme = localStorage.getItem("blog.readerTheme") || "paper";
+let readerTheme = localStorage.getItem("blog.readerTheme") || "sky";
 let readerWidth = localStorage.getItem("blog.readerWidth") || "standard";
 let readerLineHeight = localStorage.getItem("blog.readerLineHeight") || "normal";
 let currentPost = null;
@@ -145,7 +145,7 @@ function pickReaderOption(value, options, fallback) {
 function syncReaderControls() {
   readerFontSize = clampReaderFontSize(readerFontSize);
   readerFont = pickReaderOption(readerFont, ["serif", "sans"], "serif");
-  readerTheme = pickReaderOption(readerTheme, ["paper", "sky", "night"], "paper");
+  readerTheme = pickReaderOption(readerTheme, ["sky"], "sky");
   readerWidth = pickReaderOption(readerWidth, ["narrow", "standard", "wide"], "standard");
   readerLineHeight = pickReaderOption(readerLineHeight, ["compact", "normal", "relaxed"], "normal");
 
