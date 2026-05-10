@@ -4181,6 +4181,13 @@ svg {
 }
 
 /* Premium book reader mode */
+html.is-book-mode,
+html.is-book-mode body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body.is-book-mode {
   --reader-bg: linear-gradient(180deg, #edf8ff 0%, #ffffff 46%, #eff9ff 100%);
   --reader-page-bg: rgba(255, 255, 255, 0.96);
@@ -4229,6 +4236,7 @@ body.is-book-mode .viewer-main {
 }
 
 body.is-book-mode .viewer-shell {
+  height: calc(100svh - 0.76rem);
   min-height: calc(100svh - 0.76rem);
   border-color: var(--reader-line);
   background: color-mix(in srgb, var(--reader-page-bg) 70%, transparent);
@@ -4306,6 +4314,7 @@ body.is-book-mode .viewer-body {
   width: min(100%, var(--reader-max-width, 920px));
   margin: 0 auto;
   overflow: hidden;
+  overscroll-behavior: none;
   padding: clamp(1.25rem, 4vw, 3.25rem);
   border-right: 1px solid var(--reader-line);
   border-left: 1px solid var(--reader-line);
@@ -4316,6 +4325,7 @@ body.is-book-mode .viewer-body {
   box-shadow:
     18px 0 34px rgba(46, 94, 124, 0.05),
     -18px 0 34px rgba(46, 94, 124, 0.05);
+  touch-action: none;
 }
 
 body.is-book-mode .viewer-page-content {
@@ -4334,6 +4344,11 @@ body.is-book-mode .viewer-page-content :where(h1, h2, h3) {
 
 body.is-book-mode .viewer-page-content a {
   color: var(--reader-accent);
+}
+
+body.is-book-mode .viewer-page-content img {
+  max-height: calc(100svh - 11rem);
+  object-fit: contain;
 }
 
 body.is-book-mode .viewer-message {

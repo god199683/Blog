@@ -17,6 +17,10 @@ let bookPageCount = 1;
 let bookPageStep = 0;
 let pendingBookPage = params.get("page") || "";
 let paginationFrame = 0;
+let wheelTurnLockedUntil = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartTime = 0;
 
 const els = {
   title: document.querySelector("[data-viewer-title]"),
@@ -179,6 +183,7 @@ function syncReaderControls() {
 }
 
 function updateBookModeUi() {
+  document.documentElement.classList.toggle("is-book-mode", bookMode);
   document.body.classList.toggle("is-book-mode", bookMode);
   els.bookToggle.textContent = bookMode ? "일반 보기" : "책 읽기";
   els.bookToggle.setAttribute("aria-pressed", String(bookMode));
@@ -320,6 +325,55 @@ function moveBookNext() {
     return;
   }
   if (nextPost) goToBookPost(normalizePostId(nextPost), "1");
+}
+
+function turnBookByDirection(direction) {
+  if (!bookMode) return;
+  if (direction < 0) {
+    if (!els.prevSide.disabled) moveBookPrevious();
+    return;
+  }
+  if (!els.nextSide.disabled) moveBookNext();
+}
+
+function handleBookWheel(event) {
+  if (!bookMode) return;
+
+  const deltaX = Number(event.deltaX) || 0;
+  const deltaY = Number(event.deltaY) || 0;
+  const strongestDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+  if (Math.abs(strongestDelta) < 8) return;
+
+  event.preventDefault();
+  const now = window.performance.now();
+  if (now < wheelTurnLockedUntil) return;
+
+  wheelTurnLockedUntil = now + 360;
+  turnBookByDirection(strongestDelta);
+}
+
+function handleBookTouchStart(event) {
+  if (!bookMode || event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+  touchStartTime = window.performance.now();
+}
+
+function handleBookTouchMove(event) {
+  if (!bookMode || event.touches.length !== 1) return;
+  event.preventDefault();
+}
+
+function handleBookTouchEnd(event) {
+  if (!bookMode || !event.changedTouches.length) return;
+  const touch = event.changedTouches[0];
+  const moveX = touch.clientX - touchStartX;
+  const moveY = touch.clientY - touchStartY;
+  const elapsed = window.performance.now() - touchStartTime;
+
+  if (elapsed > 1200 || Math.abs(moveX) < 42 || Math.abs(moveX) < Math.abs(moveY) * 1.15) return;
+  turnBookByDirection(moveX > 0 ? -1 : 1);
 }
 
 function refreshPaginationWhenMediaLoads() {
@@ -556,6 +610,11 @@ els.nextSide.addEventListener("click", () => {
 els.progress.addEventListener("input", () => {
   setBookPage(Number.parseInt(els.progress.value, 10) - 1);
 });
+
+els.body.addEventListener("wheel", handleBookWheel, { passive: false });
+els.body.addEventListener("touchstart", handleBookTouchStart, { passive: true });
+els.body.addEventListener("touchmove", handleBookTouchMove, { passive: false });
+els.body.addEventListener("touchend", handleBookTouchEnd);
 
 document.addEventListener("keydown", (event) => {
   if (!bookMode || event.altKey || event.ctrlKey || event.metaKey) return;
