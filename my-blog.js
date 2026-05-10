@@ -110,8 +110,61 @@ function formatDate(value = "") {
   }).format(date);
 }
 
+function getPathLabel(path = []) {
+  return path
+    .map((node) => node?.label || "")
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function getTreeCategoryLabel(category = "") {
+  const value = String(category || "").trim();
+  if (!value || value === "전체") return "전체";
+
+  const categoryNode = state.tree.find(
+    (node) => node.type === "category" && (node.filterCategory === value || node.label === value)
+  );
+  return categoryNode?.label || value;
+}
+
+function findPostFolderNode(post = {}) {
+  if (post.folder_id) {
+    return findNode(state.tree, post.folder_id);
+  }
+
+  const folderName = String(post.folder_name || post.folder || "").trim();
+  if (!folderName) return null;
+
+  function walk(nodes = [], path = [], category = "") {
+    for (const node of nodes) {
+      const nextCategory = node.type === "category" ? node.filterCategory || node.label : category;
+      const nextPath = [...path, node];
+      const categoryMatches = !post.category || post.category === "전체" || post.category === nextCategory;
+
+      if (node.type === "folder" && node.label === folderName && categoryMatches) {
+        return { node, parent: path[path.length - 1] || null, path: nextPath };
+      }
+
+      const found = walk(node.children || [], nextPath, nextCategory);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  return walk(state.tree);
+}
+
 function getPostLocationLabel(post = {}) {
-  return post.folder_path || post.folder_name || post.category || "전체";
+  const folderNode = findPostFolderNode(post);
+  if (folderNode) return getPathLabel(folderNode.path);
+
+  if (post.folder_path) return post.folder_path;
+
+  const categoryLabel = getTreeCategoryLabel(post.category);
+  const folderName = post.folder_name || post.folder || "";
+  if (folderName) return categoryLabel && categoryLabel !== "전체" ? `${categoryLabel} / ${folderName}` : folderName;
+
+  return categoryLabel || "전체";
 }
 
 function getPostViewHref(post = {}) {
@@ -901,7 +954,7 @@ function exportPostsAsText(posts) {
     .map((post) =>
       [
         post.title || "제목 없는 글",
-        post.folder_path || post.folder_name || post.category || "전체",
+        getPostLocationLabel(post),
         formatDate(post.published_at || post.created_at),
         "",
         htmlToPlainText(post.body || ""),
@@ -923,7 +976,7 @@ function exportPostsAsDocx(posts) {
       (post) => `
         <article>
           <h1>${escapeHtml(post.title || "제목 없는 글")}</h1>
-          <p>${escapeHtml(post.folder_path || post.folder_name || post.category || "전체")} · ${escapeHtml(formatDate(post.published_at || post.created_at))}</p>
+          <p>${escapeHtml(getPostLocationLabel(post))} · ${escapeHtml(formatDate(post.published_at || post.created_at))}</p>
           ${cleanImportedHtml(post.body || "")}
         </article>
       `
@@ -998,7 +1051,7 @@ function renderPosts(posts = []) {
             <span class="blog-post-title">
               ${escapeHtml(post.title || "제목 없는 글")}
             </span>
-            <small>${escapeHtml(post.folder_path || post.folder_name || post.category || "전체")} · ${visibility}</small>
+            <small>${escapeHtml(getPostLocationLabel(post))} · ${visibility}</small>
           </span>
           <span>0</span>
           <span>${formatDate(post.published_at || post.created_at)}</span>
