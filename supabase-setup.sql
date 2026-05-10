@@ -54,6 +54,19 @@ create table if not exists public.account_security (
   updated_at timestamptz default now()
 );
 
+create table if not exists public.blog_materials (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  login_id text not null,
+  title text not null,
+  material_type text not null default 'note',
+  url text,
+  content text,
+  source_post_id uuid,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 alter table public.posts add column if not exists title text;
 alter table public.posts add column if not exists excerpt text;
 alter table public.posts add column if not exists body text;
@@ -96,6 +109,23 @@ alter table public.account_security add column if not exists login_id text;
 alter table public.account_security add column if not exists away_password_hash text;
 alter table public.account_security add column if not exists updated_at timestamptz default now();
 
+alter table public.blog_materials add column if not exists id uuid default gen_random_uuid();
+alter table public.blog_materials add column if not exists user_id uuid;
+alter table public.blog_materials add column if not exists login_id text;
+alter table public.blog_materials add column if not exists title text;
+alter table public.blog_materials add column if not exists material_type text not null default 'note';
+alter table public.blog_materials add column if not exists url text;
+alter table public.blog_materials add column if not exists content text;
+alter table public.blog_materials add column if not exists source_post_id uuid;
+alter table public.blog_materials add column if not exists created_at timestamptz default now();
+alter table public.blog_materials add column if not exists updated_at timestamptz default now();
+
+update public.blog_materials
+set id = gen_random_uuid()
+where id is null;
+
+alter table public.blog_materials alter column id set default gen_random_uuid();
+
 do $$
 begin
   if not exists (
@@ -109,11 +139,25 @@ begin
 end
 $$;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.blog_materials'::regclass
+      and contype = 'p'
+  ) then
+    alter table public.blog_materials add constraint blog_materials_pkey primary key (id);
+  end if;
+end
+$$;
+
 alter table public.posts enable row level security;
 alter table public.blog_trees enable row level security;
 alter table public.password_hints enable row level security;
 alter table public.blog_profiles enable row level security;
 alter table public.account_security enable row level security;
+alter table public.blog_materials enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select on table public.posts to anon, authenticated;
@@ -123,6 +167,7 @@ grant select on table public.password_hints to anon, authenticated;
 grant insert, update on table public.password_hints to authenticated;
 grant select, insert, update on table public.blog_profiles to authenticated;
 grant select, insert, update on table public.account_security to authenticated;
+grant select, insert, update, delete on table public.blog_materials to authenticated;
 
 do $$
 begin
@@ -138,6 +183,79 @@ begin
     for select
     to anon, authenticated
     using (published = true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_materials'
+      and policyname = 'Authenticated users can read own materials'
+  ) then
+    create policy "Authenticated users can read own materials"
+    on public.blog_materials
+    for select
+    to authenticated
+    using ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_materials'
+      and policyname = 'Authenticated users can create own materials'
+  ) then
+    create policy "Authenticated users can create own materials"
+    on public.blog_materials
+    for insert
+    to authenticated
+    with check ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_materials'
+      and policyname = 'Authenticated users can update own materials'
+  ) then
+    create policy "Authenticated users can update own materials"
+    on public.blog_materials
+    for update
+    to authenticated
+    using ((select auth.uid()) = user_id)
+    with check ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_materials'
+      and policyname = 'Authenticated users can delete own materials'
+  ) then
+    create policy "Authenticated users can delete own materials"
+    on public.blog_materials
+    for delete
+    to authenticated
+    using ((select auth.uid()) = user_id);
   end if;
 end
 $$;
