@@ -3482,6 +3482,140 @@ body {
   background: #fbfdff;
 }
 
+/* Typography polish: softer weights, steadier reading rhythm. */
+:root {
+  --font-ui: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  --font-reading: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Pretendard, sans-serif;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.7;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(h1, h2, h3, p, a, button, input, select, textarea, label, small, span) {
+  letter-spacing: 0;
+}
+
+:where(
+  .home-hero h1,
+  .auth-copy h1,
+  .account-card h1,
+  .personal-cover h1,
+  .viewer-book-titleblock h1,
+  .trash-page-topbar h1
+) {
+  font-weight: 760;
+  line-height: 1.32;
+}
+
+:where(
+  .section-head h2,
+  .blog-board-head h2,
+  .naver-side-widget h2,
+  .account-section h2,
+  .editor-location-head h2,
+  .trash-page-item-main h2
+) {
+  font-weight: 720;
+  line-height: 1.38;
+}
+
+:where(
+  .brand,
+  .top-nav a,
+  .auth-button,
+  .account-name,
+  .account-menu-button,
+  .account-dropdown a,
+  .account-dropdown button,
+  .blog-menu-bar a,
+  .blog-write-button,
+  .blog-board-toggle,
+  .blog-search-form button,
+  .blog-side-links button,
+  .editor-ghost-button,
+  .editor-primary-button,
+  .editor-visibility-button,
+  .viewer-back-button,
+  .viewer-edit-button,
+  .viewer-book-button,
+  .trash-back-link
+) {
+  font-weight: 680;
+}
+
+:where(
+  .eyebrow,
+  .editor-kicker,
+  .blog-profile-box strong,
+  .blog-post-title,
+  .blog-feature-title,
+  .blog-mini-list-head strong,
+  .trash-page-post-link
+) {
+  font-weight: 720;
+}
+
+:where(
+  .home-hero p:last-child,
+  .auth-copy p:last-child,
+  .field-help,
+  .password-hint-result,
+  .auth-message,
+  .auth-link,
+  .personal-cover p:last-child,
+  .blog-profile-box span:last-child,
+  .blog-post-row small,
+  .blog-feature-meta,
+  .blog-feature-placeholder small,
+  .blog-mini-row,
+  .viewer-location,
+  .viewer-message,
+  .trash-page-topbar p,
+  .trash-page-status,
+  .trash-page-item-main p,
+  .trash-page-post-link small
+) {
+  color: #72879a;
+  font-weight: 500;
+}
+
+:where(.feed-empty p, .viewer-body, .editor-surface, .blog-feature-placeholder small) {
+  line-height: 1.76;
+}
+
+.editor-surface {
+  font-family: var(--font-reading);
+  font-size: 15px;
+  line-height: 1.74;
+}
+
+.viewer-body {
+  font-family: var(--font-reading);
+  font-size: 0.92rem;
+  line-height: 1.8;
+}
+
+body.is-book-mode .viewer-body {
+  line-height: 1.88;
+}
+
+.blog-table-head,
+.feed-list-head {
+  font-weight: 650;
+}
+
+.editor-tool-button,
+.editor-table-button,
+.editor-add-font-button {
+  font-weight: 600;
+}
+
 @media (max-width: 760px) {
   .blog-body-layout {
     grid-template-columns: 1fr;
