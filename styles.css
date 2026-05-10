@@ -3427,6 +3427,240 @@ body.is-book-mode .viewer-page-content {
   cursor: default;
 }
 
+.materials-main {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.materials-shell {
+  display: grid;
+  gap: 0.82rem;
+  padding: clamp(0.78rem, 2.4vw, 1rem);
+  border: 1px solid rgba(207, 225, 240, 0.96);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 253, 255, 0.96)),
+    #fff;
+  box-shadow: 0 14px 30px rgba(14, 116, 144, 0.055);
+}
+
+.materials-topbar,
+.materials-card-head,
+.materials-row,
+.materials-status-item > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.materials-topbar {
+  min-height: 3.1rem;
+  padding-bottom: 0.78rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.78);
+}
+
+.materials-topbar h2,
+.materials-card-head h3 {
+  margin: 0;
+  color: #183047;
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.materials-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+  justify-content: flex-end;
+}
+
+.materials-actions a,
+.materials-card-head a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.75rem;
+  padding: 0 0.62rem;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--sky-dark);
+  font-size: 0.74rem;
+  font-weight: 720;
+}
+
+.materials-actions a:hover,
+.materials-actions a:focus-visible,
+.materials-card-head a:hover,
+.materials-card-head a:focus-visible {
+  background: #f0f9ff;
+}
+
+.materials-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.materials-stat,
+.materials-card,
+.materials-status-item {
+  border: 1px solid rgba(216, 234, 251, 0.86);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.materials-stat {
+  display: grid;
+  gap: 0.24rem;
+  min-height: 4.2rem;
+  padding: 0.72rem;
+}
+
+.materials-stat span,
+.materials-row small,
+.materials-status-item span,
+.materials-empty {
+  color: #7f95a8;
+  font-size: 0.74rem;
+}
+
+.materials-stat strong {
+  color: #0f5f91;
+  font-size: 1.1rem;
+  font-weight: 820;
+  line-height: 1.1;
+}
+
+.materials-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
+  gap: 0.72rem;
+}
+
+.materials-card {
+  display: grid;
+  align-content: start;
+  overflow: hidden;
+}
+
+.materials-card-head {
+  min-height: 2.65rem;
+  padding: 0 0.82rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.78);
+}
+
+.materials-list,
+.materials-status-grid {
+  display: grid;
+}
+
+.materials-row {
+  min-height: 2.9rem;
+  padding: 0.58rem 0.82rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.62);
+  color: #496174;
+  font-size: 0.8rem;
+}
+
+.materials-row:last-child {
+  border-bottom: 0;
+}
+
+.materials-row-post:hover,
+.materials-row-post:focus-visible {
+  background: rgba(240, 249, 255, 0.72);
+  color: var(--sky-dark);
+}
+
+.materials-row span {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.materials-row strong {
+  overflow: hidden;
+  color: #20364a;
+  font-size: 0.82rem;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.materials-row b,
+.materials-row time {
+  flex: 0 0 auto;
+  color: #7f95a8;
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+
+.materials-empty {
+  margin: 0;
+  padding: 1.4rem 0.82rem;
+}
+
+.materials-status-grid {
+  gap: 0.55rem;
+  padding: 0.72rem;
+}
+
+.materials-status-item {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.68rem;
+}
+
+.materials-status-item strong {
+  color: #20364a;
+  font-size: 0.8rem;
+}
+
+.materials-status-item i {
+  display: block;
+  height: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf7ff;
+}
+
+.materials-status-item i span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+}
+
+@media (max-width: 980px) {
+  .materials-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .materials-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .materials-topbar,
+  .materials-card-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .materials-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .materials-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
 /* Visual polish: keeps behavior intact while unifying the site tone. */
 :root {
   --bg: #f6fbff;
