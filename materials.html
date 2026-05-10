@@ -84,12 +84,15 @@
             </form>
           </section>
 
-          <nav class="blog-side-links" aria-label="자료 종류">
-            <button type="button" data-material-filter="all" aria-current="page">전체 자료</button>
-            <button type="button" data-material-filter="note">메모</button>
-            <button type="button" data-material-filter="link">링크</button>
-            <button type="button" data-material-filter="file">파일</button>
-            <button type="button" data-material-filter="reference">참고</button>
+          <nav class="materials-side-split" aria-label="자료실 영역">
+            <button class="materials-section-card" type="button" data-material-section="materials" aria-current="page">
+              <span>자료</span>
+              <small data-material-section-count="materials">0개의 자료</small>
+            </button>
+            <button class="materials-section-card" type="button" data-material-section="spaces">
+              <span>공간</span>
+              <small data-material-section-count="spaces">0개의 공간</small>
+            </button>
           </nav>
 
           <a class="blog-trash-link" href="./materials-trash.html">휴지통</a>
@@ -103,8 +106,8 @@
 
           <div class="blog-table" aria-label="자료 목록">
             <div class="blog-table-head">
-              <span>자료 제목</span>
-              <span>종류</span>
+              <span data-material-title-heading>자료 제목</span>
+              <span data-material-type-heading>종류</span>
               <span>등록일</span>
               <button class="blog-title-sort" type="button" data-material-title-sort aria-label="제목 오름차순 정렬" title="제목 오름차순 정렬">
                 <span class="blog-title-sort-icon" aria-hidden="true"></span>

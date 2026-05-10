@@ -8,6 +8,12 @@ const FILTER_LABELS = {
   link: "링크",
   file: "파일",
   reference: "참고",
+  space: "공간",
+};
+
+const SECTION_LABELS = {
+  materials: "자료",
+  spaces: "공간",
 };
 
 const state = {
@@ -15,6 +21,7 @@ const state = {
   id: "",
   materials: [],
   materialError: "",
+  activeSection: "materials",
   activeFilter: "all",
   searchQuery: "",
   selectedMaterialId: "",
@@ -34,6 +41,8 @@ const els = {
   board: document.querySelector("[data-material-board]"),
   boardTitle: document.querySelector("[data-material-board-title]"),
   count: document.querySelector("[data-material-count]"),
+  titleHeading: document.querySelector("[data-material-title-heading]"),
+  typeHeading: document.querySelector("[data-material-type-heading]"),
   listToggle: document.querySelector("[data-material-list-toggle]"),
   list: document.querySelector("[data-material-list]"),
   featureCard: document.querySelector("[data-material-feature-card]"),
@@ -44,7 +53,8 @@ const els = {
   importInput: document.querySelector("[data-material-file-import]"),
   searchForm: document.querySelector("[data-material-search-form]"),
   searchInput: document.querySelector("[data-material-search-input]"),
-  filterButtons: document.querySelectorAll("[data-material-filter]"),
+  sectionButtons: document.querySelectorAll("[data-material-section]"),
+  sectionCounts: document.querySelectorAll("[data-material-section-count]"),
   materialForm: document.querySelector("[data-material-form]"),
   materialTitle: document.querySelector("[data-material-title]"),
   materialType: document.querySelector("[data-material-type]"),
@@ -178,10 +188,15 @@ function getMaterialCounts() {
     (counts, material) => {
       const type = material.material_type || "note";
       counts.total += 1;
+      if (type === "space") {
+        counts.spaces += 1;
+      } else {
+        counts.materials += 1;
+      }
       counts[type] = (counts[type] || 0) + 1;
       return counts;
     },
-    { total: 0, note: 0, link: 0, file: 0, reference: 0 }
+    { total: 0, materials: 0, spaces: 0, note: 0, link: 0, file: 0, reference: 0, space: 0 }
   );
 }
 
@@ -204,11 +219,9 @@ function getTitleSortLabel() {
 
 function getCurrentMaterials() {
   const query = state.searchQuery.trim().toLowerCase();
-  let materials = [...state.materials];
-
-  if (state.activeFilter !== "all") {
-    materials = materials.filter((material) => material.material_type === state.activeFilter);
-  }
+  let materials = state.materials.filter((material) =>
+    state.activeSection === "spaces" ? material.material_type === "space" : material.material_type !== "space"
+  );
 
   if (query) {
     materials = materials.filter((material) =>
@@ -247,14 +260,22 @@ function renderStats() {
   });
 }
 
-function renderFilters() {
-  els.filterButtons.forEach((button) => {
-    const isActive = button.dataset.materialFilter === state.activeFilter;
+function renderSections() {
+  const counts = getMaterialCounts();
+  els.sectionButtons.forEach((button) => {
+    const isActive = button.dataset.materialSection === state.activeSection;
     if (isActive) {
       button.setAttribute("aria-current", "page");
     } else {
       button.removeAttribute("aria-current");
     }
+  });
+  els.sectionCounts.forEach((item) => {
+    if (item.dataset.materialSectionCount === "spaces") {
+      item.textContent = `${counts.spaces}개의 공간`;
+      return;
+    }
+    item.textContent = `${counts.materials}개의 자료`;
   });
 }
 
@@ -267,16 +288,18 @@ function renderToolState() {
 function renderBoardHeader(materials = []) {
   const title = state.searchQuery.trim()
     ? `검색: ${state.searchQuery.trim()}`
-    : FILTER_LABELS[state.activeFilter] || "전체 자료";
+    : SECTION_LABELS[state.activeSection] || "자료";
   if (els.boardTitle) els.boardTitle.textContent = title;
-  if (els.count) els.count.textContent = `${materials.length}개의 자료`;
+  if (els.count) els.count.textContent = `${materials.length}개의 ${state.activeSection === "spaces" ? "공간" : "자료"}`;
+  if (els.titleHeading) els.titleHeading.textContent = state.activeSection === "spaces" ? "공간 이름" : "자료 제목";
+  if (els.typeHeading) els.typeHeading.textContent = state.activeSection === "spaces" ? "구분" : "종류";
 }
 
 function renderMaterialRows(materials = []) {
   if (!els.list) return;
 
   if (materials.length === 0) {
-    const message = state.materialError || "아직 저장된 자료가 없습니다.";
+    const message = state.materialError || (state.activeSection === "spaces" ? "아직 만든 공간이 없습니다." : "아직 저장된 자료가 없습니다.");
     els.list.innerHTML = `
       <div class="blog-empty-row">
         <span>${escapeHtml(message)}</span>
@@ -374,7 +397,7 @@ function renderMiniList(materials = []) {
 
   const title = state.searchQuery.trim()
     ? `검색 ${state.searchQuery.trim()}`
-    : FILTER_LABELS[state.activeFilter] || "전체 자료";
+    : SECTION_LABELS[state.activeSection] || "자료";
   const sortLabel = getTitleSortLabel();
   els.miniList.hidden = false;
   els.miniList.innerHTML = `
@@ -408,7 +431,7 @@ function renderMiniList(materials = []) {
 function renderDashboard() {
   const materials = getCurrentMaterials();
   renderStats();
-  renderFilters();
+  renderSections();
   renderToolState();
   renderBoardHeader(materials);
   renderFeatureArea(materials);
@@ -487,7 +510,7 @@ async function importMaterialFiles(files = []) {
         user_id: state.session.user.id,
         login_id: state.id,
         title: getFileStem(file.name).slice(0, 120),
-        material_type: "file",
+        material_type: state.activeSection === "spaces" ? "space" : "file",
         url: file.name,
         content: content || file.name,
         deleted_at: null,
@@ -501,6 +524,7 @@ async function importMaterialFiles(files = []) {
   if (imported.length > 0) {
     state.materials = [...imported, ...state.materials];
     state.selectedMaterialId = imported[0].id;
+    state.activeSection = imported[0].material_type === "space" ? "spaces" : "materials";
     state.activeFilter = "all";
     state.searchQuery = "";
     state.materialError = "";
@@ -620,15 +644,19 @@ function exportMaterials() {
 }
 
 async function promptCreateMaterial() {
-  const title = window.prompt("자료 제목을 입력해주세요.", "")?.trim();
+  const isSpaceSection = state.activeSection === "spaces";
+  const title = window.prompt(isSpaceSection ? "공간 이름을 입력해주세요." : "자료 제목을 입력해주세요.", "")?.trim();
   if (!title) return;
 
-  const defaultType = state.activeFilter !== "all" ? getMaterialTypeLabel(state.activeFilter) : "메모";
-  const typeInput = window.prompt("자료 종류를 입력해주세요. 메모, 링크, 파일, 참고", defaultType);
+  const defaultType = isSpaceSection ? "공간" : "메모";
+  const typeInput = isSpaceSection ? "공간" : window.prompt("자료 종류를 입력해주세요. 메모, 링크, 파일, 참고", defaultType);
   if (typeInput === null) return;
 
-  const url = window.prompt("링크 또는 파일 경로를 입력해주세요. 비워둘 수 있습니다.", "")?.trim() || "";
-  const content = window.prompt("자료 내용을 입력해주세요. 비워둘 수 있습니다.", "")?.trim() || "";
+  const url = isSpaceSection ? "" : window.prompt("링크 또는 파일 경로를 입력해주세요. 비워둘 수 있습니다.", "")?.trim() || "";
+  const content = window.prompt(
+    isSpaceSection ? "공간 설명을 입력해주세요. 비워둘 수 있습니다." : "자료 내용을 입력해주세요. 비워둘 수 있습니다.",
+    ""
+  )?.trim() || "";
 
   try {
     const material = await createMaterial({
@@ -642,6 +670,7 @@ async function promptCreateMaterial() {
     });
     state.materials = [material, ...state.materials];
     state.selectedMaterialId = material.id;
+    state.activeSection = material.material_type === "space" ? "spaces" : "materials";
     state.activeFilter = "all";
     state.searchQuery = "";
     state.materialError = "";
@@ -857,9 +886,10 @@ els.importInput?.addEventListener("change", async (event) => {
   await importMaterialFiles(files);
 });
 
-els.filterButtons.forEach((button) => {
+els.sectionButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    state.activeFilter = button.dataset.materialFilter || "all";
+    state.activeSection = button.dataset.materialSection || "materials";
+    state.activeFilter = "all";
     state.searchQuery = "";
     state.selectedMaterialId = "";
     state.selectedMaterialIds.clear();

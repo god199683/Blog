@@ -3781,6 +3781,54 @@ body.is-book-mode .viewer-page-content {
   min-height: calc(100svh - 9.4rem);
 }
 
+.materials-side-split {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-rows: minmax(7.2rem, 1fr) minmax(7.2rem, 1fr);
+  gap: 0.58rem;
+  min-height: 15rem;
+}
+
+.materials-section-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  padding: 0.72rem;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff 0%, #f4fbff 100%);
+  color: #5f7488;
+  text-align: left;
+  box-shadow: 0 10px 22px rgba(14, 116, 144, 0.035);
+}
+
+.materials-section-card:hover,
+.materials-section-card:focus-visible,
+.materials-section-card[aria-current="page"] {
+  border-color: rgba(56, 189, 248, 0.38);
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+  color: var(--sky-dark);
+}
+
+.materials-section-card span {
+  color: #20364a;
+  font-size: 0.88rem;
+  font-weight: 790;
+}
+
+.materials-section-card small {
+  color: #8aa0b2;
+  font-size: 0.72rem;
+  font-weight: 680;
+}
+
+.materials-section-card[aria-current="page"] small {
+  color: #5f89a8;
+}
+
 .materials-side-form {
   grid-template-columns: 1fr;
   gap: 0.46rem;
