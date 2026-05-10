@@ -3616,9 +3616,263 @@ body.is-book-mode .viewer-body {
   font-weight: 600;
 }
 
+/* Layout containment polish: prevents cramped edges and accidental overflow. */
+:root {
+  --page-gutter: clamp(0.9rem, 3vw, 2rem);
+  --panel-pad: clamp(0.72rem, 2vw, 1rem);
+  --panel-gap: clamp(0.55rem, 1.6vw, 0.85rem);
+}
+
+:where(
+  .site-header,
+  .home-main,
+  .auth-main,
+  .account-main,
+  .blog-main,
+  .editor-page-main,
+  .viewer-main,
+  .trash-page-main
+) {
+  min-width: 0;
+}
+
+:where(
+  .home-main,
+  .auth-main,
+  .account-main,
+  .blog-main,
+  .editor-page-main,
+  .viewer-main,
+  .trash-page-main
+) {
+  width: min(1240px, calc(100% - var(--page-gutter)));
+}
+
+.home-main,
+.auth-main,
+.account-main {
+  width: min(1080px, calc(100% - var(--page-gutter)));
+}
+
+.account-main {
+  width: min(720px, calc(100% - var(--page-gutter)));
+}
+
+.editor-page-main {
+  width: min(1280px, calc(100% - var(--page-gutter)));
+}
+
+.viewer-main {
+  width: min(1080px, calc(100% - var(--page-gutter)));
+}
+
+.trash-page-main {
+  width: min(920px, calc(100% - var(--page-gutter)));
+}
+
+:where(
+  .site-header,
+  .home-hero,
+  .section-head,
+  .auth-shell,
+  .personal-cover,
+  .blog-menu-bar,
+  .blog-body-layout,
+  .blog-board-head,
+  .blog-feature-meta,
+  .blog-feature-actions,
+  .blog-mini-list-head,
+  .editor-topbar,
+  .editor-toolbar-row,
+  .viewer-topbar,
+  .viewer-topbar-actions,
+  .viewer-reader-controls,
+  .trash-page-topbar,
+  .trash-page-actions
+) {
+  gap: var(--panel-gap);
+}
+
+:where(
+  .home-hero,
+  .feed-section,
+  .auth-copy,
+  .auth-card,
+  .account-card,
+  .personal-cover,
+  .blog-side-panel,
+  .blog-board,
+  .blog-feature-card,
+  .blog-mini-list,
+  .editor-shell,
+  .viewer-shell,
+  .trash-page-shell,
+  .trash-page-item
+) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(
+  .home-hero > *,
+  .section-head > *,
+  .auth-shell > *,
+  .auth-card > *,
+  .account-card > *,
+  .personal-cover > *,
+  .blog-menu-bar > *,
+  .blog-side-panel > *,
+  .blog-board > *,
+  .blog-board-head > *,
+  .blog-feature-card > *,
+  .blog-feature-meta > *,
+  .editor-topbar > *,
+  .editor-canvas > *,
+  .editor-side-panel > *,
+  .viewer-topbar > *,
+  .trash-page-topbar > *,
+  .trash-page-item > *
+) {
+  min-width: 0;
+}
+
+:where(
+  .brand span:last-child,
+  .home-hero h1,
+  .auth-copy h1,
+  .account-card h1,
+  .personal-cover h1,
+  .section-head h2,
+  .blog-board-head h2,
+  .blog-post-title,
+  .blog-feature-title,
+  .blog-feature-caption,
+  .blog-mini-row span,
+  .viewer-book-titleblock h1,
+  .viewer-location,
+  .trash-page-item-main h2,
+  .trash-page-post-link span
+) {
+  overflow-wrap: anywhere;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+.blog-table-head,
+.blog-empty-row,
+.blog-post-row {
+  grid-template-columns: minmax(0, 1fr) minmax(3.4rem, 5rem) minmax(5.6rem, 7rem);
+}
+
+.feed-list-head {
+  grid-template-columns: minmax(0, 1fr) minmax(5.2rem, 7rem);
+}
+
+.blog-feature-card,
+.blog-mini-list {
+  margin-inline: clamp(0.55rem, 1.8vw, 0.82rem);
+}
+
+.blog-feature-media {
+  max-height: min(42rem, 62vh);
+}
+
+.editor-toolbar {
+  overflow: visible;
+}
+
+.editor-toolbar-row {
+  min-width: 0;
+}
+
+.editor-font-select {
+  max-width: min(100%, 9.7rem);
+}
+
+.editor-size-select {
+  max-width: min(100%, 4.1rem);
+}
+
+.editor-side-panel,
+.trash-page-list,
+.blog-tree {
+  min-width: 0;
+}
+
+.viewer-page-content,
+.viewer-page-content > *,
+.editor-surface > * {
+  max-width: 100%;
+}
+
+.viewer-body,
+.editor-surface,
+.trash-page-shell {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 980px) {
+  .blog-body-layout {
+    grid-template-columns: minmax(9.8rem, 11.5rem) minmax(0, 1fr);
+    gap: 0.6rem;
+  }
+
+  .blog-side-panel {
+    padding: 0.65rem;
+  }
+
+  .blog-scroll-jump {
+    right: 0.55rem;
+  }
+}
+
 @media (max-width: 760px) {
   .blog-body-layout {
     grid-template-columns: 1fr;
+  }
+
+  .site-header,
+  .section-head,
+  .blog-board-head,
+  .editor-topbar,
+  .viewer-topbar,
+  .trash-page-topbar {
+    align-items: flex-start;
+  }
+
+  .section-head,
+  .blog-board-head,
+  .blog-feature-meta,
+  .blog-feature-actions,
+  .blog-mini-list-head,
+  .editor-topbar,
+  .trash-page-topbar {
+    flex-wrap: wrap;
+  }
+
+  .home-hero,
+  .auth-copy,
+  .auth-card,
+  .account-card,
+  .personal-cover,
+  .blog-side-panel,
+  .blog-board,
+  .editor-shell,
+  .viewer-shell,
+  .trash-page-shell {
+    border-radius: 8px;
+  }
+
+  .home-hero,
+  .auth-copy,
+  .account-card,
+  .trash-page-shell {
+    padding: var(--panel-pad);
   }
 
   .blog-scroll-jump {
