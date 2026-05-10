@@ -16,12 +16,17 @@ const SECTION_LABELS = {
   spaces: "공간",
 };
 
+const MATERIAL_ALL_NODE_ID = "materials-all";
+
 const state = {
   session: null,
   id: "",
   materials: [],
+  materialTree: [],
   materialError: "",
   activeSection: "materials",
+  activeMaterialNodeId: MATERIAL_ALL_NODE_ID,
+  collapsedMaterialNodeIds: new Set(),
   activeFilter: "all",
   searchQuery: "",
   selectedMaterialId: "",
@@ -55,6 +60,8 @@ const els = {
   searchInput: document.querySelector("[data-material-search-input]"),
   sectionButtons: document.querySelectorAll("[data-material-section]"),
   sectionCounts: document.querySelectorAll("[data-material-section-count]"),
+  treeAll: document.querySelector("[data-material-tree-all]"),
+  tree: document.querySelector("[data-material-tree]"),
   materialForm: document.querySelector("[data-material-form]"),
   materialTitle: document.querySelector("[data-material-title]"),
   materialType: document.querySelector("[data-material-type]"),
@@ -176,11 +183,121 @@ function normalizeMaterial(row = {}) {
     material_type: row.material_type || "note",
     url: row.url || "",
     content: row.content || "",
+    category: row.category || "전체",
+    folder_id: row.folder_id || "",
+    folder_name: row.folder_name || "",
+    folder_path: row.folder_path || "",
     source_post_id: row.source_post_id || "",
     created_at: row.created_at || "",
     updated_at: row.updated_at || "",
     deleted_at: row.deleted_at || "",
   };
+}
+
+function createMaterialTreeNode(type, label) {
+  const randomId = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return {
+    id: `${type}-${randomId}`,
+    type,
+    label,
+    filterCategory: type === "category" ? label : "",
+    children: [],
+  };
+}
+
+function normalizeMaterialTreeNode(node = {}) {
+  const type = node.type === "folder" ? "folder" : "category";
+  const label = String(node.label || (type === "category" ? "새 카테고리" : "새 폴더")).trim();
+  return {
+    id: node.id || `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    type,
+    label,
+    filterCategory: type === "category" ? node.filterCategory || label : "",
+    children: Array.isArray(node.children) ? node.children.map(normalizeMaterialTreeNode) : [],
+  };
+}
+
+function promptName(message, fallback) {
+  return window.prompt(message, fallback)?.trim().slice(0, 40) || "";
+}
+
+function findMaterialNode(nodes = state.materialTree, nodeId, path = []) {
+  for (const node of nodes) {
+    const nextPath = [...path, node];
+    if (node.id === nodeId) return { node, path: nextPath };
+    const found = findMaterialNode(node.children || [], nodeId, nextPath);
+    if (found) return found;
+  }
+  return null;
+}
+
+function getMaterialPathLabel(path = []) {
+  return path
+    .map((node) => node?.label || "")
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function getDescendantMaterialNodeIds(node = {}) {
+  return [
+    node.id,
+    ...(node.children || []).flatMap((child) => getDescendantMaterialNodeIds(child)),
+  ].filter(Boolean);
+}
+
+function findParentMaterialCategory(path = []) {
+  return [...path].reverse().find((node) => node.type === "category") || null;
+}
+
+function getActiveMaterialLocation() {
+  if (state.activeMaterialNodeId === MATERIAL_ALL_NODE_ID) {
+    return {
+      category: "전체",
+      folder: null,
+    };
+  }
+
+  const found = findMaterialNode(state.materialTree, state.activeMaterialNodeId);
+  if (!found) {
+    return {
+      category: "전체",
+      folder: null,
+    };
+  }
+
+  if (found.node.type === "category") {
+    return {
+      category: found.node.filterCategory || found.node.label || "전체",
+      folder: null,
+    };
+  }
+
+  const categoryNode = findParentMaterialCategory(found.path);
+  return {
+    category: categoryNode?.filterCategory || categoryNode?.label || "전체",
+    folder: {
+      id: found.node.id,
+      label: found.node.label,
+      path: getMaterialPathLabel(found.path),
+    },
+  };
+}
+
+function isMaterialInActiveNode(material = {}) {
+  if (state.activeSection !== "materials" || state.activeMaterialNodeId === MATERIAL_ALL_NODE_ID) return true;
+
+  const found = findMaterialNode(state.materialTree, state.activeMaterialNodeId);
+  if (!found) return true;
+
+  if (found.node.type === "category") {
+    const category = found.node.filterCategory || found.node.label;
+    return (material.category || "전체") === category;
+  }
+
+  const ids = new Set(getDescendantMaterialNodeIds(found.node));
+  return ids.has(material.folder_id);
 }
 
 function getMaterialCounts() {
@@ -222,6 +339,10 @@ function getCurrentMaterials() {
   let materials = state.materials.filter((material) =>
     state.activeSection === "spaces" ? material.material_type === "space" : material.material_type !== "space"
   );
+
+  if (state.activeSection === "materials") {
+    materials = materials.filter(isMaterialInActiveNode);
+  }
 
   if (query) {
     materials = materials.filter((material) =>
@@ -279,6 +400,52 @@ function renderSections() {
   });
 }
 
+function renderMaterialTreeNode(node, depth = 0) {
+  const hasChildren = (node.children || []).length > 0;
+  const isCollapsed = state.collapsedMaterialNodeIds.has(node.id);
+  const children = hasChildren && !isCollapsed ? node.children.map((child) => renderMaterialTreeNode(child, depth + 1)).join("") : "";
+
+  return `
+    <li>
+      <div class="blog-tree-row ${node.id === state.activeMaterialNodeId ? "is-active" : ""}" data-material-tree-node="${escapeHtml(node.id)}" style="--tree-depth:${depth}">
+        <button class="blog-tree-expander" type="button" data-material-tree-toggle="${escapeHtml(node.id)}" ${hasChildren ? "" : "disabled"} aria-label="${escapeHtml(node.label)} 접기 펼치기">
+          <span aria-hidden="true">${hasChildren ? (isCollapsed ? "+" : "-") : ""}</span>
+        </button>
+        <button class="blog-tree-label" type="button" data-material-tree-select="${escapeHtml(node.id)}">
+          <span>${escapeHtml(node.label)}</span>
+        </button>
+        <span class="blog-tree-node-actions">
+          <button type="button" data-material-tree-rename="${escapeHtml(node.id)}" title="이름 수정" aria-label="이름 수정">
+            <span class="tree-action-icon tree-action-edit" aria-hidden="true"></span>
+          </button>
+          <button type="button" data-material-tree-add-folder="${escapeHtml(node.id)}" title="폴더 추가" aria-label="폴더 추가">
+            <span class="tree-action-icon tree-action-folder" aria-hidden="true"></span>
+          </button>
+        </span>
+      </div>
+      ${children ? `<ul>${children}</ul>` : ""}
+    </li>
+  `;
+}
+
+function renderMaterialTree() {
+  if (els.treeAll) {
+    if (state.activeSection === "materials" && state.activeMaterialNodeId === MATERIAL_ALL_NODE_ID) {
+      els.treeAll.setAttribute("aria-current", "page");
+    } else {
+      els.treeAll.removeAttribute("aria-current");
+    }
+  }
+
+  if (!els.tree) return;
+  if (state.materialTree.length === 0) {
+    els.tree.innerHTML = `<p class="blog-tree-empty">카테고리를 추가해주세요.</p>`;
+    return;
+  }
+
+  els.tree.innerHTML = `<ul>${state.materialTree.map((node) => renderMaterialTreeNode(node)).join("")}</ul>`;
+}
+
 function renderToolState() {
   els.tools
     ?.querySelector('[data-material-action="toggle-selection"]')
@@ -288,7 +455,9 @@ function renderToolState() {
 function renderBoardHeader(materials = []) {
   const title = state.searchQuery.trim()
     ? `검색: ${state.searchQuery.trim()}`
-    : SECTION_LABELS[state.activeSection] || "자료";
+    : state.activeSection === "materials" && state.activeMaterialNodeId !== MATERIAL_ALL_NODE_ID
+      ? findMaterialNode(state.materialTree, state.activeMaterialNodeId)?.node.label || "자료"
+      : SECTION_LABELS[state.activeSection] || "자료";
   if (els.boardTitle) els.boardTitle.textContent = title;
   if (els.count) els.count.textContent = `${materials.length}개의 ${state.activeSection === "spaces" ? "공간" : "자료"}`;
   if (els.titleHeading) els.titleHeading.textContent = state.activeSection === "spaces" ? "공간 이름" : "자료 제목";
@@ -397,7 +566,9 @@ function renderMiniList(materials = []) {
 
   const title = state.searchQuery.trim()
     ? `검색 ${state.searchQuery.trim()}`
-    : SECTION_LABELS[state.activeSection] || "자료";
+    : state.activeSection === "materials" && state.activeMaterialNodeId !== MATERIAL_ALL_NODE_ID
+      ? findMaterialNode(state.materialTree, state.activeMaterialNodeId)?.node.label || "자료"
+      : SECTION_LABELS[state.activeSection] || "자료";
   const sortLabel = getTitleSortLabel();
   els.miniList.hidden = false;
   els.miniList.innerHTML = `
@@ -432,6 +603,7 @@ function renderDashboard() {
   const materials = getCurrentMaterials();
   renderStats();
   renderSections();
+  renderMaterialTree();
   renderToolState();
   renderBoardHeader(materials);
   renderFeatureArea(materials);
@@ -456,12 +628,103 @@ async function loadBlogProfile(session) {
 
 async function loadMaterials(session) {
   const rows = await requestRest(
-    `blog_materials?select=id,user_id,login_id,title,material_type,url,content,source_post_id,created_at,updated_at,deleted_at&user_id=eq.${encodeURIComponent(
+    `blog_materials?select=id,user_id,login_id,title,material_type,url,content,category,folder_id,folder_name,folder_path,source_post_id,created_at,updated_at,deleted_at&user_id=eq.${encodeURIComponent(
       session.user.id
     )}&deleted_at=is.null&order=created_at.desc&limit=1000`,
     session.access_token
   );
   return Array.isArray(rows) ? rows.map(normalizeMaterial) : [];
+}
+
+async function loadMaterialTree(session) {
+  const rows = await requestRest(
+    `material_trees?select=tree,tree_collapsed_ids&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
+    session.access_token
+  );
+  const item = Array.isArray(rows) ? rows[0] : null;
+  return {
+    tree: Array.isArray(item?.tree) ? item.tree.map(normalizeMaterialTreeNode) : [],
+    collapsedIds: Array.isArray(item?.tree_collapsed_ids) ? item.tree_collapsed_ids : [],
+  };
+}
+
+async function saveMaterialTree() {
+  await requestRest("material_trees?on_conflict=user_id", state.session.access_token, {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify({
+      user_id: state.session.user.id,
+      login_id: state.id,
+      tree: state.materialTree,
+      tree_collapsed_ids: [...state.collapsedMaterialNodeIds],
+      updated_at: new Date().toISOString(),
+    }),
+  });
+}
+
+async function addMaterialCategory() {
+  const label = promptName("추가할 자료 카테고리 이름을 입력해주세요.", "새 카테고리");
+  if (!label) return;
+
+  const node = createMaterialTreeNode("category", label);
+  state.materialTree.push(node);
+  state.activeSection = "materials";
+  state.activeMaterialNodeId = node.id;
+  await saveMaterialTree();
+  renderDashboard();
+}
+
+async function addMaterialFolder(parentId) {
+  const found = findMaterialNode(state.materialTree, parentId);
+  if (!found) return;
+
+  const label = promptName("추가할 폴더 이름을 입력해주세요.", "새 폴더");
+  if (!label) return;
+
+  found.node.children = Array.isArray(found.node.children) ? found.node.children : [];
+  const folder = createMaterialTreeNode("folder", label);
+  found.node.children.push(folder);
+  state.collapsedMaterialNodeIds.delete(found.node.id);
+  state.activeSection = "materials";
+  state.activeMaterialNodeId = folder.id;
+  await saveMaterialTree();
+  renderDashboard();
+}
+
+async function renameMaterialNode(nodeId) {
+  const found = findMaterialNode(state.materialTree, nodeId);
+  if (!found) return;
+
+  const row = els.tree?.querySelector(`[data-material-tree-node="${CSS.escape(nodeId)}"]`);
+  const labelButton = row?.querySelector("[data-material-tree-select]");
+  if (!row || !labelButton) return;
+
+  const input = document.createElement("input");
+  input.className = "blog-tree-rename-input";
+  input.value = found.node.label;
+  labelButton.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let isDone = false;
+  async function finishRename(shouldSave) {
+    if (isDone) return;
+    isDone = true;
+    const next = input.value.trim().slice(0, 40);
+    if (shouldSave && next) {
+      found.node.label = next;
+      await saveMaterialTree();
+    }
+    renderDashboard();
+  }
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") finishRename(true);
+    if (event.key === "Escape") finishRename(false);
+  });
+  input.addEventListener("blur", () => finishRename(true), { once: true });
 }
 
 async function createMaterial(payload) {
@@ -502,6 +765,7 @@ async function importMaterialFiles(files = []) {
 
   const errors = [];
   const imported = [];
+  const location = getActiveMaterialLocation();
 
   for (const file of fileList) {
     try {
@@ -513,6 +777,10 @@ async function importMaterialFiles(files = []) {
         material_type: state.activeSection === "spaces" ? "space" : "file",
         url: file.name,
         content: content || file.name,
+        category: state.activeSection === "spaces" ? "전체" : location.category,
+        folder_id: state.activeSection === "spaces" ? null : location.folder?.id || null,
+        folder_name: state.activeSection === "spaces" ? null : location.folder?.label || null,
+        folder_path: state.activeSection === "spaces" ? null : location.folder?.path || null,
         deleted_at: null,
       });
       imported.push(material);
@@ -657,6 +925,7 @@ async function promptCreateMaterial() {
     isSpaceSection ? "공간 설명을 입력해주세요. 비워둘 수 있습니다." : "자료 내용을 입력해주세요. 비워둘 수 있습니다.",
     ""
   )?.trim() || "";
+  const location = getActiveMaterialLocation();
 
   try {
     const material = await createMaterial({
@@ -666,6 +935,10 @@ async function promptCreateMaterial() {
       material_type: getMaterialTypeFromInput(typeInput),
       url: url || null,
       content: content || null,
+      category: isSpaceSection ? "전체" : location.category,
+      folder_id: isSpaceSection ? null : location.folder?.id || null,
+      folder_name: isSpaceSection ? null : location.folder?.label || null,
+      folder_path: isSpaceSection ? null : location.folder?.path || null,
       deleted_at: null,
     });
     state.materials = [material, ...state.materials];
@@ -858,6 +1131,11 @@ els.tools?.addEventListener("click", async (event) => {
     return;
   }
 
+  if (action === "add-category") {
+    await addMaterialCategory();
+    return;
+  }
+
   if (action === "toggle-selection") {
     state.selectionMode = !state.selectionMode;
     state.selectedMaterialIds.clear();
@@ -886,9 +1164,60 @@ els.importInput?.addEventListener("change", async (event) => {
   await importMaterialFiles(files);
 });
 
+els.treeAll?.addEventListener("click", () => {
+  state.activeSection = "materials";
+  state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
+  state.searchQuery = "";
+  state.selectedMaterialId = "";
+  state.selectedMaterialIds.clear();
+  if (els.searchInput) els.searchInput.value = "";
+  renderDashboard();
+});
+
+els.tree?.addEventListener("click", async (event) => {
+  const toggle = event.target.closest("[data-material-tree-toggle]");
+  if (toggle && !toggle.disabled) {
+    const id = toggle.dataset.materialTreeToggle;
+    if (state.collapsedMaterialNodeIds.has(id)) {
+      state.collapsedMaterialNodeIds.delete(id);
+    } else {
+      state.collapsedMaterialNodeIds.add(id);
+    }
+    await saveMaterialTree();
+    renderDashboard();
+    return;
+  }
+
+  const rename = event.target.closest("[data-material-tree-rename]");
+  if (rename) {
+    await renameMaterialNode(rename.dataset.materialTreeRename);
+    return;
+  }
+
+  const add = event.target.closest("[data-material-tree-add-folder]");
+  if (add) {
+    await addMaterialFolder(add.dataset.materialTreeAddFolder);
+    return;
+  }
+
+  const select = event.target.closest("[data-material-tree-select]");
+  if (select) {
+    state.activeSection = "materials";
+    state.activeMaterialNodeId = select.dataset.materialTreeSelect;
+    state.searchQuery = "";
+    state.selectedMaterialId = "";
+    state.selectedMaterialIds.clear();
+    if (els.searchInput) els.searchInput.value = "";
+    renderDashboard();
+  }
+});
+
 els.sectionButtons.forEach((button) => {
   button.addEventListener("click", () => {
     state.activeSection = button.dataset.materialSection || "materials";
+    if (state.activeSection === "materials" && !findMaterialNode(state.materialTree, state.activeMaterialNodeId)) {
+      state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
+    }
     state.activeFilter = "all";
     state.searchQuery = "";
     state.selectedMaterialId = "";
@@ -945,6 +1274,15 @@ window.blogSession?.ready.then(async (session) => {
     renderBlog(id, profile);
   } catch {
     renderBlog(id);
+  }
+
+  try {
+    const treeState = await loadMaterialTree(session);
+    state.materialTree = treeState.tree;
+    state.collapsedMaterialNodeIds = new Set(treeState.collapsedIds);
+  } catch {
+    state.materialTree = [];
+    state.collapsedMaterialNodeIds = new Set();
   }
 
   try {

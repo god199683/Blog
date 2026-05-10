@@ -62,10 +62,22 @@ create table if not exists public.blog_materials (
   material_type text not null default 'note',
   url text,
   content text,
+  category text default '전체',
+  folder_id text,
+  folder_name text,
+  folder_path text,
   source_post_id uuid,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   deleted_at timestamptz
+);
+
+create table if not exists public.material_trees (
+  user_id uuid primary key,
+  login_id text not null,
+  tree jsonb not null default '[]'::jsonb,
+  tree_collapsed_ids text[] not null default '{}',
+  updated_at timestamptz default now()
 );
 
 alter table public.posts add column if not exists title text;
@@ -117,10 +129,20 @@ alter table public.blog_materials add column if not exists title text;
 alter table public.blog_materials add column if not exists material_type text not null default 'note';
 alter table public.blog_materials add column if not exists url text;
 alter table public.blog_materials add column if not exists content text;
+alter table public.blog_materials add column if not exists category text default '전체';
+alter table public.blog_materials add column if not exists folder_id text;
+alter table public.blog_materials add column if not exists folder_name text;
+alter table public.blog_materials add column if not exists folder_path text;
 alter table public.blog_materials add column if not exists source_post_id uuid;
 alter table public.blog_materials add column if not exists created_at timestamptz default now();
 alter table public.blog_materials add column if not exists updated_at timestamptz default now();
 alter table public.blog_materials add column if not exists deleted_at timestamptz;
+
+alter table public.material_trees add column if not exists user_id uuid;
+alter table public.material_trees add column if not exists login_id text;
+alter table public.material_trees add column if not exists tree jsonb not null default '[]'::jsonb;
+alter table public.material_trees add column if not exists tree_collapsed_ids text[] not null default '{}';
+alter table public.material_trees add column if not exists updated_at timestamptz default now();
 
 update public.blog_materials
 set id = gen_random_uuid()
@@ -154,12 +176,26 @@ begin
 end
 $$;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.material_trees'::regclass
+      and contype = 'p'
+  ) then
+    alter table public.material_trees add constraint material_trees_pkey primary key (user_id);
+  end if;
+end
+$$;
+
 alter table public.posts enable row level security;
 alter table public.blog_trees enable row level security;
 alter table public.password_hints enable row level security;
 alter table public.blog_profiles enable row level security;
 alter table public.account_security enable row level security;
 alter table public.blog_materials enable row level security;
+alter table public.material_trees enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select on table public.posts to anon, authenticated;
@@ -170,6 +206,7 @@ grant insert, update on table public.password_hints to authenticated;
 grant select, insert, update on table public.blog_profiles to authenticated;
 grant select, insert, update on table public.account_security to authenticated;
 grant select, insert, update, delete on table public.blog_materials to authenticated;
+grant select, insert, update, delete on table public.material_trees to authenticated;
 
 do $$
 begin
@@ -185,6 +222,79 @@ begin
     for select
     to anon, authenticated
     using (published = true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'material_trees'
+      and policyname = 'Authenticated users can read own material tree'
+  ) then
+    create policy "Authenticated users can read own material tree"
+    on public.material_trees
+    for select
+    to authenticated
+    using ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'material_trees'
+      and policyname = 'Authenticated users can create own material tree'
+  ) then
+    create policy "Authenticated users can create own material tree"
+    on public.material_trees
+    for insert
+    to authenticated
+    with check ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'material_trees'
+      and policyname = 'Authenticated users can update own material tree'
+  ) then
+    create policy "Authenticated users can update own material tree"
+    on public.material_trees
+    for update
+    to authenticated
+    using ((select auth.uid()) = user_id)
+    with check ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'material_trees'
+      and policyname = 'Authenticated users can delete own material tree'
+  ) then
+    create policy "Authenticated users can delete own material tree"
+    on public.material_trees
+    for delete
+    to authenticated
+    using ((select auth.uid()) = user_id);
   end if;
 end
 $$;
