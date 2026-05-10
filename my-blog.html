@@ -95,16 +95,20 @@
           </div>
 
           <div class="blog-table" aria-label="내 블로그 글 목록">
-            <div class="blog-table-head" aria-hidden="true">
+            <div class="blog-table-head">
               <span>글 제목</span>
               <span>조회수</span>
               <span>작성일</span>
+              <button class="blog-title-sort" type="button" data-title-sort aria-label="제목 오름차순 정렬" title="제목 오름차순 정렬">
+                <span class="blog-title-sort-icon" aria-hidden="true"></span>
+              </button>
             </div>
             <div data-post-list>
               <div class="blog-empty-row">
                 <span>아직 작성된 글이 없습니다.</span>
                 <span>0</span>
                 <span>-</span>
+                <span aria-hidden="true"></span>
               </div>
             </div>
           </div>

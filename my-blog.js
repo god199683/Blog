@@ -14,6 +14,7 @@ const state = {
   selectionMode: false,
   selectedNodeIds: new Set(),
   collapsedNodeIds: new Set(),
+  titleSortDirection: "",
 };
 
 const els = {
@@ -39,6 +40,7 @@ const els = {
   miniList: document.querySelector("[data-blog-mini-list]"),
   scrollTop: document.querySelector("[data-scroll-top]"),
   scrollBottom: document.querySelector("[data-scroll-bottom]"),
+  titleSort: document.querySelector("[data-title-sort]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -134,6 +136,32 @@ function getPostExcerpt(post = {}, limit = 120) {
 
 function getPostMediaSource(post = {}) {
   return post.cover_image || getFirstImageFromHtml(post.body || "");
+}
+
+function getTitleSortedPosts(posts = []) {
+  if (!state.titleSortDirection) return posts;
+  const direction = state.titleSortDirection === "desc" ? -1 : 1;
+  return posts
+    .map((post, index) => ({ post, index }))
+    .sort((a, b) => {
+      const left = a.post.title || "제목 없는 글";
+      const right = b.post.title || "제목 없는 글";
+      const titleDiff = left.localeCompare(right, "ko", {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return titleDiff ? titleDiff * direction : a.index - b.index;
+    })
+    .map((item) => item.post);
+}
+
+function syncTitleSortButton() {
+  if (!els.titleSort) return;
+  const direction = state.titleSortDirection || "none";
+  const label = state.titleSortDirection === "asc" ? "제목 내림차순 정렬" : "제목 오름차순 정렬";
+  els.titleSort.dataset.sortDirection = direction;
+  els.titleSort.setAttribute("aria-label", label);
+  els.titleSort.title = label;
 }
 
 function belongsToUser(post, session, id) {
@@ -913,23 +941,26 @@ function exportActivePosts() {
 }
 
 function renderPosts(posts = []) {
+  const visiblePosts = getTitleSortedPosts(posts);
+  syncTitleSortButton();
   if (els.count) els.count.textContent = `${posts.length}개의 글`;
   if (els.visitorTotalPosts) els.visitorTotalPosts.textContent = String(state.posts.length);
   if (els.visitorVisiblePosts) els.visitorVisiblePosts.textContent = String(posts.length);
   if (!els.postList) return;
 
-  if (posts.length === 0) {
+  if (visiblePosts.length === 0) {
     els.postList.innerHTML = `
       <div class="blog-empty-row">
         <span>아직 작성된 글이 없습니다.</span>
         <span>0</span>
         <span>-</span>
+        <span aria-hidden="true"></span>
       </div>
     `;
     return;
   }
 
-  els.postList.innerHTML = posts
+  els.postList.innerHTML = visiblePosts
     .map((post) => {
       const visibility = post.published === false ? "비공개" : "공개";
       return `
@@ -942,6 +973,7 @@ function renderPosts(posts = []) {
           </span>
           <span>0</span>
           <span>${formatDate(post.published_at || post.created_at)}</span>
+          <span aria-hidden="true"></span>
         </div>
       `;
     })
@@ -998,6 +1030,15 @@ els.scrollBottom?.addEventListener("click", () => {
     document.documentElement.offsetHeight
   );
   window.scrollTo({ top: bottom, behavior: "smooth" });
+});
+
+els.titleSort?.addEventListener("click", () => {
+  state.titleSortDirection = state.titleSortDirection === "asc" ? "desc" : "asc";
+  if (els.searchInput?.value.trim()) {
+    applyBlogSearch(els.searchInput.value);
+  } else {
+    renderActivePosts();
+  }
 });
 
 els.toolsToggle?.addEventListener("click", () => {
