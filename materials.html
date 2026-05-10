@@ -47,6 +47,33 @@
               <strong data-profile-title>자료실</strong>
               <span data-profile-id>@materials</span>
             </div>
+            <button class="blog-profile-tool" type="button" data-material-tools-toggle aria-expanded="false" aria-label="도구">
+              <span aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="blog-tool-panel" data-material-tools hidden>
+            <button class="blog-tool-action" type="button" data-material-action="add-material" title="자료 추가" aria-label="자료 추가">
+              <span class="tree-action-icon tree-action-plus" aria-hidden="true"></span>
+            </button>
+            <button class="blog-tool-action" type="button" data-material-action="toggle-selection" title="선택 모드" aria-label="선택 모드">
+              <span class="tree-action-icon tree-action-check" aria-hidden="true"></span>
+            </button>
+            <button class="blog-tool-action" type="button" data-material-action="delete-selected" title="삭제" aria-label="삭제">
+              <span class="tree-action-icon tree-action-trash" aria-hidden="true"></span>
+            </button>
+            <button class="blog-tool-action" type="button" data-material-action="import-files" title="불러오기" aria-label="불러오기">
+              <span class="tree-action-icon tree-action-import" aria-hidden="true"></span>
+            </button>
+            <button class="blog-tool-action" type="button" data-material-action="export-files" title="내보내기" aria-label="내보내기">
+              <span class="tree-action-icon tree-action-export" aria-hidden="true"></span>
+            </button>
+            <input
+              class="sr-only"
+              type="file"
+              data-material-file-import
+              accept=".txt,.md,.html,.htm,.rtf,.docx,text/plain,text/markdown,text/html,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              multiple
+            >
           </div>
 
           <section class="naver-side-widget" aria-labelledby="materials-search-title">
@@ -57,56 +84,6 @@
             </form>
           </section>
 
-          <section class="naver-side-widget" aria-labelledby="materials-add-title">
-            <h2 id="materials-add-title">자료 추가</h2>
-            <form class="materials-form materials-side-form" data-material-form>
-              <label>
-                <span>자료 제목</span>
-                <input type="text" maxlength="120" placeholder="자료 제목" autocomplete="off" data-material-title required>
-              </label>
-              <label>
-                <span>자료 종류</span>
-                <select data-material-type>
-                  <option value="note">메모</option>
-                  <option value="link">링크</option>
-                  <option value="file">파일</option>
-                  <option value="reference">참고</option>
-                </select>
-              </label>
-              <label>
-                <span>링크 또는 파일 경로</span>
-                <input type="text" placeholder="https:// 또는 파일 이름" autocomplete="off" data-material-url>
-              </label>
-              <label>
-                <span>내용</span>
-                <textarea rows="3" placeholder="짧은 설명" data-material-content></textarea>
-              </label>
-              <button type="submit">저장</button>
-            </form>
-          </section>
-
-          <section class="naver-side-widget" aria-labelledby="materials-status-title">
-            <h2 id="materials-status-title">자료 현황</h2>
-            <dl class="visitor-summary materials-summary">
-              <div>
-                <dt>전체 자료</dt>
-                <dd data-material-stat="total">0</dd>
-              </div>
-              <div>
-                <dt>메모</dt>
-                <dd data-material-stat="note">0</dd>
-              </div>
-              <div>
-                <dt>링크</dt>
-                <dd data-material-stat="link">0</dd>
-              </div>
-              <div>
-                <dt>파일</dt>
-                <dd data-material-stat="file">0</dd>
-              </div>
-            </dl>
-          </section>
-
           <nav class="blog-side-links" aria-label="자료 종류">
             <button type="button" data-material-filter="all" aria-current="page">전체 자료</button>
             <button type="button" data-material-filter="note">메모</button>
@@ -115,7 +92,7 @@
             <button type="button" data-material-filter="reference">참고</button>
           </nav>
 
-          <a class="blog-trash-link" href="./materials-trash.html">자료실 휴지통</a>
+          <a class="blog-trash-link" href="./materials-trash.html">휴지통</a>
         </aside>
 
         <section class="blog-board is-list-collapsed" aria-labelledby="materials-board-title" data-material-board>
@@ -158,6 +135,8 @@
       </button>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js" defer></script>
     <script src="./session.js" defer></script>
     <script src="./materials.js" defer></script>
   </body>

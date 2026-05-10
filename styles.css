@@ -3849,6 +3849,23 @@ body.is-book-mode .viewer-page-content {
   gap: 0.12rem;
 }
 
+.materials-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.46rem;
+}
+
+.materials-row-text {
+  min-width: 0;
+}
+
+.materials-select-check {
+  flex: 0 0 auto;
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: var(--sky-dark);
+}
+
 .materials-row strong {
   overflow: hidden;
   color: #20364a;

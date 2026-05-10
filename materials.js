@@ -18,6 +18,8 @@ const state = {
   activeFilter: "all",
   searchQuery: "",
   selectedMaterialId: "",
+  selectedMaterialIds: new Set(),
+  selectionMode: false,
   titleSortDirection: "none",
 };
 
@@ -37,6 +39,9 @@ const els = {
   featureCard: document.querySelector("[data-material-feature-card]"),
   miniList: document.querySelector("[data-material-mini-list]"),
   titleSort: document.querySelector("[data-material-title-sort]"),
+  toolsToggle: document.querySelector("[data-material-tools-toggle]"),
+  tools: document.querySelector("[data-material-tools]"),
+  importInput: document.querySelector("[data-material-file-import]"),
   searchForm: document.querySelector("[data-material-search-form]"),
   searchInput: document.querySelector("[data-material-search-input]"),
   filterButtons: document.querySelectorAll("[data-material-filter]"),
@@ -74,6 +79,62 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#039;");
 }
 
+function sanitizeFileName(value = "materials") {
+  return String(value)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .slice(0, 80) || "materials";
+}
+
+function getFileExtension(name = "") {
+  return String(name).split(".").pop().toLowerCase();
+}
+
+function getFileStem(name = "") {
+  return String(name).replace(/\.[^.]+$/, "").trim() || "불러온 자료";
+}
+
+function cleanImportedHtml(html = "") {
+  const parsed = new DOMParser().parseFromString(String(html), "text/html");
+  const template = document.createElement("template");
+  template.innerHTML = parsed.body?.innerHTML || String(html);
+  template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
+    node.remove();
+  });
+  template.content.querySelectorAll("*").forEach((node) => {
+    [...node.attributes].forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim().toLowerCase();
+      if (name.startsWith("on")) node.removeAttribute(attr.name);
+      if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
+        node.removeAttribute(attr.name);
+      }
+    });
+  });
+  return template.innerHTML.trim();
+}
+
+function htmlToPlainText(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = String(html);
+  template.content.querySelectorAll("br").forEach((node) => node.replaceWith("\n"));
+  template.content.querySelectorAll("p, div, h1, h2, h3, h4, li, tr").forEach((node) => {
+    node.append(document.createTextNode("\n"));
+  });
+  return (template.content.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function stripRtfToText(text = "") {
+  return String(text)
+    .replace(/\\par[d]?/gi, "\n")
+    .replace(/\\'[0-9a-f]{2}/gi, "")
+    .replace(/\\[a-z]+\d* ?/gi, "")
+    .replace(/[{}]/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function formatDate(value = "") {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "-";
@@ -86,6 +147,14 @@ function formatDate(value = "") {
 
 function getMaterialTypeLabel(type = "note") {
   return FILTER_LABELS[type] || "자료";
+}
+
+function getMaterialTypeFromInput(value = "") {
+  const normalized = String(value).trim().toLowerCase();
+  const labelMatch = Object.entries(FILTER_LABELS).find(
+    ([key, label]) => key !== "all" && (normalized === key || normalized === label.toLowerCase())
+  );
+  return labelMatch?.[0] || "note";
 }
 
 function normalizeMaterial(row = {}) {
@@ -189,6 +258,12 @@ function renderFilters() {
   });
 }
 
+function renderToolState() {
+  els.tools
+    ?.querySelector('[data-material-action="toggle-selection"]')
+    ?.classList.toggle("is-active", state.selectionMode);
+}
+
 function renderBoardHeader(materials = []) {
   const title = state.searchQuery.trim()
     ? `검색: ${state.searchQuery.trim()}`
@@ -216,11 +291,19 @@ function renderMaterialRows(materials = []) {
   els.list.innerHTML = materials
     .map((material) => {
       const isSelected = material.id && material.id === state.selectedMaterialId;
+      const isChecked = material.id && state.selectedMaterialIds.has(material.id);
       return `
-        <div class="blog-post-row ${isSelected ? "is-selected" : ""}" data-material-row="${escapeHtml(material.id)}" tabindex="0">
-          <span>
-            <span class="blog-post-title">${escapeHtml(material.title)}</span>
-            <small>${escapeHtml(getMaterialPreview(material))}</small>
+        <div class="blog-post-row ${isSelected || isChecked ? "is-selected" : ""}" data-material-row="${escapeHtml(material.id)}" tabindex="0">
+          <span class="materials-row-main">
+            ${
+              state.selectionMode
+                ? `<input class="materials-select-check" type="checkbox" data-material-check="${escapeHtml(material.id)}" ${isChecked ? "checked" : ""} aria-label="${escapeHtml(material.title)} 선택">`
+                : ""
+            }
+            <span class="materials-row-text">
+              <span class="blog-post-title">${escapeHtml(material.title)}</span>
+              <small>${escapeHtml(getMaterialPreview(material))}</small>
+            </span>
           </span>
           <span>${escapeHtml(getMaterialTypeLabel(material.material_type))}</span>
           <span>${escapeHtml(formatDate(material.created_at || material.updated_at))}</span>
@@ -326,6 +409,7 @@ function renderDashboard() {
   const materials = getCurrentMaterials();
   renderStats();
   renderFilters();
+  renderToolState();
   renderBoardHeader(materials);
   renderFeatureArea(materials);
   renderMaterialRows(materials);
@@ -368,6 +452,206 @@ async function createMaterial(payload) {
   return normalizeMaterial(Array.isArray(rows) ? rows[0] : payload);
 }
 
+async function readMaterialFile(file) {
+  const extension = getFileExtension(file.name);
+
+  if (extension === "docx") {
+    if (!window.mammoth?.convertToHtml) {
+      throw new Error("DOCX 불러오기 도구를 불러오지 못했습니다.");
+    }
+    const result = await window.mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
+    return htmlToPlainText(cleanImportedHtml(result.value));
+  }
+
+  const text = await file.text();
+  if (extension === "html" || extension === "htm") return htmlToPlainText(cleanImportedHtml(text));
+  if (extension === "rtf") return stripRtfToText(text);
+  return text.trim();
+}
+
+async function importMaterialFiles(files = []) {
+  const fileList = [...files].filter(Boolean);
+  if (fileList.length === 0) return;
+  if (!state.session?.access_token) {
+    window.alert("로그인이 필요합니다.");
+    return;
+  }
+
+  const errors = [];
+  const imported = [];
+
+  for (const file of fileList) {
+    try {
+      const content = await readMaterialFile(file);
+      const material = await createMaterial({
+        user_id: state.session.user.id,
+        login_id: state.id,
+        title: getFileStem(file.name).slice(0, 120),
+        material_type: "file",
+        url: file.name,
+        content: content || file.name,
+        deleted_at: null,
+      });
+      imported.push(material);
+    } catch (error) {
+      errors.push(`${file.name}: ${error.message || "불러오지 못했습니다."}`);
+    }
+  }
+
+  if (imported.length > 0) {
+    state.materials = [...imported, ...state.materials];
+    state.selectedMaterialId = imported[0].id;
+    state.activeFilter = "all";
+    state.searchQuery = "";
+    state.materialError = "";
+    if (els.searchInput) els.searchInput.value = "";
+    renderDashboard();
+  }
+
+  if (errors.length > 0) {
+    window.alert(`${imported.length}개의 파일을 불러왔습니다.\n\n${errors.join("\n")}`);
+    return;
+  }
+  window.alert(`${imported.length}개의 파일을 불러왔습니다.`);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function getExportMaterials() {
+  const selected = state.materials.filter((material) => state.selectedMaterialIds.has(material.id));
+  return selected.length > 0 ? selected : getCurrentMaterials();
+}
+
+function buildMaterialExportBaseName(materials, format) {
+  const title = els.boardTitle?.textContent || "자료실";
+  const suffix = materials.length === 1 ? materials[0].title || title : title;
+  return `${sanitizeFileName(`${state.id || "materials"}-${suffix}`)}.${format}`;
+}
+
+function plainTextToExportHtml(text = "") {
+  const normalized = String(text || "").replace(/\r\n?/g, "\n").trim();
+  if (!normalized) return "<p></p>";
+  return normalized
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll("\n", "<br>")}</p>`)
+    .join("");
+}
+
+function exportMaterialsAsText(materials) {
+  const text = materials
+    .map((material) =>
+      [
+        material.title || "제목 없는 자료",
+        getMaterialTypeLabel(material.material_type),
+        formatDate(material.created_at || material.updated_at),
+        material.url || "",
+        "",
+        material.content || "",
+      ].join("\n")
+    )
+    .join("\n\n---\n\n");
+  downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), buildMaterialExportBaseName(materials, "txt"));
+}
+
+function exportMaterialsAsDocx(materials) {
+  const docx = window.htmlDocx || window.htmlDocxJs;
+  if (!docx?.asBlob) {
+    window.alert("DOCX 내보내기 도구를 불러오지 못했습니다. TXT로 다시 내보내주세요.");
+    return;
+  }
+
+  const body = materials
+    .map(
+      (material) => `
+        <article>
+          <h1>${escapeHtml(material.title || "제목 없는 자료")}</h1>
+          <p>${escapeHtml(getMaterialTypeLabel(material.material_type))} · ${escapeHtml(formatDate(material.created_at || material.updated_at))}</p>
+          ${material.url ? `<p>${escapeHtml(material.url)}</p>` : ""}
+          ${plainTextToExportHtml(material.content || "")}
+        </article>
+      `
+    )
+    .join("<hr>");
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { color: #22364a; font-family: "Malgun Gothic", Arial, sans-serif; font-size: 11pt; line-height: 1.65; }
+          h1 { color: #0f3f61; font-size: 18pt; margin: 0 0 12pt; }
+          p { margin: 0 0 10pt; }
+          hr { border: 0; border-top: 1px solid #cfe1f0; margin: 20pt 0; }
+        </style>
+      </head>
+      <body>${body}</body>
+    </html>
+  `;
+  downloadBlob(docx.asBlob(html), buildMaterialExportBaseName(materials, "docx"));
+}
+
+function exportMaterials() {
+  const materials = getExportMaterials();
+  if (materials.length === 0) {
+    window.alert("내보낼 자료가 없습니다.");
+    return;
+  }
+
+  const format = window.prompt("내보낼 형식을 입력해주세요. txt 또는 docx", "txt")?.trim().toLowerCase();
+  if (!format) return;
+  if (format === "txt") {
+    exportMaterialsAsText(materials);
+    return;
+  }
+  if (format === "docx") {
+    exportMaterialsAsDocx(materials);
+    return;
+  }
+  window.alert("txt 또는 docx 형식만 입력해주세요.");
+}
+
+async function promptCreateMaterial() {
+  const title = window.prompt("자료 제목을 입력해주세요.", "")?.trim();
+  if (!title) return;
+
+  const defaultType = state.activeFilter !== "all" ? getMaterialTypeLabel(state.activeFilter) : "메모";
+  const typeInput = window.prompt("자료 종류를 입력해주세요. 메모, 링크, 파일, 참고", defaultType);
+  if (typeInput === null) return;
+
+  const url = window.prompt("링크 또는 파일 경로를 입력해주세요. 비워둘 수 있습니다.", "")?.trim() || "";
+  const content = window.prompt("자료 내용을 입력해주세요. 비워둘 수 있습니다.", "")?.trim() || "";
+
+  try {
+    const material = await createMaterial({
+      user_id: state.session.user.id,
+      login_id: state.id,
+      title: title.slice(0, 120),
+      material_type: getMaterialTypeFromInput(typeInput),
+      url: url || null,
+      content: content || null,
+      deleted_at: null,
+    });
+    state.materials = [material, ...state.materials];
+    state.selectedMaterialId = material.id;
+    state.activeFilter = "all";
+    state.searchQuery = "";
+    state.materialError = "";
+    if (els.searchInput) els.searchInput.value = "";
+    renderDashboard();
+  } catch (error) {
+    window.alert(error.message || "자료를 저장하지 못했습니다.");
+  }
+}
+
 async function moveMaterialToTrash(materialId) {
   await requestRest(
     `blog_materials?id=eq.${encodeURIComponent(materialId)}&user_id=eq.${encodeURIComponent(state.session.user.id)}`,
@@ -397,8 +681,35 @@ async function deleteMaterial(materialId) {
   if (!materialId || !window.confirm("자료를 휴지통으로 이동할까요?")) return;
   await moveMaterialToTrash(materialId);
   state.materials = state.materials.filter((material) => material.id !== materialId);
+  state.selectedMaterialIds.delete(materialId);
   if (state.selectedMaterialId === materialId) state.selectedMaterialId = "";
   renderDashboard();
+}
+
+async function deleteSelectedMaterials() {
+  const ids = [...state.selectedMaterialIds];
+  if (ids.length === 0 && state.selectedMaterialId) ids.push(state.selectedMaterialId);
+
+  if (ids.length === 0) {
+    state.selectionMode = true;
+    renderDashboard();
+    window.alert("삭제할 자료를 선택해주세요.");
+    return;
+  }
+
+  if (!window.confirm("선택한 자료를 휴지통으로 이동할까요?")) return;
+
+  try {
+    await Promise.all(ids.map((materialId) => moveMaterialToTrash(materialId)));
+    const idSet = new Set(ids);
+    state.materials = state.materials.filter((material) => !idSet.has(material.id));
+    state.selectedMaterialIds.clear();
+    state.selectedMaterialId = "";
+    state.selectionMode = false;
+    renderDashboard();
+  } catch (error) {
+    window.alert(error.message || "자료를 삭제하지 못했습니다.");
+  }
 }
 
 function toggleTitleSort() {
@@ -455,6 +766,7 @@ els.materialForm?.addEventListener("submit", async (event) => {
 });
 
 els.list?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-material-check]")) return;
   const row = event.target.closest("[data-material-row]");
   if (!row) return;
   event.preventDefault();
@@ -466,6 +778,17 @@ els.list?.addEventListener("keydown", (event) => {
   if (!row || (event.key !== "Enter" && event.key !== " ")) return;
   event.preventDefault();
   selectMaterial(row.dataset.materialRow);
+});
+
+els.list?.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-material-check]");
+  if (!checkbox) return;
+  if (checkbox.checked) {
+    state.selectedMaterialIds.add(checkbox.dataset.materialCheck);
+  } else {
+    state.selectedMaterialIds.delete(checkbox.dataset.materialCheck);
+  }
+  renderDashboard();
 });
 
 els.featureCard?.addEventListener("click", async (event) => {
@@ -491,11 +814,55 @@ els.miniList?.addEventListener("click", (event) => {
 
 els.titleSort?.addEventListener("click", toggleTitleSort);
 
+els.toolsToggle?.addEventListener("click", () => {
+  const willOpen = els.tools?.hidden;
+  if (els.tools) els.tools.hidden = !willOpen;
+  els.toolsToggle.setAttribute("aria-expanded", String(Boolean(willOpen)));
+});
+
+els.tools?.addEventListener("click", async (event) => {
+  const action = event.target.closest("[data-material-action]")?.dataset.materialAction;
+  if (!action) return;
+
+  if (action === "add-material") {
+    await promptCreateMaterial();
+    return;
+  }
+
+  if (action === "toggle-selection") {
+    state.selectionMode = !state.selectionMode;
+    state.selectedMaterialIds.clear();
+    renderDashboard();
+    return;
+  }
+
+  if (action === "delete-selected") {
+    await deleteSelectedMaterials();
+    return;
+  }
+
+  if (action === "import-files") {
+    els.importInput?.click();
+    return;
+  }
+
+  if (action === "export-files") {
+    exportMaterials();
+  }
+});
+
+els.importInput?.addEventListener("change", async (event) => {
+  const files = event.target.files ? [...event.target.files] : [];
+  event.target.value = "";
+  await importMaterialFiles(files);
+});
+
 els.filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     state.activeFilter = button.dataset.materialFilter || "all";
     state.searchQuery = "";
     state.selectedMaterialId = "";
+    state.selectedMaterialIds.clear();
     if (els.searchInput) els.searchInput.value = "";
     renderDashboard();
   });
@@ -505,12 +872,14 @@ els.searchForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   state.searchQuery = els.searchInput?.value || "";
   state.selectedMaterialId = "";
+  state.selectedMaterialIds.clear();
   renderDashboard();
 });
 
 els.searchInput?.addEventListener("input", () => {
   if (!els.searchInput.value.trim()) {
     state.searchQuery = "";
+    state.selectedMaterialIds.clear();
     renderDashboard();
   }
 });
