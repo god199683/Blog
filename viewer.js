@@ -104,10 +104,43 @@ function getPostSortTime(post) {
 
 function sortPostsForBook(posts) {
   return [...posts].sort((a, b) => {
-    const timeDiff = getPostSortTime(a) - getPostSortTime(b);
-    if (timeDiff !== 0) return timeDiff;
-    return String(a.title || "").localeCompare(String(b.title || ""), "ko");
+    const titleDiff = String(a.title || "제목 없는 글").localeCompare(String(b.title || "제목 없는 글"), "ko", {
+      numeric: true,
+      sensitivity: "base",
+    });
+    if (titleDiff !== 0) return titleDiff;
+    return getPostSortTime(a) - getPostSortTime(b);
   });
+}
+
+function normalizeScopeText(value = "") {
+  return String(value || "").trim();
+}
+
+function getReaderCategory(post = {}) {
+  return normalizeScopeText(post.category) || "전체";
+}
+
+function getReaderFolderKeys(post = {}) {
+  const category = getReaderCategory(post);
+  const folderId = normalizeScopeText(post.folder_id);
+  const folderPath = normalizeScopeText(post.folder_path);
+  const folderName = normalizeScopeText(post.folder_name || post.folder);
+  return [
+    folderId ? `id:${folderId}` : "",
+    folderPath ? `path:${folderPath}` : "",
+    folderName ? `name:${category}:${folderName}` : "",
+  ].filter(Boolean);
+}
+
+function isSameBookScope(post, sourcePost) {
+  const sourceFolderKeys = getReaderFolderKeys(sourcePost);
+  if (sourceFolderKeys.length > 0) {
+    const postFolderKeys = new Set(getReaderFolderKeys(post));
+    return sourceFolderKeys.some((key) => postFolderKeys.has(key));
+  }
+
+  return getReaderCategory(post) === getReaderCategory(sourcePost);
 }
 
 function getPostOwnerFilter(post) {
@@ -462,23 +495,11 @@ async function fetchSameFolderPosts(post) {
     "id,title,category,author,login_id,user_id,folder,folder_id,folder_name,folder_path,published,published_at,created_at"
   );
   endpoint.searchParams.set("limit", "1000");
-  endpoint.searchParams.set("order", "published_at.asc.nullslast,created_at.asc.nullslast");
+  endpoint.searchParams.set("order", "title.asc.nullslast,published_at.asc.nullslast,created_at.asc.nullslast");
 
   const ownerFilter = getPostOwnerFilter(post);
   if (ownerFilter) {
     endpoint.searchParams.set(ownerFilter[0], `eq.${ownerFilter[1]}`);
-  }
-  if (post.category) {
-    endpoint.searchParams.set("category", `eq.${post.category}`);
-  }
-  if (post.folder_id) {
-    endpoint.searchParams.set("folder_id", `eq.${post.folder_id}`);
-  } else if (post.folder_name) {
-    endpoint.searchParams.set("folder_name", `eq.${post.folder_name}`);
-  } else if (post.folder) {
-    endpoint.searchParams.set("folder", `eq.${post.folder}`);
-  } else {
-    endpoint.searchParams.set("folder_id", "is.null");
   }
 
   const response = await fetch(endpoint, {
@@ -491,7 +512,7 @@ async function fetchSameFolderPosts(post) {
   if (!response.ok || !Array.isArray(data)) return [post];
 
   const byId = new Map();
-  data.forEach((item) => {
+  data.filter((item) => isSameBookScope(item, post)).forEach((item) => {
     if (item?.id) byId.set(normalizePostId(item), item);
   });
   byId.set(normalizePostId(post), post);

@@ -14,7 +14,7 @@ const state = {
   selectionMode: false,
   selectedNodeIds: new Set(),
   collapsedNodeIds: new Set(),
-  titleSortDirection: "",
+  titleSortDirection: "asc",
   featurePostId: "",
   currentScopePosts: [],
   currentScopeTitle: "전체보기",
