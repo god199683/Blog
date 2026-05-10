@@ -3291,6 +3291,197 @@ body.is-book-mode .viewer-page-content {
   cursor: default;
 }
 
+/* Visual polish: keeps behavior intact while unifying the site tone. */
+:root {
+  --bg: #f6fbff;
+  --surface-soft: #eef8ff;
+  --ink: #17293a;
+  --muted: #687d90;
+  --line: #dbeaf6;
+  --sky-dark: #0b6f9f;
+  --shadow: 0 10px 26px rgba(14, 116, 144, 0.045);
+}
+
+body {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fdff 42%, var(--bg) 100%);
+  font-size: 14px;
+  line-height: 1.66;
+}
+
+.site-header {
+  min-height: 3.45rem;
+  border-bottom-color: rgba(219, 234, 246, 0.9);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 0 rgba(14, 116, 144, 0.035);
+}
+
+.brand {
+  font-size: 0.9rem;
+}
+
+.brand-mark,
+.personal-mark,
+.blog-profile-mark {
+  border-color: rgba(56, 189, 248, 0.22);
+  box-shadow: 0 7px 16px rgba(14, 116, 144, 0.055);
+}
+
+:where(
+  .home-hero,
+  .feed-section,
+  .auth-copy,
+  .auth-card,
+  .account-card,
+  .personal-cover,
+  .blog-menu-bar,
+  .blog-side-panel,
+  .blog-board,
+  .editor-shell,
+  .viewer-shell,
+  .trash-page-shell
+) {
+  border-color: rgba(219, 234, 246, 0.92);
+  background-color: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow);
+}
+
+:where(
+  .home-hero,
+  .feed-section,
+  .auth-copy,
+  .auth-card,
+  .account-card,
+  .personal-cover,
+  .blog-menu-bar,
+  .blog-side-panel,
+  .blog-board,
+  .editor-shell,
+  .viewer-shell,
+  .trash-page-shell,
+  .blog-feature-card,
+  .blog-mini-list,
+  .naver-side-widget
+) {
+  border-radius: 9px;
+}
+
+:where(button, .auth-button, .account-menu-button, .blog-write-button, .editor-primary-button) {
+  box-shadow: none;
+}
+
+:where(button, a, input, select, textarea, [contenteditable="true"]):focus-visible {
+  outline-color: rgba(56, 189, 248, 0.34);
+}
+
+:where(input, select, textarea, [contenteditable="true"]) {
+  border-color: rgba(219, 234, 246, 0.96);
+}
+
+.home-hero {
+  min-height: 7.2rem;
+  background:
+    linear-gradient(135deg, rgba(246, 251, 255, 0.98), rgba(255, 255, 255, 0.98));
+}
+
+.home-hero h1,
+.auth-copy h1,
+.account-card h1 {
+  color: #183047;
+  font-weight: 800;
+}
+
+.home-hero p:last-child,
+.auth-copy p:last-child,
+.feed-empty p,
+.trash-page-empty p {
+  color: #718698;
+}
+
+.feed-section,
+.blog-board,
+.blog-side-panel,
+.editor-shell,
+.viewer-shell,
+.trash-page-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(252, 254, 255, 0.96));
+}
+
+.section-head,
+.blog-board-head,
+.viewer-topbar,
+.trash-page-topbar,
+.editor-topbar {
+  border-color: rgba(219, 234, 246, 0.84);
+}
+
+.blog-menu-bar {
+  min-height: 2.25rem;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.blog-menu-bar a,
+.top-nav a,
+.auth-button,
+.account-menu-button {
+  font-size: 0.8rem;
+}
+
+.blog-feature-card,
+.blog-mini-list {
+  border-color: rgba(219, 234, 246, 0.86);
+  background: #fff;
+}
+
+.blog-feature-title {
+  color: #15926f;
+  font-weight: 740;
+}
+
+.blog-post-row,
+.blog-mini-row,
+.trash-page-item,
+.editor-location-option {
+  border-color: rgba(219, 234, 246, 0.66);
+}
+
+.blog-post-row:hover,
+.blog-mini-row:hover,
+.trash-page-item:hover,
+.trash-page-post-link:hover {
+  background: rgba(240, 249, 255, 0.68);
+}
+
+.editor-page {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f7fcff 46%, #f0f9ff 100%);
+}
+
+.editor-toolbar,
+.blog-tool-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fcff 100%);
+}
+
+.editor-surface {
+  color: #20364a;
+  background: #fff;
+}
+
+.viewer-body {
+  color: #20364a;
+  background: #fff;
+}
+
+.viewer-book-nav,
+.viewer-book-progress {
+  background: rgba(244, 250, 255, 0.82);
+}
+
+.trash-page-post-link {
+  background: #fbfdff;
+}
+
 @media (max-width: 760px) {
   .blog-body-layout {
     grid-template-columns: 1fr;
