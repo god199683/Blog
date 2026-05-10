@@ -15,6 +15,9 @@ const state = {
   selectedNodeIds: new Set(),
   collapsedNodeIds: new Set(),
   titleSortDirection: "",
+  featurePostId: "",
+  currentScopePosts: [],
+  currentScopeTitle: "전체보기",
 };
 
 const els = {
@@ -113,6 +116,10 @@ function getPostLocationLabel(post = {}) {
 
 function getPostViewHref(post = {}) {
   return `./viewer.html?id=${encodeURIComponent(post.id || "")}`;
+}
+
+function getPostId(post = {}) {
+  return String(post.id || "");
 }
 
 function getPostEditHref(post = {}) {
@@ -448,16 +455,28 @@ function renderTree() {
 }
 
 function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
-  renderMiniList(posts, scopeTitle);
+  const visiblePosts = getTitleSortedPosts(posts);
+  const selectedPost =
+    visiblePosts.find((post) => getPostId(post) === state.featurePostId) || visiblePosts[0] || null;
+
+  state.currentScopePosts = posts;
+  state.currentScopeTitle = scopeTitle;
+  state.featurePostId = selectedPost ? getPostId(selectedPost) : "";
+
+  renderMiniList(visiblePosts, scopeTitle);
   if (!els.featureCard) return;
 
-  const post = posts[0];
-  if (!post) {
+  if (!selectedPost) {
     els.featureCard.hidden = true;
     els.featureCard.innerHTML = "";
+    els.featureCard.removeAttribute("data-feature-post-id");
+    els.featureCard.removeAttribute("role");
+    els.featureCard.removeAttribute("tabindex");
+    els.featureCard.removeAttribute("aria-label");
     return;
   }
 
+  const post = selectedPost;
   const title = post.title || "제목 없는 글";
   const location = getPostLocationLabel(post);
   const date = formatDate(post.published_at || post.created_at);
@@ -468,6 +487,10 @@ function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
   const initial = (state.id || "B").slice(0, 1).toUpperCase();
 
   els.featureCard.hidden = false;
+  els.featureCard.dataset.featurePostId = getPostId(post);
+  els.featureCard.setAttribute("role", "link");
+  els.featureCard.setAttribute("tabindex", "0");
+  els.featureCard.setAttribute("aria-label", `${title} 글 보기`);
   els.featureCard.innerHTML = `
     <div class="blog-feature-kicker">${escapeHtml(location)}</div>
     <a class="blog-feature-title" href="${viewHref}">${escapeHtml(title)}</a>
@@ -516,12 +539,16 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
       ${posts
         .slice(0, 5)
         .map(
-          (post) => `
-            <a class="blog-mini-row" href="${getPostViewHref(post)}">
+          (post) => {
+            const postId = getPostId(post);
+            const isSelected = postId && postId === state.featurePostId;
+            return `
+            <button class="blog-mini-row ${isSelected ? "is-selected" : ""}" type="button" data-mini-post="${escapeHtml(postId)}" aria-pressed="${isSelected ? "true" : "false"}">
               <span>${escapeHtml(post.title || "제목 없는 글")}</span>
               <time>${escapeHtml(formatDate(post.published_at || post.created_at))}</time>
-            </a>
-          `
+            </button>
+          `;
+          }
         )
         .join("")}
     </div>
@@ -536,8 +563,8 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
 function renderActivePosts() {
   const meta = getActiveTreeMeta();
   if (els.boardTitle) els.boardTitle.textContent = meta.title;
-  renderPosts(meta.posts);
   renderFeatureArea(meta.posts, meta.title);
+  renderPosts(meta.posts);
 }
 
 function applyBlogSearch(keyword = "") {
@@ -553,8 +580,8 @@ function applyBlogSearch(keyword = "") {
       .some((value) => String(value).toLowerCase().includes(query))
   );
   if (els.boardTitle) els.boardTitle.textContent = `검색: ${keyword.trim()}`;
-  renderPosts(results);
   renderFeatureArea(results, `검색 ${keyword.trim()}`);
+  renderPosts(results);
 }
 
 async function loadTree(session) {
@@ -963,12 +990,14 @@ function renderPosts(posts = []) {
   els.postList.innerHTML = visiblePosts
     .map((post) => {
       const visibility = post.published === false ? "비공개" : "공개";
+      const postId = getPostId(post);
+      const isSelected = postId && postId === state.featurePostId;
       return `
-        <div class="blog-post-row">
+        <div class="blog-post-row ${isSelected ? "is-selected" : ""}" data-post-row="${escapeHtml(postId)}" role="button" tabindex="0" aria-pressed="${isSelected ? "true" : "false"}">
           <span>
-            <a class="blog-post-title" href="${getPostViewHref(post)}">
+            <span class="blog-post-title">
               ${escapeHtml(post.title || "제목 없는 글")}
-            </a>
+            </span>
             <small>${escapeHtml(post.folder_path || post.folder_name || post.category || "전체")} · ${visibility}</small>
           </span>
           <span>0</span>
@@ -1004,15 +1033,62 @@ if (listToggle && blogBoard) {
   });
 }
 
+function selectFeaturePost(postId) {
+  if (!postId) return;
+  const exists = state.currentScopePosts.some((post) => getPostId(post) === String(postId));
+  if (!exists) return;
+
+  state.featurePostId = String(postId);
+  renderFeatureArea(state.currentScopePosts, state.currentScopeTitle);
+  renderPosts(state.currentScopePosts);
+}
+
+function openFeaturePost() {
+  if (!state.featurePostId) return;
+  window.location.href = getPostViewHref({ id: state.featurePostId });
+}
+
 els.featureCard?.addEventListener("click", async (event) => {
   const deleteButton = event.target.closest("[data-feature-delete]");
   if (deleteButton) {
     event.preventDefault();
     await movePostToTrash(deleteButton.dataset.featureDelete);
+    return;
   }
+
+  if (event.target.closest("a, button")) return;
+  openFeaturePost();
+});
+
+els.featureCard?.addEventListener("keydown", (event) => {
+  if (event.target.closest("a, button")) return;
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  openFeaturePost();
+});
+
+els.postList?.addEventListener("click", (event) => {
+  const row = event.target.closest("[data-post-row]");
+  if (!row) return;
+  event.preventDefault();
+  selectFeaturePost(row.dataset.postRow);
+});
+
+els.postList?.addEventListener("keydown", (event) => {
+  const row = event.target.closest("[data-post-row]");
+  if (!row || (event.key !== "Enter" && event.key !== " ")) return;
+  event.preventDefault();
+  selectFeaturePost(row.dataset.postRow);
 });
 
 els.miniList?.addEventListener("click", (event) => {
+  const row = event.target.closest("[data-mini-post]");
+  if (row) {
+    event.preventDefault();
+    selectFeaturePost(row.dataset.miniPost);
+    return;
+  }
+
   const allButton = event.target.closest("[data-mini-all]");
   if (!allButton) return;
   state.activeNodeId = ALL_NODE_ID;
