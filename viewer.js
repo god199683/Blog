@@ -7,6 +7,9 @@ const postId = params.get("id") || "";
 let bookMode = params.get("book") === "1";
 let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize") || "18", 10);
 let readerFont = localStorage.getItem("blog.readerFont") || "serif";
+let readerTheme = localStorage.getItem("blog.readerTheme") || "paper";
+let readerWidth = localStorage.getItem("blog.readerWidth") || "standard";
+let readerLineHeight = localStorage.getItem("blog.readerLineHeight") || "normal";
 let currentPost = null;
 let sameFolderPosts = [];
 let bookPageIndex = 0;
@@ -25,13 +28,18 @@ const els = {
   bookToggle: document.querySelector("[data-viewer-book-toggle]"),
   readerControls: document.querySelector("[data-viewer-reader-controls]"),
   fontSelect: document.querySelector("[data-viewer-font]"),
+  themeSelect: document.querySelector("[data-viewer-theme]"),
+  widthSelect: document.querySelector("[data-viewer-width]"),
+  lineHeightSelect: document.querySelector("[data-viewer-line-height]"),
   fontDown: document.querySelector("[data-viewer-font-down]"),
   fontUp: document.querySelector("[data-viewer-font-up]"),
   fontSize: document.querySelector("[data-viewer-font-size]"),
   bookClose: document.querySelector("[data-viewer-book-close]"),
   bookNav: document.querySelector("[data-viewer-book-nav]"),
+  first: document.querySelector("[data-viewer-first]"),
   prev: document.querySelector("[data-viewer-prev]"),
   next: document.querySelector("[data-viewer-next]"),
+  last: document.querySelector("[data-viewer-last]"),
   prevSide: document.querySelector("[data-viewer-prev-side]"),
   nextSide: document.querySelector("[data-viewer-next-side]"),
   progress: document.querySelector("[data-viewer-progress]"),
@@ -126,14 +134,48 @@ function clampReaderFontSize(size) {
   return Math.min(28, Math.max(14, Number.parseInt(size, 10) || 18));
 }
 
+function pickReaderOption(value, options, fallback) {
+  return options.includes(value) ? value : fallback;
+}
+
 function syncReaderControls() {
   readerFontSize = clampReaderFontSize(readerFontSize);
+  readerFont = pickReaderOption(readerFont, ["serif", "sans"], "serif");
+  readerTheme = pickReaderOption(readerTheme, ["paper", "sky", "night"], "paper");
+  readerWidth = pickReaderOption(readerWidth, ["narrow", "standard", "wide"], "standard");
+  readerLineHeight = pickReaderOption(readerLineHeight, ["compact", "normal", "relaxed"], "normal");
+
   document.body.style.setProperty("--reader-font-size", `${readerFontSize}px`);
+  document.body.style.setProperty(
+    "--reader-max-width",
+    {
+      narrow: "760px",
+      standard: "920px",
+      wide: "1120px",
+    }[readerWidth]
+  );
+  document.body.style.setProperty(
+    "--reader-line-height",
+    {
+      compact: "1.72",
+      normal: "1.88",
+      relaxed: "2.08",
+    }[readerLineHeight]
+  );
   document.body.dataset.readerFont = readerFont;
+  document.body.dataset.readerTheme = readerTheme;
+  document.body.dataset.readerWidth = readerWidth;
+  document.body.dataset.readerLineHeight = readerLineHeight;
   els.fontSize.textContent = `${readerFontSize}px`;
   els.fontSelect.value = readerFont;
+  els.themeSelect.value = readerTheme;
+  els.widthSelect.value = readerWidth;
+  els.lineHeightSelect.value = readerLineHeight;
   localStorage.setItem("blog.readerFontSize", String(readerFontSize));
   localStorage.setItem("blog.readerFont", readerFont);
+  localStorage.setItem("blog.readerTheme", readerTheme);
+  localStorage.setItem("blog.readerWidth", readerWidth);
+  localStorage.setItem("blog.readerLineHeight", readerLineHeight);
 }
 
 function updateBookModeUi() {
@@ -301,8 +343,11 @@ function renderBookNavigation() {
   const hasNextPage = bookPageIndex < bookPageCount - 1;
   const canMovePrev = hasPrevPage || Boolean(prevPost);
   const canMoveNext = hasNextPage || Boolean(nextPost);
+  const progressPercent = Math.round(((bookPageIndex + 1) / Math.max(bookPageCount, 1)) * 100);
 
-  els.position.textContent = `${bookPageIndex + 1} / ${bookPageCount}`;
+  els.position.textContent = `${bookPageIndex + 1} / ${bookPageCount} · ${progressPercent}%`;
+  els.first.disabled = bookPageIndex <= 0;
+  els.last.disabled = bookPageIndex >= bookPageCount - 1;
   els.prev.disabled = !canMovePrev;
   els.next.disabled = !canMoveNext;
   els.prevSide.disabled = !canMovePrev;
@@ -459,12 +504,37 @@ els.fontSelect.addEventListener("change", (event) => {
   scheduleBookPagination();
 });
 
+els.themeSelect.addEventListener("change", (event) => {
+  readerTheme = event.target.value;
+  syncReaderControls();
+});
+
+els.widthSelect.addEventListener("change", (event) => {
+  readerWidth = event.target.value;
+  syncReaderControls();
+  scheduleBookPagination(true);
+});
+
+els.lineHeightSelect.addEventListener("change", (event) => {
+  readerLineHeight = event.target.value;
+  syncReaderControls();
+  scheduleBookPagination(true);
+});
+
 els.fontDown.addEventListener("click", () => {
   changeReaderFontSize(-1);
 });
 
 els.fontUp.addEventListener("click", () => {
   changeReaderFontSize(1);
+});
+
+els.first.addEventListener("click", () => {
+  setBookPage(0);
+});
+
+els.last.addEventListener("click", () => {
+  setBookPage(bookPageCount - 1);
 });
 
 els.prev.addEventListener("click", () => {
@@ -502,6 +572,18 @@ document.addEventListener("keydown", (event) => {
     if (els.nextSide.disabled) return;
     event.preventDefault();
     moveBookNext();
+    return;
+  }
+
+  if (event.key === "Home") {
+    event.preventDefault();
+    setBookPage(0);
+    return;
+  }
+
+  if (event.key === "End") {
+    event.preventDefault();
+    setBookPage(bookPageCount - 1);
     return;
   }
 

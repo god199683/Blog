@@ -34,6 +34,21 @@
                 <option value="serif">명조</option>
                 <option value="sans">고딕</option>
               </select>
+              <select data-viewer-theme aria-label="읽기 테마">
+                <option value="paper">종이</option>
+                <option value="sky">하늘</option>
+                <option value="night">밤</option>
+              </select>
+              <select data-viewer-width aria-label="읽기 폭">
+                <option value="narrow">좁게</option>
+                <option value="standard">표준</option>
+                <option value="wide">넓게</option>
+              </select>
+              <select data-viewer-line-height aria-label="줄간격">
+                <option value="compact">촘촘</option>
+                <option value="normal">보통</option>
+                <option value="relaxed">넓게</option>
+              </select>
               <button type="button" data-viewer-font-down aria-label="글씨 작게">A-</button>
               <span data-viewer-font-size>18px</span>
               <button type="button" data-viewer-font-up aria-label="글씨 크게">A+</button>
@@ -46,12 +61,14 @@
         <button class="viewer-page-arrow viewer-page-arrow-prev" type="button" data-viewer-prev-side aria-label="이전 글">←</button>
         <button class="viewer-page-arrow viewer-page-arrow-next" type="button" data-viewer-next-side aria-label="다음 글">→</button>
         <div class="viewer-book-nav" data-viewer-book-nav hidden>
+          <button type="button" data-viewer-first>처음</button>
           <button type="button" data-viewer-prev>이전 글</button>
           <div class="viewer-book-progress">
             <input type="range" min="1" max="1" value="1" data-viewer-progress aria-label="읽기 위치" disabled>
             <span data-viewer-book-position>1 / 1</span>
           </div>
           <button type="button" data-viewer-next>다음 글</button>
+          <button type="button" data-viewer-last>끝</button>
         </div>
         <p class="viewer-message" data-viewer-message></p>
       </article>
