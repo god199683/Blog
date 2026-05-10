@@ -3777,6 +3777,49 @@ body.is-book-mode .viewer-page-content {
   padding: 0 0.54rem;
 }
 
+.materials-blog-layout .blog-side-panel {
+  min-height: calc(100svh - 9.4rem);
+}
+
+.materials-side-form {
+  grid-template-columns: 1fr;
+  gap: 0.46rem;
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.materials-side-form label {
+  gap: 0.18rem;
+}
+
+.materials-side-form input,
+.materials-side-form select {
+  min-height: 1.9rem;
+}
+
+.materials-side-form textarea {
+  min-height: 3.25rem;
+  resize: vertical;
+}
+
+.materials-side-form button {
+  width: 100%;
+  min-height: 1.95rem;
+}
+
+.materials-feature-card .blog-feature-title {
+  display: block;
+}
+
+.materials-feature-card .blog-feature-media {
+  min-height: clamp(10rem, 26vw, 17rem);
+}
+
+.materials-summary dd {
+  color: var(--sky-dark);
+}
+
 .materials-list,
 .materials-status-grid {
   display: grid;

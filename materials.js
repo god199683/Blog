@@ -2,27 +2,51 @@ const SUPABASE_URL = "https://ipylqxcmajrwtvvmrvfy.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
+const FILTER_LABELS = {
+  all: "전체 자료",
+  note: "메모",
+  link: "링크",
+  file: "파일",
+  reference: "참고",
+};
+
 const state = {
   session: null,
   id: "",
   materials: [],
   materialError: "",
+  activeFilter: "all",
+  searchQuery: "",
+  selectedMaterialId: "",
+  titleSortDirection: "none",
 };
 
 const els = {
   title: document.querySelector("[data-materials-title]"),
   owner: document.querySelector("[data-materials-owner]"),
   brandTitle: document.querySelector("[data-brand-title]"),
+  profileTitle: document.querySelector("[data-profile-title]"),
+  profileId: document.querySelector("[data-profile-id]"),
   initials: document.querySelectorAll("[data-blog-initial]"),
-  stats: document.querySelector("[data-materials-stats]"),
+  stats: document.querySelectorAll("[data-material-stat]"),
+  board: document.querySelector("[data-material-board]"),
+  boardTitle: document.querySelector("[data-material-board-title]"),
+  count: document.querySelector("[data-material-count]"),
+  listToggle: document.querySelector("[data-material-list-toggle]"),
+  list: document.querySelector("[data-material-list]"),
+  featureCard: document.querySelector("[data-material-feature-card]"),
+  miniList: document.querySelector("[data-material-mini-list]"),
+  titleSort: document.querySelector("[data-material-title-sort]"),
+  searchForm: document.querySelector("[data-material-search-form]"),
+  searchInput: document.querySelector("[data-material-search-input]"),
+  filterButtons: document.querySelectorAll("[data-material-filter]"),
   materialForm: document.querySelector("[data-material-form]"),
   materialTitle: document.querySelector("[data-material-title]"),
   materialType: document.querySelector("[data-material-type]"),
   materialUrl: document.querySelector("[data-material-url]"),
   materialContent: document.querySelector("[data-material-content]"),
-  materialSpace: document.querySelector("[data-materials-space]"),
-  materialCount: document.querySelector("[data-materials-space-count]"),
-  materialDashboard: document.querySelector("[data-materials-room-dashboard]"),
+  scrollTop: document.querySelector("[data-scroll-top]"),
+  scrollBottom: document.querySelector("[data-scroll-bottom]"),
 };
 
 async function requestRest(path, token, options = {}) {
@@ -61,13 +85,7 @@ function formatDate(value = "") {
 }
 
 function getMaterialTypeLabel(type = "note") {
-  const labels = {
-    note: "메모",
-    link: "링크",
-    file: "파일",
-    reference: "참고",
-  };
-  return labels[type] || "자료";
+  return FILTER_LABELS[type] || "자료";
 }
 
 function normalizeMaterial(row = {}) {
@@ -98,17 +116,52 @@ function getMaterialCounts() {
   );
 }
 
-function getLatestMaterial() {
-  return [...state.materials].sort((a, b) => {
-    const aTime = Date.parse(a.created_at || a.updated_at || "");
-    const bTime = Date.parse(b.created_at || b.updated_at || "");
-    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
-  })[0];
+function getMaterialSortTime(material = {}) {
+  const time = Date.parse(material.created_at || material.updated_at || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
+function isWebLink(url = "") {
+  return /^https?:\/\//i.test(String(url).trim());
+}
+
+function getMaterialPreview(material = {}) {
+  return String(material.content || material.url || "자료 설명이 없습니다.").replace(/\s+/g, " ").trim();
+}
+
+function getTitleSortLabel() {
+  return state.titleSortDirection === "asc" ? "제목 내림차순 정렬" : "제목 오름차순 정렬";
+}
+
+function getCurrentMaterials() {
+  const query = state.searchQuery.trim().toLowerCase();
+  let materials = [...state.materials];
+
+  if (state.activeFilter !== "all") {
+    materials = materials.filter((material) => material.material_type === state.activeFilter);
+  }
+
+  if (query) {
+    materials = materials.filter((material) =>
+      [material.title, material.content, material.url, getMaterialTypeLabel(material.material_type)]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }
+
+  if (state.titleSortDirection === "asc" || state.titleSortDirection === "desc") {
+    const direction = state.titleSortDirection === "asc" ? 1 : -1;
+    return materials.sort((a, b) => direction * String(a.title || "").localeCompare(String(b.title || ""), "ko", { numeric: true }));
+  }
+
+  return materials.sort((a, b) => getMaterialSortTime(b) - getMaterialSortTime(a));
 }
 
 function renderBlog(id, profile = null) {
   const title = profile?.blog_title || `${id}'s Blog`;
   if (els.brandTitle) els.brandTitle.textContent = title;
+  if (els.profileTitle) els.profileTitle.textContent = `${id}'s Blog`;
+  if (els.profileId) els.profileId.textContent = `@${id}`;
   if (els.title) els.title.textContent = "자료실";
   if (els.owner) els.owner.textContent = `${id} 계정의 독립 자료실입니다.`;
   els.initials.forEach((initial) => {
@@ -118,107 +171,171 @@ function renderBlog(id, profile = null) {
 }
 
 function renderStats() {
-  if (!els.stats) return;
-
   const counts = getMaterialCounts();
-  const stats = [
-    ["전체 자료", counts.total],
-    ["메모 자료", counts.note],
-    ["링크 자료", counts.link],
-    ["파일 자료", counts.file],
-    ["참고 자료", counts.reference],
-  ];
-
-  els.stats.innerHTML = stats
-    .map(
-      ([label, value]) => `
-        <article class="materials-stat">
-          <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(value)}</strong>
-        </article>
-      `
-    )
-    .join("");
+  els.stats.forEach((item) => {
+    const key = item.dataset.materialStat;
+    item.textContent = key === "total" ? counts.total : counts[key] || 0;
+  });
 }
 
-function renderMaterialDashboard() {
-  if (!els.materialDashboard) return;
-
-  const counts = getMaterialCounts();
-  const latest = getLatestMaterial();
-  const cards = [
-    ["저장 자료", `${counts.total}`],
-    ["링크 자료", `${counts.link}`],
-    ["파일 자료", `${counts.file}`],
-    ["최근 등록", latest ? formatDate(latest.created_at || latest.updated_at) : "-"],
-  ];
-
-  els.materialDashboard.innerHTML = cards
-    .map(
-      ([label, value]) => `
-        <article>
-          <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(value)}</strong>
-        </article>
-      `
-    )
-    .join("");
+function renderFilters() {
+  els.filterButtons.forEach((button) => {
+    const isActive = button.dataset.materialFilter === state.activeFilter;
+    if (isActive) {
+      button.setAttribute("aria-current", "page");
+    } else {
+      button.removeAttribute("aria-current");
+    }
+  });
 }
 
-function renderMaterialSpace() {
-  if (els.materialCount) {
-    els.materialCount.textContent = `${state.materials.length}개의 자료`;
-  }
+function renderBoardHeader(materials = []) {
+  const title = state.searchQuery.trim()
+    ? `검색: ${state.searchQuery.trim()}`
+    : FILTER_LABELS[state.activeFilter] || "전체 자료";
+  if (els.boardTitle) els.boardTitle.textContent = title;
+  if (els.count) els.count.textContent = `${materials.length}개의 자료`;
+}
 
-  if (!els.materialSpace) return;
+function renderMaterialRows(materials = []) {
+  if (!els.list) return;
 
-  if (state.materialError && state.materials.length === 0) {
-    els.materialSpace.innerHTML = `<p class="materials-empty">${escapeHtml(state.materialError)}</p>`;
+  if (materials.length === 0) {
+    const message = state.materialError || "아직 저장된 자료가 없습니다.";
+    els.list.innerHTML = `
+      <div class="blog-empty-row">
+        <span>${escapeHtml(message)}</span>
+        <span>-</span>
+        <span>-</span>
+        <span aria-hidden="true"></span>
+      </div>
+    `;
     return;
   }
 
-  if (state.materials.length === 0) {
-    els.materialSpace.innerHTML = `<p class="materials-empty">아직 저장된 자료가 없습니다.</p>`;
-    return;
-  }
-
-  els.materialSpace.innerHTML = state.materials
+  els.list.innerHTML = materials
     .map((material) => {
-      const typeLabel = getMaterialTypeLabel(material.material_type);
-      const content = String(material.content || "").trim();
-      const url = String(material.url || "").trim();
-      const isWebLink = /^https?:\/\//i.test(url);
+      const isSelected = material.id && material.id === state.selectedMaterialId;
       return `
-        <article class="materials-space-row" data-material-id="${escapeHtml(material.id)}">
-          <div class="materials-space-row-main">
-            <div class="materials-space-meta">
-              <span>${escapeHtml(typeLabel)}</span>
-              <time>${escapeHtml(formatDate(material.created_at || material.updated_at))}</time>
-            </div>
-            <strong>${escapeHtml(material.title)}</strong>
-            ${content ? `<p>${escapeHtml(content)}</p>` : ""}
-            ${url ? `<small>${escapeHtml(url)}</small>` : ""}
-          </div>
-          <div class="materials-material-actions">
-            ${
-              isWebLink
-                ? `<a class="materials-material-link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">열기</a>`
-                : ""
-            }
-            <button type="button" class="materials-material-delete" data-material-delete="${escapeHtml(material.id)}">
-              삭제
-            </button>
-          </div>
-        </article>
+        <div class="blog-post-row ${isSelected ? "is-selected" : ""}" data-material-row="${escapeHtml(material.id)}" tabindex="0">
+          <span>
+            <span class="blog-post-title">${escapeHtml(material.title)}</span>
+            <small>${escapeHtml(getMaterialPreview(material))}</small>
+          </span>
+          <span>${escapeHtml(getMaterialTypeLabel(material.material_type))}</span>
+          <span>${escapeHtml(formatDate(material.created_at || material.updated_at))}</span>
+          <span aria-hidden="true"></span>
+        </div>
       `;
     })
     .join("");
 }
 
+function renderFeatureArea(materials = []) {
+  if (!els.featureCard) return;
+
+  if (materials.length === 0) {
+    state.selectedMaterialId = "";
+    els.featureCard.hidden = true;
+    els.featureCard.innerHTML = "";
+    return;
+  }
+
+  const selectedExists = materials.some((material) => material.id === state.selectedMaterialId);
+  if (!selectedExists) state.selectedMaterialId = materials[0].id;
+
+  const material = materials.find((item) => item.id === state.selectedMaterialId) || materials[0];
+  const title = material.title || "제목 없는 자료";
+  const preview = getMaterialPreview(material);
+  const date = formatDate(material.created_at || material.updated_at);
+  const typeLabel = getMaterialTypeLabel(material.material_type);
+  const url = String(material.url || "").trim();
+  const canOpen = isWebLink(url);
+  const initial = (state.id || "B").slice(0, 1).toUpperCase();
+
+  els.featureCard.hidden = false;
+  els.featureCard.setAttribute("tabindex", "0");
+  els.featureCard.setAttribute("aria-label", `${title} 자료 보기`);
+  els.featureCard.innerHTML = `
+    <div class="blog-feature-kicker">${escapeHtml(typeLabel)}</div>
+    ${canOpen ? `<a class="blog-feature-title" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>` : `<span class="blog-feature-title">${escapeHtml(title)}</span>`}
+    <div class="blog-feature-meta">
+      <span class="blog-feature-avatar" aria-hidden="true">${escapeHtml(initial)}</span>
+      <span class="blog-feature-author">${escapeHtml(state.id || "blog")}</span>
+      <time datetime="${escapeHtml(material.created_at || material.updated_at || "")}">${escapeHtml(date)}</time>
+      <span>${escapeHtml(typeLabel)}</span>
+      ${canOpen ? `<a class="blog-feature-light-button" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">열기</a>` : ""}
+      <button class="blog-feature-light-button" type="button" data-feature-delete="${escapeHtml(material.id)}">삭제</button>
+    </div>
+    <div class="blog-feature-media">
+      <span class="blog-feature-placeholder">
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(preview)}</small>
+      </span>
+    </div>
+    <div class="blog-feature-caption">${escapeHtml(url || preview)}</div>
+    <div class="blog-feature-actions" aria-label="자료 기능">
+      ${canOpen ? `<a class="blog-feature-text-action" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">열기</a>` : ""}
+      <button class="blog-feature-text-action" type="button" data-feature-delete="${escapeHtml(material.id)}">삭제</button>
+    </div>
+  `;
+}
+
+function renderMiniList(materials = []) {
+  if (!els.miniList) return;
+  if (materials.length === 0) {
+    els.miniList.hidden = true;
+    els.miniList.innerHTML = "";
+    return;
+  }
+
+  const title = state.searchQuery.trim()
+    ? `검색 ${state.searchQuery.trim()}`
+    : FILTER_LABELS[state.activeFilter] || "전체 자료";
+  const sortLabel = getTitleSortLabel();
+  els.miniList.hidden = false;
+  els.miniList.innerHTML = `
+    <div class="blog-mini-list-head">
+      <strong>이 자료실 ${escapeHtml(title)}</strong>
+      <button class="blog-title-sort blog-mini-title-sort" type="button" data-mini-material-title-sort data-sort-direction="${escapeHtml(state.titleSortDirection)}" aria-label="${escapeHtml(sortLabel)}" title="${escapeHtml(sortLabel)}">
+        <span class="blog-title-sort-icon" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="blog-mini-rows">
+      ${materials
+        .slice(0, 5)
+        .map(
+          (material) => `
+            <button class="blog-mini-row ${material.id === state.selectedMaterialId ? "is-selected" : ""}" type="button" data-mini-material="${escapeHtml(material.id)}" aria-pressed="${material.id === state.selectedMaterialId ? "true" : "false"}">
+              <span>${escapeHtml(material.title)}</span>
+              <time>${escapeHtml(formatDate(material.created_at || material.updated_at))}</time>
+            </button>
+          `
+        )
+        .join("")}
+    </div>
+    <div class="blog-mini-footer">
+      <span>이전</span>
+      <span>다음</span>
+      <a href="#top">TOP</a>
+    </div>
+  `;
+}
+
 function renderDashboard() {
+  const materials = getCurrentMaterials();
   renderStats();
-  renderMaterialDashboard();
-  renderMaterialSpace();
+  renderFilters();
+  renderBoardHeader(materials);
+  renderFeatureArea(materials);
+  renderMaterialRows(materials);
+  renderMiniList(materials);
+  const sortLabel = getTitleSortLabel();
+  if (els.titleSort) {
+    els.titleSort.dataset.sortDirection = state.titleSortDirection;
+    els.titleSort.setAttribute("aria-label", sortLabel);
+    els.titleSort.setAttribute("title", sortLabel);
+  }
 }
 
 async function loadBlogProfile(session) {
@@ -251,7 +368,7 @@ async function createMaterial(payload) {
   return normalizeMaterial(Array.isArray(rows) ? rows[0] : payload);
 }
 
-async function deleteMaterial(materialId) {
+async function moveMaterialToTrash(materialId) {
   await requestRest(
     `blog_materials?id=eq.${encodeURIComponent(materialId)}&user_id=eq.${encodeURIComponent(state.session.user.id)}`,
     state.session.access_token,
@@ -266,6 +383,39 @@ async function deleteMaterial(materialId) {
       }),
     }
   );
+}
+
+function selectMaterial(materialId) {
+  if (!materialId) return;
+  const exists = getCurrentMaterials().some((material) => material.id === materialId);
+  if (!exists) return;
+  state.selectedMaterialId = materialId;
+  renderDashboard();
+}
+
+async function deleteMaterial(materialId) {
+  if (!materialId || !window.confirm("자료를 휴지통으로 이동할까요?")) return;
+  await moveMaterialToTrash(materialId);
+  state.materials = state.materials.filter((material) => material.id !== materialId);
+  if (state.selectedMaterialId === materialId) state.selectedMaterialId = "";
+  renderDashboard();
+}
+
+function toggleTitleSort() {
+  state.titleSortDirection = state.titleSortDirection === "asc" ? "desc" : "asc";
+  renderDashboard();
+}
+
+if (els.listToggle && els.board) {
+  const isInitiallyCollapsed = els.board.classList.contains("is-list-collapsed");
+  els.listToggle.textContent = isInitiallyCollapsed ? "목록열기" : "목록닫기";
+  els.listToggle.setAttribute("aria-expanded", String(!isInitiallyCollapsed));
+
+  els.listToggle.addEventListener("click", () => {
+    const isCollapsed = els.board.classList.toggle("is-list-collapsed");
+    els.listToggle.textContent = isCollapsed ? "목록열기" : "목록닫기";
+    els.listToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  });
 }
 
 els.materialForm?.addEventListener("submit", async (event) => {
@@ -287,8 +437,13 @@ els.materialForm?.addEventListener("submit", async (event) => {
       material_type: els.materialType?.value || "note",
       url: els.materialUrl?.value.trim() || null,
       content: els.materialContent?.value.trim() || null,
+      deleted_at: null,
     });
     state.materials = [material, ...state.materials];
+    state.selectedMaterialId = material.id;
+    state.activeFilter = "all";
+    state.searchQuery = "";
+    if (els.searchInput) els.searchInput.value = "";
     state.materialError = "";
     els.materialForm.reset();
     renderDashboard();
@@ -299,22 +454,79 @@ els.materialForm?.addEventListener("submit", async (event) => {
   }
 });
 
-els.materialSpace?.addEventListener("click", async (event) => {
-  const deleteButton = event.target.closest("[data-material-delete]");
+els.list?.addEventListener("click", (event) => {
+  const row = event.target.closest("[data-material-row]");
+  if (!row) return;
+  event.preventDefault();
+  selectMaterial(row.dataset.materialRow);
+});
+
+els.list?.addEventListener("keydown", (event) => {
+  const row = event.target.closest("[data-material-row]");
+  if (!row || (event.key !== "Enter" && event.key !== " ")) return;
+  event.preventDefault();
+  selectMaterial(row.dataset.materialRow);
+});
+
+els.featureCard?.addEventListener("click", async (event) => {
+  const deleteButton = event.target.closest("[data-feature-delete]");
   if (!deleteButton) return;
+  event.preventDefault();
+  await deleteMaterial(deleteButton.dataset.featureDelete);
+});
 
-  const materialId = deleteButton.getAttribute("data-material-delete");
-  if (!materialId || !window.confirm("자료를 휴지통으로 이동할까요?")) return;
-
-  deleteButton.disabled = true;
-  try {
-    await deleteMaterial(materialId);
-    state.materials = state.materials.filter((material) => material.id !== materialId);
-    renderDashboard();
-  } catch (error) {
-    deleteButton.disabled = false;
-    window.alert(error.message || "자료를 휴지통으로 이동하지 못했습니다.");
+els.miniList?.addEventListener("click", (event) => {
+  const sortButton = event.target.closest("[data-mini-material-title-sort]");
+  if (sortButton) {
+    event.preventDefault();
+    toggleTitleSort();
+    return;
   }
+
+  const row = event.target.closest("[data-mini-material]");
+  if (!row) return;
+  event.preventDefault();
+  selectMaterial(row.dataset.miniMaterial);
+});
+
+els.titleSort?.addEventListener("click", toggleTitleSort);
+
+els.filterButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    state.activeFilter = button.dataset.materialFilter || "all";
+    state.searchQuery = "";
+    state.selectedMaterialId = "";
+    if (els.searchInput) els.searchInput.value = "";
+    renderDashboard();
+  });
+});
+
+els.searchForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.searchQuery = els.searchInput?.value || "";
+  state.selectedMaterialId = "";
+  renderDashboard();
+});
+
+els.searchInput?.addEventListener("input", () => {
+  if (!els.searchInput.value.trim()) {
+    state.searchQuery = "";
+    renderDashboard();
+  }
+});
+
+els.scrollTop?.addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+els.scrollBottom?.addEventListener("click", () => {
+  const bottom = Math.max(
+    document.body.scrollHeight,
+    document.documentElement.scrollHeight,
+    document.body.offsetHeight,
+    document.documentElement.offsetHeight
+  );
+  window.scrollTo({ top: bottom, behavior: "smooth" });
 });
 
 window.blogSession?.ready.then(async (session) => {
@@ -327,6 +539,7 @@ window.blogSession?.ready.then(async (session) => {
   state.session = session;
   state.id = id;
   renderBlog(id);
+  renderDashboard();
 
   try {
     const profile = await loadBlogProfile(session);

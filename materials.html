@@ -28,7 +28,7 @@
         <div>
           <p class="eyebrow">내 블로그</p>
           <h1 id="materials-title" data-materials-title>자료실</h1>
-          <p data-materials-owner>내 블로그와 연결된 자료를 보기 좋게 정리합니다.</p>
+          <p data-materials-owner>계정별 독립 자료실입니다.</p>
         </div>
         <span class="personal-mark" data-blog-initial aria-hidden="true">B</span>
       </section>
@@ -39,96 +39,124 @@
         <a class="blog-write-button" href="./editor.html?mode=new">글쓰기</a>
       </nav>
 
-      <section class="materials-shell" aria-live="polite">
-        <div class="materials-topbar">
-          <div>
-            <p class="eyebrow">자료실</p>
-            <h2>자료 현황</h2>
-          </div>
-          <div class="materials-actions">
-            <a href="./my-blog.html">블로그 홈</a>
-            <a href="./materials-trash.html">자료실 휴지통</a>
-          </div>
-        </div>
-
-        <div class="materials-stats" data-materials-stats>
-          <article class="materials-stat">
-            <span>전체 자료</span>
-            <strong>0</strong>
-          </article>
-          <article class="materials-stat">
-            <span>메모 자료</span>
-            <strong>0</strong>
-          </article>
-          <article class="materials-stat">
-            <span>링크 자료</span>
-            <strong>0</strong>
-          </article>
-          <article class="materials-stat">
-            <span>파일 자료</span>
-            <strong>0</strong>
-          </article>
-        </div>
-
-        <section class="materials-card materials-space-card" aria-labelledby="materials-space-title">
-          <div class="materials-card-head">
+      <div class="blog-body-layout materials-blog-layout">
+        <aside class="blog-side-panel" aria-label="자료실 정보">
+          <div class="blog-profile-box">
+            <span class="blog-profile-mark" data-blog-initial aria-hidden="true">B</span>
             <div>
-              <h3 id="materials-space-title">자료실</h3>
-              <p data-materials-space-count>0개의 자료</p>
+              <strong data-profile-title>자료실</strong>
+              <span data-profile-id>@materials</span>
             </div>
-            <span class="materials-space-chip">대시보드</span>
           </div>
 
-          <div class="materials-room-dashboard" data-materials-room-dashboard>
-            <article>
-              <span>저장 자료</span>
-              <strong>0</strong>
-            </article>
-            <article>
-              <span>링크 자료</span>
-              <strong>0</strong>
-            </article>
-            <article>
-              <span>파일 자료</span>
-              <strong>0</strong>
-            </article>
-            <article>
-              <span>최근 등록</span>
-              <strong>-</strong>
-            </article>
+          <section class="naver-side-widget" aria-labelledby="materials-search-title">
+            <h2 id="materials-search-title">자료실 검색</h2>
+            <form class="blog-search-form" data-material-search-form>
+              <input type="search" data-material-search-input placeholder="자료 검색" aria-label="자료 검색">
+              <button type="submit">검색</button>
+            </form>
+          </section>
+
+          <section class="naver-side-widget" aria-labelledby="materials-add-title">
+            <h2 id="materials-add-title">자료 추가</h2>
+            <form class="materials-form materials-side-form" data-material-form>
+              <label>
+                <span>자료 제목</span>
+                <input type="text" maxlength="120" placeholder="자료 제목" autocomplete="off" data-material-title required>
+              </label>
+              <label>
+                <span>자료 종류</span>
+                <select data-material-type>
+                  <option value="note">메모</option>
+                  <option value="link">링크</option>
+                  <option value="file">파일</option>
+                  <option value="reference">참고</option>
+                </select>
+              </label>
+              <label>
+                <span>링크 또는 파일 경로</span>
+                <input type="text" placeholder="https:// 또는 파일 이름" autocomplete="off" data-material-url>
+              </label>
+              <label>
+                <span>내용</span>
+                <textarea rows="3" placeholder="짧은 설명" data-material-content></textarea>
+              </label>
+              <button type="submit">저장</button>
+            </form>
+          </section>
+
+          <section class="naver-side-widget" aria-labelledby="materials-status-title">
+            <h2 id="materials-status-title">자료 현황</h2>
+            <dl class="visitor-summary materials-summary">
+              <div>
+                <dt>전체 자료</dt>
+                <dd data-material-stat="total">0</dd>
+              </div>
+              <div>
+                <dt>메모</dt>
+                <dd data-material-stat="note">0</dd>
+              </div>
+              <div>
+                <dt>링크</dt>
+                <dd data-material-stat="link">0</dd>
+              </div>
+              <div>
+                <dt>파일</dt>
+                <dd data-material-stat="file">0</dd>
+              </div>
+            </dl>
+          </section>
+
+          <nav class="blog-side-links" aria-label="자료 종류">
+            <button type="button" data-material-filter="all" aria-current="page">전체 자료</button>
+            <button type="button" data-material-filter="note">메모</button>
+            <button type="button" data-material-filter="link">링크</button>
+            <button type="button" data-material-filter="file">파일</button>
+            <button type="button" data-material-filter="reference">참고</button>
+          </nav>
+
+          <a class="blog-trash-link" href="./materials-trash.html">자료실 휴지통</a>
+        </aside>
+
+        <section class="blog-board is-list-collapsed" aria-labelledby="materials-board-title" data-material-board>
+          <div class="blog-board-head">
+            <h2 id="materials-board-title"><span data-material-board-title>전체 자료</span> <span data-material-count>0개의 자료</span></h2>
+            <button class="blog-board-toggle" type="button" data-material-list-toggle aria-expanded="false">목록열기</button>
           </div>
 
-          <form class="materials-form" data-material-form>
-            <label>
+          <div class="blog-table" aria-label="자료 목록">
+            <div class="blog-table-head">
               <span>자료 제목</span>
-              <input type="text" maxlength="120" placeholder="자료 제목" autocomplete="off" data-material-title required>
-            </label>
-            <label>
-              <span>자료 종류</span>
-              <select data-material-type>
-                <option value="note">메모</option>
-                <option value="link">링크</option>
-                <option value="file">파일</option>
-                <option value="reference">참고</option>
-              </select>
-            </label>
-            <label class="materials-form-wide">
-              <span>링크 또는 파일 경로</span>
-              <input type="text" placeholder="https:// 또는 파일 이름" autocomplete="off" data-material-url>
-            </label>
-            <label class="materials-form-wide materials-form-note">
-              <span>내용</span>
-              <textarea rows="3" placeholder="짧은 설명이나 필요한 내용을 적어주세요." data-material-content></textarea>
-            </label>
-            <button type="submit">저장</button>
-          </form>
-
-          <div class="materials-list materials-space-list" data-materials-space>
-            <p class="materials-empty">아직 저장된 자료가 없습니다.</p>
+              <span>종류</span>
+              <span>등록일</span>
+              <button class="blog-title-sort" type="button" data-material-title-sort aria-label="제목 오름차순 정렬" title="제목 오름차순 정렬">
+                <span class="blog-title-sort-icon" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div data-material-list>
+              <div class="blog-empty-row">
+                <span>아직 저장된 자료가 없습니다.</span>
+                <span>-</span>
+                <span>-</span>
+                <span aria-hidden="true"></span>
+              </div>
+            </div>
           </div>
+
+          <article class="blog-feature-card materials-feature-card" data-material-feature-card hidden></article>
+          <section class="blog-mini-list" data-material-mini-list hidden></section>
         </section>
-      </section>
+      </div>
     </main>
+
+    <div class="blog-scroll-jump" aria-label="빠른 이동">
+      <button type="button" data-scroll-top title="최상단으로" aria-label="최상단으로">
+        <span class="scroll-jump-icon scroll-jump-up" aria-hidden="true"></span>
+      </button>
+      <button type="button" data-scroll-bottom title="최하단으로" aria-label="최하단으로">
+        <span class="scroll-jump-icon scroll-jump-down" aria-hidden="true"></span>
+      </button>
+    </div>
 
     <script src="./session.js" defer></script>
     <script src="./materials.js" defer></script>
