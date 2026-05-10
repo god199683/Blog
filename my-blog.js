@@ -215,13 +215,29 @@ function getTitleSortedPosts(posts = []) {
     .map((item) => item.post);
 }
 
+function getTitleSortLabel() {
+  return state.titleSortDirection === "asc" ? "제목 내림차순 정렬" : "제목 오름차순 정렬";
+}
+
 function syncTitleSortButton() {
-  if (!els.titleSort) return;
   const direction = state.titleSortDirection || "none";
-  const label = state.titleSortDirection === "asc" ? "제목 내림차순 정렬" : "제목 오름차순 정렬";
-  els.titleSort.dataset.sortDirection = direction;
-  els.titleSort.setAttribute("aria-label", label);
-  els.titleSort.title = label;
+  const label = getTitleSortLabel();
+  [els.titleSort, ...document.querySelectorAll("[data-mini-title-sort]")]
+    .filter(Boolean)
+    .forEach((button) => {
+      button.dataset.sortDirection = direction;
+      button.setAttribute("aria-label", label);
+      button.title = label;
+    });
+}
+
+function toggleTitleSort() {
+  state.titleSortDirection = state.titleSortDirection === "asc" ? "desc" : "asc";
+  if (els.searchInput?.value.trim()) {
+    applyBlogSearch(els.searchInput.value);
+  } else {
+    renderActivePosts();
+  }
 }
 
 function belongsToUser(post, session, id) {
@@ -582,11 +598,14 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
   }
 
   const title = scopeTitle === "전체보기" ? "전체 카테고리" : scopeTitle;
+  const sortLabel = getTitleSortLabel();
   els.miniList.hidden = false;
   els.miniList.innerHTML = `
     <div class="blog-mini-list-head">
       <strong>이 블로그 ${escapeHtml(title)} 글</strong>
-      <button type="button" data-mini-all>전체글 보기</button>
+      <button class="blog-title-sort blog-mini-title-sort" type="button" data-mini-title-sort data-sort-direction="${escapeHtml(state.titleSortDirection || "none")}" aria-label="${escapeHtml(sortLabel)}" title="${escapeHtml(sortLabel)}">
+        <span class="blog-title-sort-icon" aria-hidden="true"></span>
+      </button>
     </div>
     <div class="blog-mini-rows">
       ${posts
@@ -1135,19 +1154,19 @@ els.postList?.addEventListener("keydown", (event) => {
 });
 
 els.miniList?.addEventListener("click", (event) => {
+  const sortButton = event.target.closest("[data-mini-title-sort]");
+  if (sortButton) {
+    event.preventDefault();
+    toggleTitleSort();
+    return;
+  }
+
   const row = event.target.closest("[data-mini-post]");
   if (row) {
     event.preventDefault();
     selectFeaturePost(row.dataset.miniPost);
     return;
   }
-
-  const allButton = event.target.closest("[data-mini-all]");
-  if (!allButton) return;
-  state.activeNodeId = ALL_NODE_ID;
-  if (els.searchInput) els.searchInput.value = "";
-  renderActivePosts();
-  syncTreeSelectionState();
 });
 
 els.scrollTop?.addEventListener("click", () => {
@@ -1165,12 +1184,7 @@ els.scrollBottom?.addEventListener("click", () => {
 });
 
 els.titleSort?.addEventListener("click", () => {
-  state.titleSortDirection = state.titleSortDirection === "asc" ? "desc" : "asc";
-  if (els.searchInput?.value.trim()) {
-    applyBlogSearch(els.searchInput.value);
-  } else {
-    renderActivePosts();
-  }
+  toggleTitleSort();
 });
 
 els.toolsToggle?.addEventListener("click", () => {

@@ -1812,6 +1812,19 @@ body.is-away-locked {
   color: var(--sky-dark);
 }
 
+.blog-mini-list-head .blog-mini-title-sort {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 1.34rem;
+  height: 1.34rem;
+  min-height: 1.34rem;
+  padding: 0;
+}
+
+.blog-mini-list-head .blog-mini-title-sort .blog-title-sort-icon {
+  transform: scale(0.88);
+}
+
 .blog-mini-rows {
   display: grid;
 }
