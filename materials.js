@@ -5,9 +5,6 @@ const SUPABASE_ANON_KEY =
 const state = {
   session: null,
   id: "",
-  posts: [],
-  tree: [],
-  trashItems: [],
   materials: [],
   materialError: "",
 };
@@ -18,10 +15,6 @@ const els = {
   brandTitle: document.querySelector("[data-brand-title]"),
   initials: document.querySelectorAll("[data-blog-initial]"),
   stats: document.querySelector("[data-materials-stats]"),
-  recent: document.querySelector("[data-materials-recent]"),
-  categories: document.querySelector("[data-materials-categories]"),
-  folders: document.querySelector("[data-materials-folders]"),
-  status: document.querySelector("[data-materials-status]"),
   materialForm: document.querySelector("[data-material-form]"),
   materialTitle: document.querySelector("[data-material-title]"),
   materialType: document.querySelector("[data-material-type]"),
@@ -67,12 +60,6 @@ function formatDate(value = "") {
   }).format(date);
 }
 
-function htmlToPlainText(html = "") {
-  const scratch = document.createElement("div");
-  scratch.innerHTML = String(html);
-  return scratch.textContent.replace(/\s+/g, " ").trim();
-}
-
 function getMaterialTypeLabel(type = "note") {
   const labels = {
     note: "메모",
@@ -98,221 +85,77 @@ function normalizeMaterial(row = {}) {
   };
 }
 
+function getMaterialCounts() {
+  return state.materials.reduce(
+    (counts, material) => {
+      const type = material.material_type || "note";
+      counts.total += 1;
+      counts[type] = (counts[type] || 0) + 1;
+      return counts;
+    },
+    { total: 0, note: 0, link: 0, file: 0, reference: 0 }
+  );
+}
+
+function getLatestMaterial() {
+  return [...state.materials].sort((a, b) => {
+    const aTime = Date.parse(a.created_at || a.updated_at || "");
+    const bTime = Date.parse(b.created_at || b.updated_at || "");
+    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+  })[0];
+}
+
 function renderBlog(id, profile = null) {
   const title = profile?.blog_title || `${id}'s Blog`;
   if (els.brandTitle) els.brandTitle.textContent = title;
   if (els.title) els.title.textContent = "자료실";
-  if (els.owner) els.owner.textContent = `${id} 계정의 블로그 자료를 보기 좋게 정리합니다.`;
+  if (els.owner) els.owner.textContent = `${id} 계정의 독립 자료실입니다.`;
   els.initials.forEach((initial) => {
     initial.textContent = id.slice(0, 1).toUpperCase();
   });
   document.title = `자료실 | ${title}`;
 }
 
-function belongsToUser(post, session, id) {
-  return (
-    post.user_id === session?.user?.id ||
-    String(post.login_id || "").toLowerCase() === id.toLowerCase() ||
-    String(post.author || "").toLowerCase() === id.toLowerCase()
-  );
-}
-
-function cloneNode(node) {
-  return {
-    id: node.id,
-    type: node.type === "category" ? "category" : "folder",
-    label: node.label || (node.type === "category" ? "카테고리" : "폴더"),
-    filterCategory: node.type === "category" ? node.filterCategory || node.label || "카테고리" : "",
-    children: Array.isArray(node.children) ? node.children.map(cloneNode) : [],
-  };
-}
-
-function normalizeTree(tree) {
-  return Array.isArray(tree)
-    ? tree
-        .filter((node) => node && node.id !== "all")
-        .map(cloneNode)
-    : [];
-}
-
-function normalizeTrashItems(items = []) {
-  return Array.isArray(items)
-    ? items.map((item) => ({
-        id: item.id || "",
-        kind: item.kind || "node",
-        label: item.label || item.node?.label || item.posts?.[0]?.title || "삭제된 항목",
-        posts: Array.isArray(item.posts) ? item.posts : [],
-      }))
-    : [];
-}
-
-function getTrashPostIdSet(items = state.trashItems) {
-  const ids = new Set();
-  items.forEach((item) => {
-    (item.posts || []).forEach((post) => {
-      if (post.id) ids.add(String(post.id));
-    });
-  });
-  return ids;
-}
-
-function filterPostsOutsideTrash(posts = []) {
-  const trashPostIds = getTrashPostIdSet();
-  return posts.filter((post) => !trashPostIds.has(String(post.id)));
-}
-
-function getPostSortTime(post = {}) {
-  const time = Date.parse(post.published_at || post.created_at || "");
-  return Number.isFinite(time) ? time : 0;
-}
-
-function getPostViewHref(post = {}) {
-  return `./viewer.html?id=${encodeURIComponent(post.id || "")}`;
-}
-
-function findNode(nodes, id, path = []) {
-  for (const node of nodes) {
-    const nextPath = [...path, node];
-    if (node.id === id) return { node, path: nextPath };
-    const found = findNode(node.children || [], id, nextPath);
-    if (found) return found;
-  }
-  return null;
-}
-
-function getPathLabel(path = []) {
-  return path
-    .map((node) => node?.label || "")
-    .filter(Boolean)
-    .join(" / ");
-}
-
-function getTreeCategoryLabel(category = "") {
-  const value = String(category || "").trim();
-  if (!value || value === "전체") return "전체";
-  const categoryNode = state.tree.find(
-    (node) => node.type === "category" && (node.filterCategory === value || node.label === value)
-  );
-  return categoryNode?.label || value;
-}
-
-function getPostLocationLabel(post = {}) {
-  if (post.folder_id) {
-    const found = findNode(state.tree, post.folder_id);
-    if (found) return getPathLabel(found.path);
-  }
-  if (post.folder_path) return post.folder_path;
-
-  const categoryLabel = getTreeCategoryLabel(post.category);
-  const folderName = post.folder_name || post.folder || "";
-  if (folderName) return categoryLabel && categoryLabel !== "전체" ? `${categoryLabel} / ${folderName}` : folderName;
-  return categoryLabel || "전체";
-}
-
-function flattenFolders(nodes = state.tree, path = [], category = "") {
-  return nodes.flatMap((node) => {
-    const nextCategory = node.type === "category" ? node.filterCategory || node.label : category;
-    const nextPath = [...path, node];
-    const current =
-      node.type === "folder"
-        ? [
-            {
-              id: node.id,
-              label: node.label,
-              path: getPathLabel(nextPath),
-              category: nextCategory || "전체",
-            },
-          ]
-        : [];
-    return [...current, ...flattenFolders(node.children || [], nextPath, nextCategory)];
-  });
-}
-
-function getCategorySummaries(posts = state.posts) {
-  const byCategory = new Map();
-
-  state.tree
-    .filter((node) => node.type === "category")
-    .forEach((node) => {
-      const key = node.filterCategory || node.label || "전체";
-      byCategory.set(key, {
-        key,
-        label: node.label || key,
-        count: 0,
-      });
-    });
-
-  posts.forEach((post) => {
-    const key = post.category || "전체";
-    const item = byCategory.get(key) || {
-      key,
-      label: getTreeCategoryLabel(key),
-      count: 0,
-    };
-    item.count += 1;
-    byCategory.set(key, item);
-  });
-
-  return [...byCategory.values()].sort((a, b) => a.label.localeCompare(b.label, "ko", { numeric: true }));
-}
-
-function getFolderSummaries(posts = state.posts) {
-  const folders = flattenFolders();
-  const byFolder = new Map(
-    folders.map((folder) => [
-      folder.id,
-      {
-        ...folder,
-        count: 0,
-      },
-    ])
-  );
-
-  posts.forEach((post) => {
-    const id = String(post.folder_id || "");
-    if (id && byFolder.has(id)) {
-      byFolder.get(id).count += 1;
-      return;
-    }
-
-    const label = post.folder_path || post.folder_name || post.folder || "";
-    if (!label) return;
-    const key = `loose:${label}`;
-    const item = byFolder.get(key) || {
-      id: key,
-      label,
-      path: getPostLocationLabel(post),
-      category: post.category || "전체",
-      count: 0,
-    };
-    item.count += 1;
-    byFolder.set(key, item);
-  });
-
-  return [...byFolder.values()]
-    .filter((folder) => folder.count > 0 || !String(folder.id).startsWith("loose:"))
-    .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path, "ko", { numeric: true }));
-}
-
 function renderStats() {
-  const publicCount = state.posts.filter((post) => post.published !== false).length;
-  const privateCount = state.posts.length - publicCount;
-  const categories = getCategorySummaries();
-  const folders = getFolderSummaries();
+  if (!els.stats) return;
+
+  const counts = getMaterialCounts();
   const stats = [
-    ["전체 글", state.posts.length],
-    ["공개 글", publicCount],
-    ["비공개 글", privateCount],
-    ["자료", state.materials.length],
-    ["카테고리", categories.length],
-    ["폴더", folders.length],
-    ["휴지통", state.trashItems.length],
+    ["전체 자료", counts.total],
+    ["메모 자료", counts.note],
+    ["링크 자료", counts.link],
+    ["파일 자료", counts.file],
+    ["참고 자료", counts.reference],
   ];
 
   els.stats.innerHTML = stats
     .map(
       ([label, value]) => `
         <article class="materials-stat">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderMaterialDashboard() {
+  if (!els.materialDashboard) return;
+
+  const counts = getMaterialCounts();
+  const latest = getLatestMaterial();
+  const cards = [
+    ["저장 자료", `${counts.total}`],
+    ["링크 자료", `${counts.link}`],
+    ["파일 자료", `${counts.file}`],
+    ["최근 등록", latest ? formatDate(latest.created_at || latest.updated_at) : "-"],
+  ];
+
+  els.materialDashboard.innerHTML = cards
+    .map(
+      ([label, value]) => `
+        <article>
           <span>${escapeHtml(label)}</span>
           <strong>${escapeHtml(value)}</strong>
         </article>
@@ -371,139 +214,10 @@ function renderMaterialSpace() {
     .join("");
 }
 
-function renderMaterialDashboard() {
-  if (!els.materialDashboard) return;
-
-  const linkCount = state.materials.filter((material) => material.material_type === "link").length;
-  const fileCount = state.materials.filter((material) => material.material_type === "file").length;
-  const latest = [...state.materials].sort((a, b) => {
-    const aTime = Date.parse(a.created_at || a.updated_at || "");
-    const bTime = Date.parse(b.created_at || b.updated_at || "");
-    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
-  })[0];
-  const cards = [
-    ["저장 자료", `${state.materials.length}`],
-    ["링크 자료", `${linkCount}`],
-    ["파일 자료", `${fileCount}`],
-    ["최근 등록", latest ? formatDate(latest.created_at || latest.updated_at) : "-"],
-  ];
-
-  els.materialDashboard.innerHTML = cards
-    .map(
-      ([label, value]) => `
-        <article>
-          <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(value)}</strong>
-        </article>
-      `
-    )
-    .join("");
-}
-
-function renderRecentPosts() {
-  const posts = [...state.posts].sort((a, b) => getPostSortTime(b) - getPostSortTime(a)).slice(0, 6);
-  if (posts.length === 0) {
-    els.recent.innerHTML = `<p class="materials-empty">아직 정리할 글이 없습니다.</p>`;
-    return;
-  }
-
-  els.recent.innerHTML = posts
-    .map((post) => {
-      const excerpt = htmlToPlainText(post.body || "").slice(0, 80);
-      return `
-        <a class="materials-row materials-row-post" href="${getPostViewHref(post)}">
-          <span>
-            <strong>${escapeHtml(post.title || "제목 없는 글")}</strong>
-            <small>${escapeHtml(getPostLocationLabel(post))}${excerpt ? ` · ${escapeHtml(excerpt)}` : ""}</small>
-          </span>
-          <time>${escapeHtml(formatDate(post.published_at || post.created_at))}</time>
-        </a>
-      `;
-    })
-    .join("");
-}
-
-function renderCategories() {
-  const categories = getCategorySummaries();
-  if (categories.length === 0) {
-    els.categories.innerHTML = `<p class="materials-empty">카테고리가 없습니다.</p>`;
-    return;
-  }
-
-  els.categories.innerHTML = categories
-    .map(
-      (category) => `
-        <div class="materials-row">
-          <span>
-            <strong>${escapeHtml(category.label)}</strong>
-            <small>${escapeHtml(category.key)}</small>
-          </span>
-          <b>${escapeHtml(category.count)}개</b>
-        </div>
-      `
-    )
-    .join("");
-}
-
-function renderFolders() {
-  const folders = getFolderSummaries().slice(0, 8);
-  if (folders.length === 0) {
-    els.folders.innerHTML = `<p class="materials-empty">폴더가 없습니다.</p>`;
-    return;
-  }
-
-  els.folders.innerHTML = folders
-    .map(
-      (folder) => `
-        <div class="materials-row">
-          <span>
-            <strong>${escapeHtml(folder.label)}</strong>
-            <small>${escapeHtml(folder.path)}</small>
-          </span>
-          <b>${escapeHtml(folder.count)}개</b>
-        </div>
-      `
-    )
-    .join("");
-}
-
-function renderStatus() {
-  const total = Math.max(state.posts.length, 1);
-  const publicCount = state.posts.filter((post) => post.published !== false).length;
-  const privateCount = state.posts.length - publicCount;
-  const latest = [...state.posts].sort((a, b) => getPostSortTime(b) - getPostSortTime(a))[0];
-  const categoryCount = getCategorySummaries().length;
-  const folderCount = getFolderSummaries().length;
-  const items = [
-    ["공개 비율", `${Math.round((publicCount / total) * 100)}%`, publicCount / total],
-    ["비공개 비율", `${Math.round((privateCount / total) * 100)}%`, privateCount / total],
-    ["구조", `${categoryCount}개 카테고리 · ${folderCount}개 폴더`, Math.min(1, (categoryCount + folderCount) / 10)],
-    ["최근 작성", latest ? formatDate(latest.published_at || latest.created_at) : "-", latest ? 1 : 0],
-  ];
-
-  els.status.innerHTML = items
-    .map(
-      ([label, value, ratio]) => `
-        <article class="materials-status-item">
-          <div>
-            <span>${escapeHtml(label)}</span>
-            <strong>${escapeHtml(value)}</strong>
-          </div>
-          <i aria-hidden="true"><span style="width:${Math.round(Number(ratio) * 100)}%"></span></i>
-        </article>
-      `
-    )
-    .join("");
-}
-
 function renderDashboard() {
   renderStats();
   renderMaterialDashboard();
   renderMaterialSpace();
-  renderRecentPosts();
-  renderCategories();
-  renderFolders();
-  renderStatus();
 }
 
 async function loadBlogProfile(session) {
@@ -513,25 +227,6 @@ async function loadBlogProfile(session) {
     session.access_token
   );
   return Array.isArray(rows) ? rows[0] : null;
-}
-
-async function loadTree(session) {
-  const rows = await requestRest(
-    `blog_trees?select=tree,trash&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
-    session.access_token
-  );
-  const row = Array.isArray(rows) ? rows[0] : null;
-  state.trashItems = normalizeTrashItems(row?.trash);
-  return normalizeTree(row?.tree);
-}
-
-async function loadPosts(session, id) {
-  const rows = await requestRest(
-    "posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=1000",
-    session.access_token
-  );
-  const posts = Array.isArray(rows) ? rows.filter((post) => belongsToUser(post, session, id)) : [];
-  return filterPostsOutsideTrash(posts);
 }
 
 async function loadMaterials(session) {
@@ -630,20 +325,6 @@ window.blogSession?.ready.then(async (session) => {
     renderBlog(id, profile);
   } catch {
     renderBlog(id);
-  }
-
-  try {
-    state.tree = await loadTree(session);
-  } catch {
-    state.tree = [];
-    state.trashItems = [];
-  }
-
-  try {
-    state.posts = await loadPosts(session, id);
-  } catch (error) {
-    els.recent.innerHTML = `<p class="materials-empty">${escapeHtml(error.message || "자료를 불러오지 못했습니다.")}</p>`;
-    state.posts = [];
   }
 
   try {
