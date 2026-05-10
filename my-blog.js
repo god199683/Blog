@@ -993,12 +993,15 @@ const listToggle = document.querySelector("[data-list-toggle]");
 const blogBoard = document.querySelector("[data-blog-board]");
 
 if (listToggle && blogBoard) {
+  const isInitiallyCollapsed = blogBoard.classList.contains("is-list-collapsed");
+  listToggle.textContent = isInitiallyCollapsed ? "목록열기" : "목록닫기";
+  listToggle.setAttribute("aria-expanded", String(!isInitiallyCollapsed));
+
   listToggle.addEventListener("click", () => {
     const isCollapsed = blogBoard.classList.toggle("is-list-collapsed");
     listToggle.textContent = isCollapsed ? "목록열기" : "목록닫기";
     listToggle.setAttribute("aria-expanded", String(!isCollapsed));
   });
-  listToggle.setAttribute("aria-expanded", "true");
 }
 
 els.featureCard?.addEventListener("click", async (event) => {
