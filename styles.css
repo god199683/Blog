@@ -4300,6 +4300,196 @@ body.is-book-mode .viewer-page-content {
   color: #8aa0b2;
 }
 
+.space-dashboard-page {
+  min-height: 100svh;
+  background:
+    linear-gradient(180deg, rgba(240, 249, 255, 0.88), rgba(255, 255, 255, 0.98)),
+    var(--bg);
+  color: #20364a;
+}
+
+.space-dashboard-main {
+  width: min(100% - 1.4rem, 1320px);
+  margin: 0 auto;
+  padding: 0.74rem 0 1rem;
+}
+
+.space-dashboard-shell,
+.space-dashboard-preview,
+.space-dashboard-note,
+.space-dashboard-markers,
+.space-dashboard-stats article {
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 28px rgba(14, 116, 144, 0.05);
+}
+
+.space-dashboard-shell {
+  overflow: hidden;
+}
+
+.space-dashboard-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  min-height: 5rem;
+  padding: 0.9rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.86);
+  background: #fbfdff;
+}
+
+.space-dashboard-kicker {
+  margin: 0 0 0.22rem;
+  color: var(--sky-dark);
+  font-size: 0.72rem;
+  font-weight: 790;
+}
+
+.space-dashboard-topbar h1 {
+  margin: 0;
+  color: #17324a;
+  font-size: 1.18rem;
+  font-weight: 820;
+}
+
+.space-dashboard-topbar p:last-child {
+  margin: 0.2rem 0 0;
+  color: #7f95a8;
+  font-size: 0.8rem;
+}
+
+.space-dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.space-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(18rem, 0.75fr);
+  gap: 0.82rem;
+  padding: 0.82rem;
+}
+
+.space-dashboard-preview {
+  grid-row: span 3;
+  overflow: hidden;
+}
+
+.space-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  min-height: 2.65rem;
+  padding: 0 0.82rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.75);
+}
+
+.space-panel-head h2 {
+  margin: 0;
+  color: #20364a;
+  font-size: 0.84rem;
+  font-weight: 790;
+}
+
+.space-panel-head span {
+  color: #8aa0b2;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+.space-preview-canvas-wrap {
+  display: grid;
+  min-height: 30rem;
+  overflow: auto;
+  padding: 0.8rem;
+  place-items: center;
+  background: linear-gradient(135deg, #f8fcff, #ffffff);
+}
+
+.space-preview-canvas-wrap canvas {
+  max-width: 100%;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.space-dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.62rem;
+}
+
+.space-dashboard-stats article {
+  display: grid;
+  gap: 0.32rem;
+  min-height: 5.6rem;
+  padding: 0.78rem;
+}
+
+.space-dashboard-stats span,
+.space-empty-text {
+  color: #8aa0b2;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.space-dashboard-stats strong {
+  color: var(--sky-dark);
+  font-size: 1.1rem;
+  font-weight: 830;
+}
+
+.space-dashboard-note,
+.space-dashboard-markers {
+  overflow: hidden;
+}
+
+.space-dashboard-note p {
+  min-height: 7.2rem;
+  margin: 0;
+  padding: 0.82rem;
+  color: #5f7488;
+  font-size: 0.82rem;
+  line-height: 1.72;
+  white-space: pre-wrap;
+}
+
+.space-dashboard-markers > div {
+  display: grid;
+  gap: 0.46rem;
+  padding: 0.72rem;
+}
+
+.space-marker-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  min-height: 2.25rem;
+  padding: 0 0.58rem;
+  border: 1px solid rgba(216, 234, 251, 0.8);
+  border-radius: 7px;
+  background: #fbfdff;
+}
+
+.space-marker-card strong {
+  overflow: hidden;
+  color: #20364a;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.space-marker-card span {
+  color: #8aa0b2;
+  font-size: 0.74rem;
+  font-weight: 730;
+}
+
 .materials-summary dd {
   color: var(--sky-dark);
 }
@@ -5024,6 +5214,24 @@ svg {
 
   .map-workspace {
     min-height: 65svh;
+  }
+
+  .space-dashboard-topbar,
+  .space-dashboard-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .space-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .space-dashboard-preview {
+    grid-row: auto;
+  }
+
+  .space-preview-canvas-wrap {
+    min-height: 22rem;
   }
 
   .blog-body-layout {
