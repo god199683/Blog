@@ -6243,6 +6243,31 @@ body.is-book-mode :is(button, select):disabled {
   background: #f6f8fc;
 }
 
+.paint-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0.14rem;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.paint-tabs span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.72rem;
+  border-bottom: 2px solid transparent;
+  color: #536579;
+  font-size: 0.78rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.paint-tabs span.is-active {
+  border-color: #0b78b6;
+  color: #0b5f92;
+  background: #fff;
+}
+
 .paint-menu-links,
 .paint-quick-actions,
 .paint-app-actions {
@@ -6322,11 +6347,11 @@ body.is-book-mode :is(button, select):disabled {
 .paint-ribbon {
   display: flex;
   align-items: stretch;
-  min-height: 8.45rem;
+  min-height: 7.7rem;
   overflow-x: auto;
   overflow-y: hidden;
   border-bottom: 1px solid #dfe6ef;
-  background: #f7f9fc;
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
   scrollbar-gutter: stable;
 }
 
@@ -6346,16 +6371,8 @@ body.is-book-mode :is(button, select):disabled {
   flex: 0 0 var(--paint-group-width, 8rem);
 }
 
-.paint-group-select {
-  --paint-group-width: 4.4rem;
-}
-
-.paint-group-image {
-  --paint-group-width: 11rem;
-}
-
 .paint-group.paint-group-tools {
-  --paint-group-width: 10rem;
+  --paint-group-width: 7.2rem;
 }
 
 .paint-group-brush {
@@ -6467,10 +6484,6 @@ body.is-book-mode :is(button, select):disabled {
   display: block;
   width: 1.45rem;
   height: 1.45rem;
-}
-
-.paint-icon-select {
-  border: 1.5px dashed #1f2937;
 }
 
 .paint-icon-brush::before {
@@ -6669,11 +6682,82 @@ body.is-book-mode :is(button, select):disabled {
 
 .paint-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 14rem;
+  grid-template-columns: 11rem minmax(0, 1fr) 14rem;
   min-height: 0;
   overflow: hidden;
   flex: 1;
-  background: #eef3fb;
+  background: #eaf2fb;
+}
+
+.paint-slide-pane {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid #d9e6f2;
+  background: #f8fbff;
+  flex-direction: column;
+}
+
+.paint-slide-pane header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.55rem;
+  padding: 0 0.75rem;
+  border-bottom: 1px solid #dfe8f2;
+  color: #536579;
+}
+
+.paint-slide-pane header strong {
+  color: #1f3d57;
+  font-size: 0.78rem;
+}
+
+.paint-slide-pane header span {
+  font-size: 0.7rem;
+}
+
+.paint-slide-thumb {
+  display: grid;
+  grid-template-columns: 1.3rem minmax(0, 1fr);
+  gap: 0.48rem;
+  margin: 0.72rem;
+  padding: 0.45rem;
+  border: 1px solid #cfe3f3;
+  border-radius: 8px;
+  background: #fff;
+  color: #234058;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(36, 72, 102, 0.08);
+}
+
+.paint-slide-thumb.is-active {
+  border-color: #78bee7;
+  box-shadow: 0 0 0 2px rgba(120, 190, 231, 0.28);
+}
+
+.paint-slide-thumb b {
+  color: #0b6f9f;
+  font-size: 0.78rem;
+}
+
+.paint-slide-thumb canvas {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid #dce9f4;
+  border-radius: 4px;
+  background: #eef7ff;
+}
+
+.paint-slide-thumb span {
+  grid-column: 2;
+  overflow: hidden;
+  color: #536579;
+  font-size: 0.68rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .paint-left-sliders {
@@ -6716,7 +6800,11 @@ body.is-book-mode :is(button, select):disabled {
   min-height: 0;
   overflow: hidden;
   padding: 0;
-  background: #eef3fb;
+  background:
+    linear-gradient(rgba(11, 111, 159, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 111, 159, 0.04) 1px, transparent 1px),
+    #eaf2fb;
+  background-size: 24px 24px;
 }
 
 .paint-canvas-wrap {
@@ -6726,14 +6814,14 @@ body.is-book-mode :is(button, select):disabled {
   overflow: auto;
   border: 0;
   border-radius: 0;
-  background: #eef3fb;
+  background: transparent;
 }
 
 .paint-canvas-stage {
   display: grid;
   min-width: max-content;
   min-height: 100%;
-  padding: 3.1rem 4rem;
+  padding: 3.6rem 4.4rem;
   place-items: start center;
 }
 
@@ -6748,7 +6836,7 @@ body.is-book-mode :is(button, select):disabled {
   max-width: none;
   border: 1px solid #c5d1df;
   background: #fff;
-  box-shadow: none;
+  box-shadow: 0 18px 46px rgba(49, 86, 112, 0.18);
   cursor: crosshair;
   touch-action: none;
 }
@@ -6815,7 +6903,7 @@ body.is-book-mode :is(button, select):disabled {
   display: flex;
   min-width: 0;
   border-left: 1px solid #dfe6ef;
-  background: #fbfdff;
+  background: #f8fbff;
   flex-direction: column;
 }
 
@@ -6935,7 +7023,7 @@ body.is-book-mode :is(button, select):disabled {
 }
 
 .paint-layer-closed .paint-body {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 11rem minmax(0, 1fr);
 }
 
 @media (max-width: 1200px) {

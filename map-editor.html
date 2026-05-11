@@ -12,7 +12,7 @@
       <div class="paint-window-title">
         <span aria-hidden="true">🎨</span>
         <input type="text" data-map-title aria-label="공간 이름" placeholder="제목 없음">
-        <strong>- 그림판</strong>
+        <strong>- 프레젠테이션 편집</strong>
       </div>
       <div class="paint-window-actions" aria-hidden="true">
         <span>—</span>
@@ -28,6 +28,13 @@
         <button type="button" data-map-redo title="다시 실행" aria-label="다시 실행">↷</button>
         <span data-map-save-state>저장 준비</span>
       </div>
+      <div class="paint-tabs" aria-label="편집 탭">
+        <span class="is-active">홈</span>
+        <span>삽입</span>
+        <span>그리기</span>
+        <span>디자인</span>
+        <span>보기</span>
+      </div>
       <div class="paint-app-actions">
         <button class="paint-ribbon-toggle" type="button" data-map-ribbon-toggle aria-expanded="true" title="도구 접기">도구 접기</button>
         <button type="button" data-map-reset title="초기화" aria-label="초기화">🧹</button>
@@ -38,28 +45,6 @@
     <main class="map-editor-main paint-editor-main" aria-label="맵 제작 에디터">
       <section class="map-editor-shell paint-shell">
         <div class="map-paint-ribbon paint-ribbon" aria-label="그림판 도구막대">
-          <section class="map-ribbon-group paint-group paint-group-select" aria-label="선택">
-            <div class="paint-group-tools">
-              <button class="paint-large-tool" type="button" data-map-tool="select" aria-pressed="false" title="선택">
-                <span class="paint-icon paint-icon-select" aria-hidden="true"></span>
-              </button>
-              <button type="button" data-map-delete-selection title="선택 삭제">⌫</button>
-            </div>
-            <strong>선택</strong>
-          </section>
-
-          <section class="map-ribbon-group paint-group paint-group-image" aria-label="이미지">
-            <div class="paint-group-tools paint-two-col">
-              <button type="button" data-map-import-image title="이미지 불러오기">🖼</button>
-              <input type="file" data-map-image-input accept="image/*" hidden>
-              <button type="button" data-map-resize title="캔버스 크기 적용">↔</button>
-              <button type="button" data-map-grow="wide" title="가로 확장">⇔</button>
-              <button type="button" data-map-grow="tall" title="세로 확장">⇕</button>
-              <button type="button" data-map-grow="both" title="전체 확장">⤢</button>
-            </div>
-            <strong>이미지</strong>
-          </section>
-
           <section class="map-ribbon-group paint-group paint-group-tools" aria-label="도구">
             <div class="paint-group-tools paint-tool-matrix" role="toolbar" aria-label="도구">
               <button type="button" data-map-tool="pencil" title="연필" aria-pressed="false">✎</button>
@@ -68,8 +53,6 @@
               <button type="button" data-map-tool="text" title="텍스트" aria-pressed="false">A</button>
               <button type="button" data-map-tool="erase" title="지우개" aria-pressed="false">⌫</button>
               <button type="button" data-map-tool="picker" title="색 추출" aria-pressed="false">⌖</button>
-              <button type="button" data-map-tool="zoom" title="확대" aria-pressed="false">⌕</button>
-              <button type="button" data-map-tool="marker" title="표식" aria-pressed="false">●</button>
             </div>
             <strong>도구</strong>
           </section>
@@ -168,6 +151,18 @@
         </div>
 
         <div class="map-paint-body paint-body">
+          <aside class="paint-slide-pane" aria-label="슬라이드 목록">
+            <header>
+              <strong>슬라이드</strong>
+              <span>1개</span>
+            </header>
+            <button class="paint-slide-thumb is-active" type="button" aria-label="1번 슬라이드">
+              <b>1</b>
+              <canvas data-map-thumbnail width="180" height="102" aria-hidden="true"></canvas>
+              <span data-map-slide-title>공간</span>
+            </button>
+          </aside>
+
           <section class="map-workspace paint-workspace" aria-label="맵 작업 영역">
             <div class="map-canvas-wrap paint-canvas-wrap" data-map-canvas-wrap>
               <div class="map-canvas-stage paint-canvas-stage" data-map-canvas-stage>
@@ -186,10 +181,10 @@
             </div>
           </section>
 
-          <aside class="map-layer-dock paint-layer-dock" data-map-layer-dock aria-label="레이어와 표식">
+          <aside class="map-layer-dock paint-layer-dock" data-map-layer-dock aria-label="개체와 레이어">
             <header>
-              <strong>레이어</strong>
-              <button type="button" data-map-layer-toggle aria-label="레이어 닫기">×</button>
+              <strong>개체</strong>
+              <button type="button" data-map-layer-toggle aria-label="개체 패널 닫기">×</button>
             </header>
             <div class="paint-layer-list" data-map-layer-list></div>
           </aside>

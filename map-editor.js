@@ -124,12 +124,13 @@ const els = {
   canvasWrap: document.querySelector("[data-map-canvas-wrap]"),
   canvasFrame: document.querySelector("[data-map-canvas-frame]"),
   canvasStage: document.querySelector("[data-map-canvas-stage]"),
+  thumbnail: document.querySelector("[data-map-thumbnail]"),
+  slideTitle: document.querySelector("[data-map-slide-title]"),
   palette: document.querySelector("[data-map-palette]"),
   layerList: document.querySelector("[data-map-layer-list]"),
   layerDock: document.querySelector("[data-map-layer-dock]"),
   width: document.querySelector("[data-map-width]"),
   height: document.querySelector("[data-map-height]"),
-  imageInput: document.querySelector("[data-map-image-input]"),
   brushSize: document.querySelector("[data-map-brush-size]"),
   brushValue: document.querySelector("[data-map-brush-value]"),
   brushStyle: document.querySelector("[data-map-brush-style]"),
@@ -415,7 +416,8 @@ function syncControls() {
   if (els.secondaryPreview) els.secondaryPreview.style.background = state.secondaryColor;
   if (els.customColor) els.customColor.value = state[state.activeColorRole === "primary" ? "primaryColor" : "secondaryColor"];
   if (els.dashboardLink) els.dashboardLink.href = `./space-dashboard.html?space=${encodeURIComponent(state.spaceId)}#map`;
-  document.title = `${state.space?.title || "제목 없음"} - 그림판`;
+  if (els.slideTitle) els.slideTitle.textContent = state.space?.title || els.title?.value || "공간";
+  document.title = `${state.space?.title || "제목 없음"} - 프레젠테이션 편집`;
 }
 
 function updateStatus() {
@@ -838,6 +840,32 @@ function drawMap() {
   paintMap(ctx);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   updateStatus();
+  drawThumbnail();
+}
+
+function drawThumbnail() {
+  if (!els.thumbnail) return;
+  const thumbCtx = els.thumbnail.getContext("2d");
+  if (!thumbCtx) return;
+  const thumbWidth = els.thumbnail.width;
+  const thumbHeight = els.thumbnail.height;
+  const mapWidth = getCanvasWidth();
+  const mapHeight = getCanvasHeight();
+  const scale = Math.min((thumbWidth - 16) / mapWidth, (thumbHeight - 16) / mapHeight);
+  const offsetX = (thumbWidth - mapWidth * scale) / 2;
+  const offsetY = (thumbHeight - mapHeight * scale) / 2;
+
+  thumbCtx.setTransform(1, 0, 0, 1, 0, 0);
+  thumbCtx.clearRect(0, 0, thumbWidth, thumbHeight);
+  thumbCtx.fillStyle = "#eef7ff";
+  thumbCtx.fillRect(0, 0, thumbWidth, thumbHeight);
+  thumbCtx.save();
+  thumbCtx.translate(offsetX, offsetY);
+  thumbCtx.scale(scale, scale);
+  paintMap(thumbCtx, { includeSelection: false });
+  thumbCtx.restore();
+  thumbCtx.strokeStyle = "#b7d9ee";
+  thumbCtx.strokeRect(offsetX, offsetY, mapWidth * scale, mapHeight * scale);
 }
 
 function normalizeRect(rect = {}) {
@@ -1320,11 +1348,6 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  if (event.target.closest("[data-map-import-image]")) {
-    els.imageInput?.click();
-    return;
-  }
-
   if (event.target.closest("[data-map-delete-selection]")) {
     deleteSelection();
     return;
@@ -1391,11 +1414,6 @@ document.addEventListener("change", (event) => {
   if (event.target === els.zoomSelect && els.zoomSelect.value) {
     setZoom(Number(els.zoomSelect.value));
     return;
-  }
-  if (event.target === els.imageInput) {
-    const file = els.imageInput.files?.[0];
-    els.imageInput.value = "";
-    importImage(file);
   }
 });
 
