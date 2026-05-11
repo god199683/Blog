@@ -4,11 +4,15 @@ const SUPABASE_ANON_KEY =
 
 const DEFAULT_MAP = {
   kind: "blog-map",
-  version: 1,
+  version: 2,
   width: 32,
   height: 20,
   tileSize: 32,
+  canvasWidth: 1024,
+  canvasHeight: 640,
+  background: "#fbfdff",
   cells: {},
+  strokes: [],
   markers: [],
   note: "",
 };
@@ -71,12 +75,72 @@ function formatDate(value = "") {
   }).format(date);
 }
 
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, number));
+}
+
+function createId() {
+  return globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+}
+
+function normalizePoint(point) {
+  return {
+    x: Number(point?.x) || 0,
+    y: Number(point?.y) || 0,
+  };
+}
+
+function getCanvasWidth(map = state.map) {
+  return clampNumber(map.canvasWidth || map.width * map.tileSize, 320, 6000);
+}
+
+function getCanvasHeight(map = state.map) {
+  return clampNumber(map.canvasHeight || map.height * map.tileSize, 240, 4200);
+}
+
 function cloneMap(map = DEFAULT_MAP) {
+  const tileSize = Number(map.tileSize) || DEFAULT_MAP.tileSize;
+  const legacyWidth = Number(map.width) || DEFAULT_MAP.width;
+  const legacyHeight = Number(map.height) || DEFAULT_MAP.height;
+  const hasCanvasSize = Number.isFinite(Number(map.canvasWidth)) && Number.isFinite(Number(map.canvasHeight));
+  const canvasWidth = hasCanvasSize ? Number(map.canvasWidth) : legacyWidth * tileSize;
+  const canvasHeight = hasCanvasSize ? Number(map.canvasHeight) : legacyHeight * tileSize;
+  const cells = map.cells && typeof map.cells === "object" ? map.cells : {};
+  const strokes = Array.isArray(map.strokes)
+    ? map.strokes
+        .filter((stroke) => Array.isArray(stroke.points) && stroke.points.length > 0)
+        .map((stroke) => ({
+          id: stroke.id || createId(),
+          tool: stroke.tool === "erase" ? "erase" : "brush",
+          color: stroke.color || "#1f3b57",
+          width: clampNumber(stroke.width || 6, 1, 96),
+          points: stroke.points.map(normalizePoint),
+        }))
+    : [];
+  const markers = Array.isArray(map.markers)
+    ? map.markers.map((marker) => ({
+        ...marker,
+        id: marker.id || createId(),
+        x: hasCanvasSize ? Number(marker.x) || 0 : (Number(marker.x) || 0) * tileSize + tileSize / 2,
+        y: hasCanvasSize ? Number(marker.y) || 0 : (Number(marker.y) || 0) * tileSize + tileSize / 2,
+      }))
+    : [];
+
   return {
     ...structuredClone(DEFAULT_MAP),
     ...map,
-    cells: map.cells && typeof map.cells === "object" ? map.cells : {},
-    markers: Array.isArray(map.markers) ? map.markers : [],
+    version: 2,
+    tileSize,
+    canvasWidth,
+    canvasHeight,
+    width: Math.ceil(canvasWidth / tileSize),
+    height: Math.ceil(canvasHeight / tileSize),
+    background: map.background || DEFAULT_MAP.background,
+    cells,
+    strokes,
+    markers,
   };
 }
 
@@ -104,49 +168,88 @@ function syncBrand() {
   });
 }
 
-function drawPreview() {
-  if (!ctx || !els.preview) return;
-  const maxWidth = 960;
-  const maxHeight = 560;
-  const tile = Math.max(8, Math.floor(Math.min(maxWidth / state.map.width, maxHeight / state.map.height)));
-  const width = state.map.width * tile;
-  const height = state.map.height * tile;
-  els.preview.width = width;
-  els.preview.height = height;
-
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#fbfdff";
-  ctx.fillRect(0, 0, width, height);
-
+function drawLegacyCells(scale) {
+  const tile = (state.map.tileSize || DEFAULT_MAP.tileSize) * scale;
   Object.entries(state.map.cells || {}).forEach(([key, cell]) => {
     const [x, y] = key.split(",").map(Number);
     ctx.fillStyle = cell.color || "#dff4ff";
     ctx.fillRect(x * tile, y * tile, tile, tile);
   });
+}
 
-  ctx.strokeStyle = "rgba(186, 230, 253, 0.64)";
-  ctx.lineWidth = 1;
-  for (let x = 0; x <= state.map.width; x += 1) {
-    ctx.beginPath();
-    ctx.moveTo(x * tile + 0.5, 0);
-    ctx.lineTo(x * tile + 0.5, height);
-    ctx.stroke();
-  }
-  for (let y = 0; y <= state.map.height; y += 1) {
-    ctx.beginPath();
-    ctx.moveTo(0, y * tile + 0.5);
-    ctx.lineTo(width, y * tile + 0.5);
-    ctx.stroke();
-  }
+function drawStroke(stroke, scale) {
+  const points = stroke.points || [];
+  if (points.length === 0) return;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = stroke.tool === "erase" ? state.map.background : stroke.color || "#1f3b57";
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.lineWidth = Math.max(1, (stroke.width || 6) * scale);
 
-  state.map.markers.forEach((marker) => {
-    const cx = marker.x * tile + tile / 2;
-    const cy = marker.y * tile + tile / 2;
-    ctx.fillStyle = marker.color || "#0284c7";
+  if (points.length === 1) {
     ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(4, tile * 0.18), 0, Math.PI * 2);
+    ctx.arc(points[0].x * scale, points[0].y * scale, Math.max(1, ctx.lineWidth / 2), 0, Math.PI * 2);
     ctx.fill();
-  });
+    ctx.restore();
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x * scale, points[0].y * scale);
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const midX = ((previous.x + current.x) / 2) * scale;
+    const midY = ((previous.y + current.y) / 2) * scale;
+    ctx.quadraticCurveTo(previous.x * scale, previous.y * scale, midX, midY);
+  }
+  const last = points[points.length - 1];
+  ctx.lineTo(last.x * scale, last.y * scale);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawMarker(marker, scale) {
+  const x = (Number(marker.x) || 0) * scale;
+  const y = (Number(marker.y) || 0) * scale;
+  const label = marker.label || "표식";
+  ctx.save();
+  ctx.font = `700 ${Math.max(10, 15 * scale)}px sans-serif`;
+  ctx.textBaseline = "middle";
+
+  if (marker.type === "label") {
+    ctx.fillStyle = marker.color || "#0f3f61";
+    ctx.fillText(label, x, y);
+    ctx.restore();
+    return;
+  }
+
+  ctx.fillStyle = marker.color || "#0284c7";
+  ctx.beginPath();
+  ctx.arc(x, y, Math.max(4, 7 * scale), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#17324a";
+  ctx.fillText(label, x + 12 * scale, y);
+  ctx.restore();
+}
+
+function drawPreview() {
+  if (!ctx || !els.preview) return;
+  const maxWidth = 960;
+  const maxHeight = 560;
+  const scale = Math.min(maxWidth / getCanvasWidth(), maxHeight / getCanvasHeight(), 1);
+  const width = Math.max(1, Math.round(getCanvasWidth() * scale));
+  const height = Math.max(1, Math.round(getCanvasHeight() * scale));
+  els.preview.width = width;
+  els.preview.height = height;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = state.map.background || DEFAULT_MAP.background;
+  ctx.fillRect(0, 0, width, height);
+  drawLegacyCells(scale);
+  state.map.strokes.forEach((stroke) => drawStroke(stroke, scale));
+  state.map.markers.forEach((marker) => drawMarker(marker, scale));
 }
 
 function renderMarkers() {
@@ -161,7 +264,7 @@ function renderMarkers() {
       (marker) => `
         <article class="space-marker-card">
           <strong>${escapeHtml(marker.label || "표식")}</strong>
-          <span>${marker.x + 1}, ${marker.y + 1}</span>
+          <span>${Math.round(marker.x)}, ${Math.round(marker.y)}</span>
         </article>
       `
     )
@@ -169,21 +272,21 @@ function renderMarkers() {
 }
 
 function renderDashboard() {
+  const strokes = state.map.strokes.length;
   const cells = Object.keys(state.map.cells || {}).length;
-  const total = Math.max(1, state.map.width * state.map.height);
-  const coverage = Math.round((cells / total) * 100);
+  const elements = strokes + cells + state.map.markers.length;
   const note = String(state.map.note || "").trim();
 
   if (els.title) els.title.textContent = state.space?.title || "공간";
-  if (els.summary) els.summary.textContent = `${state.map.width} x ${state.map.height} 맵을 기준으로 정리된 공간입니다.`;
+  if (els.summary) els.summary.textContent = `${getCanvasWidth()} x ${getCanvasHeight()} 캔버스에 저장된 공간입니다.`;
   if (els.updated) els.updated.textContent = `수정일 ${formatDate(state.space?.updated_at || state.space?.created_at)}`;
   if (els.editLink) els.editLink.href = `./map-editor.html?space=${encodeURIComponent(state.spaceId)}`;
   if (els.note) els.note.textContent = note || "설명이 없습니다.";
 
-  setStat("size", `${state.map.width} x ${state.map.height}`);
-  setStat("tiles", String(cells));
+  setStat("size", `${getCanvasWidth()} x ${getCanvasHeight()}`);
+  setStat("tiles", String(strokes));
   setStat("markers", String(state.map.markers.length));
-  setStat("coverage", `${coverage}%`);
+  setStat("coverage", String(elements));
   drawPreview();
   renderMarkers();
 }
@@ -205,7 +308,7 @@ window.blogSession?.ready.then(async (session) => {
     return;
   }
   if (!state.spaceId) {
-    window.location.href = "./materials.html";
+    window.location.href = "./materials.html#spaces";
     return;
   }
 
@@ -220,6 +323,6 @@ window.blogSession?.ready.then(async (session) => {
     renderDashboard();
   } catch (error) {
     window.alert(error.message || "공간을 불러오지 못했습니다.");
-    window.location.href = "./materials.html";
+    window.location.href = "./materials.html#spaces";
   }
 });

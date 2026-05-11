@@ -345,7 +345,9 @@ function getMaterialPreview(material = {}) {
     try {
       const parsed = JSON.parse(material.content || "");
       if (parsed?.kind === "blog-map") {
-        return String(parsed.note || `${parsed.width || 0} x ${parsed.height || 0} 맵`).replace(/\s+/g, " ").trim();
+        const width = parsed.canvasWidth || (parsed.width || 0) * (parsed.tileSize || 32);
+        const height = parsed.canvasHeight || (parsed.height || 0) * (parsed.tileSize || 32);
+        return String(parsed.note || `${width || 0} x ${height || 0} 캔버스`).replace(/\s+/g, " ").trim();
       }
     } catch {}
   }

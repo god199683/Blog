@@ -4238,6 +4238,7 @@ body.is-book-mode .viewer-page-content {
 }
 
 .map-size-controls label,
+.map-brush-control,
 .map-zoom-control {
   display: grid;
   gap: 0.18rem;
@@ -4253,6 +4254,7 @@ body.is-book-mode .viewer-page-content {
   font-size: 0.76rem;
 }
 
+.map-brush-control input,
 .map-zoom-control input {
   width: 9rem;
   min-height: 1.8rem;
@@ -4290,13 +4292,8 @@ body.is-book-mode .viewer-page-content {
   border: 1px solid rgba(186, 230, 253, 0.96);
   border-radius: 9px;
   background:
-    linear-gradient(45deg, rgba(226, 242, 252, 0.56) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(226, 242, 252, 0.56) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(226, 242, 252, 0.56) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(226, 242, 252, 0.56) 75%),
+    linear-gradient(135deg, rgba(240, 249, 255, 0.82), rgba(255, 255, 255, 0.96)),
     #ffffff;
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-  background-size: 16px 16px;
 }
 
 .map-canvas-stage {

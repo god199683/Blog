@@ -38,7 +38,7 @@
           <section class="map-ribbon-group" aria-label="도구">
             <strong>도구</strong>
             <div class="map-tool-grid map-tool-grid--paint" role="toolbar" aria-label="맵 제작 도구">
-              <button type="button" data-map-tool="brush" aria-pressed="true">칠하기</button>
+              <button type="button" data-map-tool="brush" aria-pressed="true">펜</button>
               <button type="button" data-map-tool="erase">지우개</button>
               <button type="button" data-map-tool="marker">표식</button>
               <button type="button" data-map-tool="label">글자</button>
@@ -54,12 +54,12 @@
             <strong>제작 영역</strong>
             <div class="map-size-controls">
               <label>
-                <span>가로</span>
-                <input type="number" min="8" max="220" step="1" data-map-width>
+                <span>너비</span>
+                <input type="number" min="320" max="6000" step="20" data-map-width>
               </label>
               <label>
-                <span>세로</span>
-                <input type="number" min="8" max="160" step="1" data-map-height>
+                <span>높이</span>
+                <input type="number" min="240" max="4200" step="20" data-map-height>
               </label>
               <button type="button" data-map-resize>적용</button>
             </div>
@@ -72,6 +72,10 @@
 
           <section class="map-ribbon-group map-ribbon-group--view" aria-label="보기">
             <strong>보기</strong>
+            <label class="map-brush-control">
+              <span>굵기</span>
+              <input type="range" min="1" max="44" step="1" value="6" data-map-brush-size>
+            </label>
             <label class="map-zoom-control">
               <span>확대</span>
               <input type="range" min="0.35" max="2.5" step="0.05" value="1" data-map-zoom>
@@ -107,8 +111,8 @@
         </div>
 
         <footer class="map-statusbar" aria-label="맵 상태">
-          <span data-map-status>32 × 20</span>
-          <span>드래그해서 칠하고, 영역이 부족하면 제작 영역을 확장하세요.</span>
+          <span data-map-status>1024 × 640</span>
+          <span>그림판처럼 드래그해서 그리고, 공간이 부족하면 제작 영역을 확장하세요.</span>
         </footer>
       </section>
     </main>

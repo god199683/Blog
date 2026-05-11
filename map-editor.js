@@ -4,31 +4,36 @@ const SUPABASE_ANON_KEY =
 
 const DEFAULT_MAP = {
   kind: "blog-map",
-  version: 1,
+  version: 2,
   width: 32,
   height: 20,
   tileSize: 32,
+  canvasWidth: 1024,
+  canvasHeight: 640,
+  background: "#fbfdff",
   cells: {},
+  strokes: [],
   markers: [],
   note: "",
 };
 
 const PALETTE = [
-  { id: "plain", label: "기본", color: "#f8fcff" },
-  { id: "sky", label: "하늘", color: "#dff4ff" },
-  { id: "water", label: "물", color: "#8bd3ff" },
-  { id: "grass", label: "풀", color: "#b9f3c7" },
-  { id: "road", label: "길", color: "#e7edf4" },
-  { id: "stone", label: "돌", color: "#b8c7d4" },
-  { id: "wall", label: "벽", color: "#436174" },
-  { id: "warm", label: "장소", color: "#ffe4b8" },
+  { id: "ink", label: "잉크", color: "#1f3b57" },
+  { id: "sky", label: "하늘", color: "#38bdf8" },
+  { id: "water", label: "물", color: "#0ea5e9" },
+  { id: "grass", label: "풀", color: "#22c55e" },
+  { id: "road", label: "길", color: "#94a3b8" },
+  { id: "stone", label: "돌", color: "#64748b" },
+  { id: "wall", label: "벽", color: "#334155" },
+  { id: "warm", label: "장소", color: "#f59e0b" },
 ];
 
-const MIN_MAP_WIDTH = 8;
-const MIN_MAP_HEIGHT = 8;
-const MAX_MAP_WIDTH = 220;
-const MAX_MAP_HEIGHT = 160;
-const MAP_GROW_STEP = 8;
+const MIN_CANVAS_WIDTH = 320;
+const MIN_CANVAS_HEIGHT = 240;
+const MAX_CANVAS_WIDTH = 6000;
+const MAX_CANVAS_HEIGHT = 4200;
+const CANVAS_GROW_WIDTH = 240;
+const CANVAS_GROW_HEIGHT = 160;
 
 const state = {
   session: null,
@@ -37,9 +42,11 @@ const state = {
   space: null,
   map: structuredClone(DEFAULT_MAP),
   tool: "brush",
-  tile: PALETTE[1],
+  tile: PALETTE[0],
   zoom: 1,
+  brushSize: 6,
   isDrawing: false,
+  currentStroke: null,
   workspaceExpanded: false,
 };
 
@@ -56,6 +63,7 @@ const els = {
   height: document.querySelector("[data-map-height]"),
   resize: document.querySelector("[data-map-resize]"),
   growButtons: document.querySelectorAll("[data-map-grow]"),
+  brushSize: document.querySelector("[data-map-brush-size]"),
   zoom: document.querySelector("[data-map-zoom]"),
   fit: document.querySelector("[data-map-fit]"),
   workspaceToggle: document.querySelector("[data-map-workspace-toggle]"),
@@ -93,12 +101,72 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#039;");
 }
 
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, number));
+}
+
+function createId() {
+  return globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+}
+
+function getCanvasWidth(map = state.map) {
+  return clampNumber(map.canvasWidth || map.width * map.tileSize, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
+}
+
+function getCanvasHeight(map = state.map) {
+  return clampNumber(map.canvasHeight || map.height * map.tileSize, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
+}
+
+function normalizePoint(point) {
+  return {
+    x: Number(point?.x) || 0,
+    y: Number(point?.y) || 0,
+  };
+}
+
 function cloneMap(map = DEFAULT_MAP) {
+  const tileSize = Number(map.tileSize) || DEFAULT_MAP.tileSize;
+  const legacyWidth = Number(map.width) || DEFAULT_MAP.width;
+  const legacyHeight = Number(map.height) || DEFAULT_MAP.height;
+  const hasCanvasSize = Number.isFinite(Number(map.canvasWidth)) && Number.isFinite(Number(map.canvasHeight));
+  const canvasWidth = hasCanvasSize ? Number(map.canvasWidth) : legacyWidth * tileSize;
+  const canvasHeight = hasCanvasSize ? Number(map.canvasHeight) : legacyHeight * tileSize;
+  const cells = map.cells && typeof map.cells === "object" ? map.cells : {};
+  const strokes = Array.isArray(map.strokes)
+    ? map.strokes
+        .filter((stroke) => Array.isArray(stroke.points) && stroke.points.length > 0)
+        .map((stroke) => ({
+          id: stroke.id || createId(),
+          tool: stroke.tool === "erase" ? "erase" : "brush",
+          color: stroke.color || PALETTE[0].color,
+          width: clampNumber(stroke.width || DEFAULT_MAP.tileSize / 4, 1, 96),
+          points: stroke.points.map(normalizePoint),
+        }))
+    : [];
+  const markers = Array.isArray(map.markers)
+    ? map.markers.map((marker) => ({
+        ...marker,
+        id: marker.id || createId(),
+        x: hasCanvasSize ? Number(marker.x) || 0 : (Number(marker.x) || 0) * tileSize + tileSize / 2,
+        y: hasCanvasSize ? Number(marker.y) || 0 : (Number(marker.y) || 0) * tileSize + tileSize / 2,
+      }))
+    : [];
+
   return {
     ...structuredClone(DEFAULT_MAP),
     ...map,
-    cells: map.cells && typeof map.cells === "object" ? map.cells : {},
-    markers: Array.isArray(map.markers) ? map.markers : [],
+    version: 2,
+    tileSize,
+    canvasWidth: clampNumber(canvasWidth, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH),
+    canvasHeight: clampNumber(canvasHeight, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT),
+    width: Math.ceil(clampNumber(canvasWidth, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH) / tileSize),
+    height: Math.ceil(clampNumber(canvasHeight, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT) / tileSize),
+    background: map.background || DEFAULT_MAP.background,
+    cells,
+    strokes,
+    markers,
   };
 }
 
@@ -119,17 +187,11 @@ function setSaveState(text, type = "") {
   els.saveState.dataset.type = type;
 }
 
-function clampNumber(value, min, max) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return min;
-  return Math.min(max, Math.max(min, number));
-}
-
 function updateStatus() {
   if (!els.status) return;
-  const filled = Object.keys(state.map.cells || {}).length;
+  const strokes = state.map.strokes.length;
   const markers = state.map.markers.length;
-  els.status.textContent = `${state.map.width} × ${state.map.height} / 칠한 칸 ${filled} / 표식 ${markers} / ${Math.round(state.zoom * 100)}%`;
+  els.status.textContent = `${getCanvasWidth()} × ${getCanvasHeight()}px / 선 ${strokes} / 표식 ${markers} / ${Math.round(state.zoom * 100)}%`;
 }
 
 function syncBrand() {
@@ -140,66 +202,107 @@ function syncBrand() {
   });
 }
 
-function getCellFromEvent(event) {
+function getPointFromEvent(event) {
   if (!els.canvas) return null;
   const rect = els.canvas.getBoundingClientRect();
-  const x = Math.floor((event.clientX - rect.left) / (state.map.tileSize * state.zoom));
-  const y = Math.floor((event.clientY - rect.top) / (state.map.tileSize * state.zoom));
-  if (x < 0 || y < 0 || x >= state.map.width || y >= state.map.height) return null;
+  const canvasWidth = getCanvasWidth();
+  const canvasHeight = getCanvasHeight();
+  const x = ((event.clientX - rect.left) / rect.width) * canvasWidth;
+  const y = ((event.clientY - rect.top) / rect.height) * canvasHeight;
+  if (x < 0 || y < 0 || x > canvasWidth || y > canvasHeight) return null;
   return { x, y };
 }
 
-function getCellKey(cell) {
-  return `${cell.x},${cell.y}`;
+function distanceBetween(first, second) {
+  return Math.hypot(first.x - second.x, first.y - second.y);
 }
 
-function drawMap() {
-  if (!ctx || !els.canvas) return;
-  const tile = state.map.tileSize * state.zoom;
-  const width = Math.ceil(state.map.width * tile);
-  const height = Math.ceil(state.map.height * tile);
-  els.canvas.width = width;
-  els.canvas.height = height;
-  els.canvas.style.width = `${width}px`;
-  els.canvas.style.height = `${height}px`;
-
-  ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "#fbfdff";
-  ctx.fillRect(0, 0, els.canvas.width, els.canvas.height);
-
+function drawLegacyCells() {
+  const tile = state.map.tileSize || DEFAULT_MAP.tileSize;
   Object.entries(state.map.cells || {}).forEach(([key, cell]) => {
     const [x, y] = key.split(",").map(Number);
     ctx.fillStyle = cell.color || "#dff4ff";
     ctx.fillRect(x * tile, y * tile, tile, tile);
   });
+}
 
-  ctx.strokeStyle = "rgba(186, 230, 253, 0.75)";
-  ctx.lineWidth = 1;
-  for (let x = 0; x <= state.map.width; x += 1) {
-    ctx.beginPath();
-    ctx.moveTo(x * tile + 0.5, 0);
-    ctx.lineTo(x * tile + 0.5, state.map.height * tile);
-    ctx.stroke();
-  }
-  for (let y = 0; y <= state.map.height; y += 1) {
-    ctx.beginPath();
-    ctx.moveTo(0, y * tile + 0.5);
-    ctx.lineTo(state.map.width * tile, y * tile + 0.5);
-    ctx.stroke();
-  }
+function drawStroke(stroke) {
+  const points = stroke.points || [];
+  if (points.length === 0) return;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = stroke.tool === "erase" ? state.map.background : stroke.color || PALETTE[0].color;
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.lineWidth = stroke.width || state.brushSize;
 
-  state.map.markers.forEach((marker) => {
-    const cx = marker.x * tile + tile / 2;
-    const cy = marker.y * tile + tile / 2;
-    ctx.fillStyle = marker.color || "#0284c7";
+  if (points.length === 1) {
     ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(5, tile * 0.18), 0, Math.PI * 2);
+    ctx.arc(points[0].x, points[0].y, Math.max(1, ctx.lineWidth / 2), 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#17324a";
-    ctx.font = `700 ${Math.max(10, 12 * state.zoom)}px sans-serif`;
-    ctx.fillText(marker.label || "표식", cx + tile * 0.22, cy + 4);
-  });
+    ctx.restore();
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const midX = (previous.x + current.x) / 2;
+    const midY = (previous.y + current.y) / 2;
+    ctx.quadraticCurveTo(previous.x, previous.y, midX, midY);
+  }
+  const last = points[points.length - 1];
+  ctx.lineTo(last.x, last.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawMarker(marker) {
+  const x = Number(marker.x) || 0;
+  const y = Number(marker.y) || 0;
+  const label = marker.label || "표식";
+  ctx.save();
+  ctx.font = "700 15px sans-serif";
+  ctx.textBaseline = "middle";
+
+  if (marker.type === "label") {
+    ctx.fillStyle = marker.color || "#0f3f61";
+    ctx.fillText(label, x, y);
+    ctx.restore();
+    return;
+  }
+
+  ctx.fillStyle = marker.color || "#0284c7";
+  ctx.beginPath();
+  ctx.arc(x, y, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#17324a";
+  ctx.fillText(label, x + 12, y);
+  ctx.restore();
+}
+
+function drawMap() {
+  if (!ctx || !els.canvas) return;
+  const canvasWidth = getCanvasWidth();
+  const canvasHeight = getCanvasHeight();
+  const displayWidth = Math.ceil(canvasWidth * state.zoom);
+  const displayHeight = Math.ceil(canvasHeight * state.zoom);
+  els.canvas.width = displayWidth;
+  els.canvas.height = displayHeight;
+  els.canvas.style.width = `${displayWidth}px`;
+  els.canvas.style.height = `${displayHeight}px`;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, displayWidth, displayHeight);
+  ctx.imageSmoothingEnabled = true;
+  ctx.setTransform(state.zoom, 0, 0, state.zoom, 0, 0);
+  ctx.fillStyle = state.map.background || DEFAULT_MAP.background;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  drawLegacyCells();
+  state.map.strokes.forEach(drawStroke);
+  state.map.markers.forEach(drawMarker);
   updateStatus();
 }
 
@@ -225,7 +328,7 @@ function renderMarkers() {
       (marker) => `
         <button type="button" data-marker-remove="${escapeHtml(marker.id)}">
           <span>${escapeHtml(marker.label || "표식")}</span>
-          <small>${marker.x + 1}, ${marker.y + 1}</small>
+          <small>${Math.round(marker.x)}, ${Math.round(marker.y)}</small>
         </button>
       `
     )
@@ -235,9 +338,10 @@ function renderMarkers() {
 function renderAll() {
   if (els.title) els.title.value = state.space?.title || "";
   if (els.note) els.note.value = state.map.note || "";
-  if (els.width) els.width.value = String(state.map.width);
-  if (els.height) els.height.value = String(state.map.height);
+  if (els.width) els.width.value = String(getCanvasWidth());
+  if (els.height) els.height.value = String(getCanvasHeight());
   if (els.zoom) els.zoom.value = String(state.zoom);
+  if (els.brushSize) els.brushSize.value = String(state.brushSize);
   renderPalette();
   renderMarkers();
   drawMap();
@@ -250,63 +354,84 @@ function setTool(tool) {
   });
 }
 
-function applyTool(cell) {
-  if (!cell) return;
-  const key = getCellKey(cell);
+function removeMarkersNearPoint(point, radius) {
+  const before = state.map.markers.length;
+  state.map.markers = state.map.markers.filter((marker) => distanceBetween(point, marker) > radius);
+  if (before !== state.map.markers.length) renderMarkers();
+}
 
-  if (state.tool === "erase") {
-    delete state.map.cells[key];
-    state.map.markers = state.map.markers.filter((marker) => marker.x !== cell.x || marker.y !== cell.y);
-    renderMarkers();
-    drawMap();
-    return;
-  }
-
-  if (state.tool === "marker" || state.tool === "label") {
-    const label = window.prompt(state.tool === "label" ? "글자를 입력해주세요." : "표식 이름을 입력해주세요.", "");
-    if (!label) return;
-    state.map.markers.push({
-      id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-      type: state.tool,
-      x: cell.x,
-      y: cell.y,
-      label: label.slice(0, 40),
-      color: state.tool === "label" ? "#0f3f61" : "#0284c7",
-    });
-    renderMarkers();
-    drawMap();
-    return;
-  }
-
-  state.map.cells[key] = {
-    tile: state.tile.id,
-    color: state.tile.color,
-  };
+function addMarker(point) {
+  const label = window.prompt(state.tool === "label" ? "글자를 입력해주세요." : "표식 이름을 입력해주세요.", "");
+  if (!label) return;
+  state.map.markers.push({
+    id: createId(),
+    type: state.tool,
+    x: point.x,
+    y: point.y,
+    label: label.slice(0, 40),
+    color: state.tool === "label" ? state.tile.color : "#0284c7",
+  });
+  renderMarkers();
   drawMap();
 }
 
+function beginStroke(point) {
+  const isEraser = state.tool === "erase";
+  state.currentStroke = {
+    id: createId(),
+    tool: isEraser ? "erase" : "brush",
+    color: state.tile.color,
+    width: isEraser ? Math.max(8, state.brushSize * 2.2) : state.brushSize,
+    points: [point],
+  };
+  state.map.strokes.push(state.currentStroke);
+  if (isEraser) removeMarkersNearPoint(point, state.currentStroke.width);
+  drawMap();
+}
+
+function appendStrokePoint(point) {
+  if (!state.currentStroke) return;
+  const points = state.currentStroke.points;
+  const previous = points[points.length - 1];
+  if (previous && distanceBetween(previous, point) < 1.2) return;
+  points.push(point);
+  if (state.currentStroke.tool === "erase") removeMarkersNearPoint(point, state.currentStroke.width);
+  drawMap();
+}
+
+function handleCanvasAction(point) {
+  if (!point) return;
+  if (state.tool === "marker" || state.tool === "label") {
+    addMarker(point);
+    return;
+  }
+  beginStroke(point);
+}
+
 function resizeMap(width, height, { trim = true } = {}) {
-  const nextWidth = clampNumber(width, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
-  const nextHeight = clampNumber(height, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
-  state.map.width = nextWidth;
-  state.map.height = nextHeight;
+  const nextWidth = clampNumber(width, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
+  const nextHeight = clampNumber(height, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
+  state.map.canvasWidth = nextWidth;
+  state.map.canvasHeight = nextHeight;
+  state.map.width = Math.ceil(nextWidth / state.map.tileSize);
+  state.map.height = Math.ceil(nextHeight / state.map.tileSize);
 
   if (trim) {
     Object.keys(state.map.cells).forEach((key) => {
       const [x, y] = key.split(",").map(Number);
-      if (x >= nextWidth || y >= nextHeight) delete state.map.cells[key];
+      if (x * state.map.tileSize >= nextWidth || y * state.map.tileSize >= nextHeight) delete state.map.cells[key];
     });
-    state.map.markers = state.map.markers.filter((marker) => marker.x < nextWidth && marker.y < nextHeight);
+    state.map.markers = state.map.markers.filter((marker) => marker.x <= nextWidth && marker.y <= nextHeight);
   }
 
   renderAll();
 }
 
 function applyResizeFromInputs() {
-  const width = clampNumber(els.width?.value || state.map.width, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
-  const height = clampNumber(els.height?.value || state.map.height, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
-  const isShrinking = width < state.map.width || height < state.map.height;
-  if (isShrinking && !window.confirm("줄어든 영역 밖의 내용은 지워집니다. 적용할까요?")) {
+  const width = clampNumber(els.width?.value || getCanvasWidth(), MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
+  const height = clampNumber(els.height?.value || getCanvasHeight(), MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
+  const isShrinking = width < getCanvasWidth() || height < getCanvasHeight();
+  if (isShrinking && !window.confirm("줄어든 영역 밖의 내용은 보이지 않습니다. 적용할까요?")) {
     renderAll();
     return;
   }
@@ -314,17 +439,17 @@ function applyResizeFromInputs() {
 }
 
 function growMap(direction = "both") {
-  const addWidth = direction === "wide" || direction === "both" ? MAP_GROW_STEP : 0;
-  const addHeight = direction === "tall" || direction === "both" ? MAP_GROW_STEP : 0;
-  resizeMap(state.map.width + addWidth, state.map.height + addHeight, { trim: false });
+  const addWidth = direction === "wide" || direction === "both" ? CANVAS_GROW_WIDTH : 0;
+  const addHeight = direction === "tall" || direction === "both" ? CANVAS_GROW_HEIGHT : 0;
+  resizeMap(getCanvasWidth() + addWidth, getCanvasHeight() + addHeight, { trim: false });
 }
 
 function fitMapToView() {
   if (!els.canvasWrap) return;
   const availableWidth = Math.max(240, els.canvasWrap.clientWidth - 48);
   const availableHeight = Math.max(180, els.canvasWrap.clientHeight - 48);
-  const widthRatio = availableWidth / (state.map.width * state.map.tileSize);
-  const heightRatio = availableHeight / (state.map.height * state.map.tileSize);
+  const widthRatio = availableWidth / getCanvasWidth();
+  const heightRatio = availableHeight / getCanvasHeight();
   const nextZoom = clampNumber(Math.min(widthRatio, heightRatio), 0.35, 2.5);
   state.zoom = Number(nextZoom.toFixed(2));
   if (els.zoom) els.zoom.value = String(state.zoom);
@@ -355,6 +480,10 @@ async function saveMap() {
   if (!state.spaceId || !state.session?.access_token) return;
   const title = els.title?.value.trim() || "이름 없는 공간";
   state.map.note = els.note?.value.trim() || "";
+  state.map.canvasWidth = getCanvasWidth();
+  state.map.canvasHeight = getCanvasHeight();
+  state.map.width = Math.ceil(state.map.canvasWidth / state.map.tileSize);
+  state.map.height = Math.ceil(state.map.canvasHeight / state.map.tileSize);
   setSaveState("저장 중...");
   await requestRest(
     `blog_materials?id=eq.${encodeURIComponent(state.spaceId)}&user_id=eq.${encodeURIComponent(state.session.user.id)}`,
@@ -392,17 +521,23 @@ els.canvas?.addEventListener("pointerdown", (event) => {
   event.preventDefault();
   state.isDrawing = true;
   els.canvas.setPointerCapture?.(event.pointerId);
-  applyTool(getCellFromEvent(event));
+  handleCanvasAction(getPointFromEvent(event));
 });
 
 els.canvas?.addEventListener("pointermove", (event) => {
   event.preventDefault();
   if (!state.isDrawing || state.tool === "marker" || state.tool === "label") return;
-  applyTool(getCellFromEvent(event));
+  appendStrokePoint(getPointFromEvent(event));
+});
+
+els.canvas?.addEventListener("pointerleave", () => {
+  state.isDrawing = false;
+  state.currentStroke = null;
 });
 
 window.addEventListener("pointerup", () => {
   state.isDrawing = false;
+  state.currentStroke = null;
 });
 
 els.markerList?.addEventListener("click", (event) => {
@@ -419,6 +554,11 @@ els.resize?.addEventListener("click", () => {
 
 els.growButtons.forEach((button) => {
   button.addEventListener("click", () => growMap(button.dataset.mapGrow || "both"));
+});
+
+els.brushSize?.addEventListener("input", () => {
+  state.brushSize = clampNumber(els.brushSize.value, 1, 44);
+  updateStatus();
 });
 
 els.zoom?.addEventListener("input", () => {
@@ -468,6 +608,6 @@ window.blogSession?.ready.then(async (session) => {
     setSaveState("저장 준비");
   } catch (error) {
     window.alert(error.message || "공간을 불러오지 못했습니다.");
-    window.location.href = "./materials.html";
+    window.location.href = "./materials.html#spaces";
   }
 });
