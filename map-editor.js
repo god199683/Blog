@@ -151,6 +151,7 @@ const els = {
   primaryPreview: document.querySelector("[data-map-primary-preview]"),
   secondaryPreview: document.querySelector("[data-map-secondary-preview]"),
   customColor: document.querySelector("[data-map-custom-color]"),
+  imageInput: document.querySelector("[data-map-image-input]"),
   dashboardLink: document.querySelector("[data-map-dashboard-link]"),
   fontFamily: document.querySelector("[data-map-font-family]"),
   fontSize: document.querySelector("[data-map-font-size]"),
@@ -1706,7 +1707,7 @@ document.addEventListener("click", async (event) => {
   }
 
   if (event.target.closest("[data-map-fill-picture]")) {
-    window.alert("그림 채우기는 다음 단계에서 연결할 수 있습니다.");
+    els.imageInput?.click();
     return;
   }
 
@@ -1867,6 +1868,12 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target === els.imageInput) {
+    const file = els.imageInput.files?.[0];
+    els.imageInput.value = "";
+    importImage(file);
+    return;
+  }
   if (event.target === els.width || event.target === els.height) {
     applyResizeFromInputs();
     return;
