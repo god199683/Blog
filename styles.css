@@ -7291,11 +7291,11 @@ body.is-book-mode :is(button, select):disabled {
 }
 
 .garden-creature-row {
-  grid-template-columns: minmax(0, 1fr) 5.8rem 4.6rem 7rem;
+  grid-template-columns: minmax(0, 1fr) 7rem minmax(7rem, 0.7fr);
 }
 
 .garden-creature-list-row {
-  grid-template-columns: minmax(0, 1fr) 5rem 4rem minmax(7rem, 0.8fr) 5.4rem 4rem 5.5rem;
+  grid-template-columns: minmax(0, 1fr) 7rem minmax(7rem, 0.7fr) minmax(10rem, 1fr) 5.5rem;
 }
 
 .garden-access-row {

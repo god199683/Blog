@@ -99,7 +99,6 @@ const state = {
   selectedZoneId: "",
   mapZoom: 1,
   creatureTypeFilter: "all",
-  creatureGradeFilter: "all",
 };
 
 const dashboardImageCache = new Map();
@@ -210,11 +209,22 @@ function getZoneType(type = "default") {
 }
 
 function getCreatureType(type = "other") {
-  return CREATURE_TYPES.find((item) => item.value === type) || CREATURE_TYPES[CREATURE_TYPES.length - 1];
+  const known = CREATURE_TYPES.find((item) => item.value === type || item.label === type);
+  return known || { value: String(type || "other"), label: String(type || "기타"), icon: "•" };
 }
 
 function getGrowthStage(stage = "seed") {
   return GROWTH_STAGES.find((item) => item.value === stage) || GROWTH_STAGES[0];
+}
+
+function isPlantCreature(creature = {}) {
+  const type = String(creature.type || "").trim().toLowerCase();
+  return type === "plant" || type === "식물";
+}
+
+function getCreatureTypeOptions() {
+  const values = [...new Set(state.map.creatures.map((item) => String(item.type || "").trim()).filter(Boolean))];
+  return values.map((value) => ({ value, label: getCreatureType(value).label }));
 }
 
 function getByproductType(type = "byproduct") {
@@ -238,24 +248,13 @@ function normalizeZone(zone = {}) {
 }
 
 function normalizeCreature(creature = {}) {
-  const type = CREATURE_TYPES.some((item) => item.value === creature.type) ? creature.type : "plant";
-  const grade = GRADES.includes(creature.grade) ? creature.grade : "F";
-  const growthStage = GROWTH_STAGES.some((item) => item.value === creature.growthStage || creature.growth_stage)
-    ? creature.growthStage || creature.growth_stage
-    : "seed";
-  const growthMode = ["off", "stage1", "stage2"].includes(creature.growthMode || creature.growth_mode)
-    ? creature.growthMode || creature.growth_mode
-    : state.map.settings?.growthMode || DEFAULT_SETTINGS.growthMode;
+  const knownType = getCreatureType(creature.type || creature.type_label || "식물");
   return {
     id: creature.id || createId(),
     name: String(creature.name || "이름 없는 개체").slice(0, 80),
-    type,
-    grade,
+    type: String(knownType.label || knownType.value || "식물").slice(0, 60),
     zoneId: creature.zoneId || creature.zone_id || "",
-    growthStage,
-    growthMode,
     description: String(creature.description || "").slice(0, 700),
-    autoClassified: toBool(creature.autoClassified ?? creature.auto_classified, true),
     createdAt: creature.createdAt || creature.created_at || new Date().toISOString(),
   };
 }
@@ -368,8 +367,8 @@ function getZonePath(zoneId = "") {
 function getZoneCounts(zoneId = "") {
   const creatures = state.map.creatures.filter((item) => item.zoneId === zoneId);
   return {
-    plants: creatures.filter((item) => item.type === "plant").length,
-    creatures: creatures.filter((item) => item.type !== "plant").length,
+    plants: creatures.filter(isPlantCreature).length,
+    creatures: creatures.filter((item) => !isPlantCreature(item)).length,
     total: creatures.length,
     byproducts: state.map.byproducts.filter((item) => item.zoneId === zoneId).length,
   };
@@ -465,15 +464,15 @@ function getStatusRows() {
     ["오염 방지", settings.pollutionShield ? "활성" : "비활성"],
     ["자가 세척", settings.selfCleaning ? "활성" : "비활성"],
     ["출입 패스키", `${state.map.accessKeys.length}개`],
-    ["Ex급 개체", `${state.map.creatures.filter((item) => item.grade === "Ex").length}개`],
+    ["동식물", `${state.map.creatures.length}개`],
   ];
 }
 
 function renderDashboard() {
   const zones = state.map.zones;
   const creatures = state.map.creatures;
-  const plants = creatures.filter((item) => item.type === "plant").length;
-  const living = creatures.filter((item) => item.type !== "plant").length;
+  const plants = creatures.filter(isPlantCreature).length;
+  const living = creatures.filter((item) => !isPlantCreature(item)).length;
   const byproducts = state.map.byproducts;
   const recentCreatures = [...creatures]
     .sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""))
@@ -534,7 +533,7 @@ function renderDashboard() {
       recentCreatures.length
         ? `<div class="garden-table">
             <div class="garden-table-head garden-creature-row">
-              <span>이름</span><span>유형</span><span>등급</span><span>성장 단계</span>
+              <span>이름</span><span>유형</span><span>구역</span>
             </div>
             ${recentCreatures
               .map((item) => {
@@ -543,8 +542,7 @@ function renderDashboard() {
                   <div class="garden-table-row garden-creature-row">
                     <strong>${type.icon} ${escapeHtml(item.name)}</strong>
                     <span>${escapeHtml(type.label)}</span>
-                    <span class="garden-grade grade-${escapeHtml(item.grade)}">${escapeHtml(item.grade)}</span>
-                    <span>${escapeHtml(getGrowthStage(item.growthStage).label)}</span>
+                    <span>${escapeHtml(getZoneName(item.zoneId))}</span>
                   </div>
                 `;
               })
@@ -979,31 +977,15 @@ function renderCreatureForm(creature = null) {
       </label>
       <label>
         <span>유형</span>
-        <select name="type">${renderOptions(CREATURE_TYPES, item.type)}</select>
-      </label>
-      <label>
-        <span>등급</span>
-        <select name="grade">${renderOptions(GRADES, item.grade)}</select>
+        <input name="type" required maxlength="60" value="${escapeHtml(item.type || "")}" placeholder="예: 식물, 동물, 영체">
       </label>
       <label>
         <span>구역</span>
         <select name="zoneId">${renderZoneOptions(item.zoneId)}</select>
       </label>
-      <label>
-        <span>성장 단계</span>
-        <select name="growthStage">${renderOptions(GROWTH_STAGES, item.growthStage)}</select>
-      </label>
-      <label>
-        <span>성장 모드</span>
-        <select name="growthMode">${renderOptions(GROWTH_MODES, item.growthMode)}</select>
-      </label>
       <label class="garden-form-wide">
         <span>설명</span>
         <textarea name="description" rows="3" maxlength="700" placeholder="개체 설명">${escapeHtml(item.description)}</textarea>
-      </label>
-      <label class="garden-check">
-        <input type="checkbox" name="autoClassified" ${item.autoClassified ? "checked" : ""}>
-        <span>자동 분류</span>
       </label>
       <div class="garden-form-actions">
         <button class="garden-button is-primary" type="submit">${creature ? "개체 수정" : "개체 추가"}</button>
@@ -1015,9 +997,7 @@ function renderCreatureForm(creature = null) {
 
 function getFilteredCreatures() {
   return state.map.creatures.filter((item) => {
-    const typeMatch = state.creatureTypeFilter === "all" || item.type === state.creatureTypeFilter;
-    const gradeMatch = state.creatureGradeFilter === "all" || item.grade === state.creatureGradeFilter;
-    return typeMatch && gradeMatch;
+    return state.creatureTypeFilter === "all" || item.type === state.creatureTypeFilter;
   });
 }
 
@@ -1031,11 +1011,7 @@ function renderCreaturesPage() {
       <button class="garden-button is-primary" type="button" data-action="open-creature-form">동식물 추가</button>
       <select data-creature-type-filter aria-label="유형 필터">
         <option value="all" ${state.creatureTypeFilter === "all" ? "selected" : ""}>전체 유형</option>
-        ${renderOptions(CREATURE_TYPES, state.creatureTypeFilter)}
-      </select>
-      <select data-creature-grade-filter aria-label="등급 필터">
-        <option value="all" ${state.creatureGradeFilter === "all" ? "selected" : ""}>전체 등급</option>
-        ${renderOptions(GRADES, state.creatureGradeFilter)}
+        ${renderOptions(getCreatureTypeOptions(), state.creatureTypeFilter)}
       </select>
     </section>
     ${state.editType === "creature" ? renderCard(editingCreature ? "동식물 수정" : "새 동식물", renderCreatureForm(editingCreature)) : ""}
@@ -1044,7 +1020,7 @@ function renderCreaturesPage() {
       creatures.length
         ? `<div class="garden-table">
             <div class="garden-table-head garden-creature-list-row">
-              <span>이름</span><span>유형</span><span>등급</span><span>구역</span><span>성장</span><span>분류</span><span>관리</span>
+              <span>이름</span><span>유형</span><span>구역</span><span>설명</span><span>관리</span>
             </div>
             ${creatures
               .map((item) => {
@@ -1053,10 +1029,8 @@ function renderCreaturesPage() {
                   <div class="garden-table-row garden-creature-list-row">
                     <strong>${type.icon} ${escapeHtml(item.name)}</strong>
                     <span>${escapeHtml(type.label)}</span>
-                    <span class="garden-grade grade-${escapeHtml(item.grade)}">${escapeHtml(item.grade)}</span>
                     <span>${escapeHtml(getZoneName(item.zoneId))}</span>
-                    <span>${escapeHtml(getGrowthStage(item.growthStage).label)}</span>
-                    <span>${item.autoClassified ? "자동" : "수동"}</span>
+                    <span>${escapeHtml(item.description || "-")}</span>
                     <span class="garden-inline-actions">
                       <button type="button" data-action="edit-creature" data-id="${escapeHtml(item.id)}">수정</button>
                       <button type="button" data-action="delete-creature" data-id="${escapeHtml(item.id)}">삭제</button>
@@ -1449,12 +1423,8 @@ async function handleCreatureSubmit(form) {
     id: id || createId(),
     name: formData.get("name"),
     type: formData.get("type"),
-    grade: formData.get("grade"),
     zoneId: formData.get("zoneId"),
-    growthStage: formData.get("growthStage"),
-    growthMode: formData.get("growthMode"),
     description: formData.get("description"),
-    autoClassified: formData.has("autoClassified"),
     createdAt: state.map.creatures.find((creature) => creature.id === id)?.createdAt,
   });
   state.map.creatures = id
@@ -1544,12 +1514,6 @@ document.addEventListener("change", (event) => {
   const typeFilter = event.target.closest("[data-creature-type-filter]");
   if (typeFilter) {
     state.creatureTypeFilter = typeFilter.value || "all";
-    render();
-    return;
-  }
-  const gradeFilter = event.target.closest("[data-creature-grade-filter]");
-  if (gradeFilter) {
-    state.creatureGradeFilter = gradeFilter.value || "all";
     render();
   }
 });
