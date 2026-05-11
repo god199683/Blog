@@ -55,8 +55,6 @@ const CREATURE_TYPES = [
   { value: "other", label: "기타", icon: "•" },
 ];
 
-const GRADES = ["F", "E", "D", "C", "B", "A", "S", "SS", "SSS", "Ex"];
-
 const GROWTH_STAGES = [
   { value: "seed", label: "씨앗" },
   { value: "sprout", label: "새싹" },
@@ -229,7 +227,8 @@ function getCreatureTypeOptions() {
 }
 
 function getByproductType(type = "byproduct") {
-  return BYPRODUCT_TYPES.find((item) => item.value === type) || BYPRODUCT_TYPES[0];
+  const known = BYPRODUCT_TYPES.find((item) => item.value === type || item.label === type);
+  return known || { value: String(type || "기타"), label: String(type || "기타"), icon: "•" };
 }
 
 function normalizeZone(zone = {}) {
@@ -261,14 +260,12 @@ function normalizeCreature(creature = {}) {
 }
 
 function normalizeByproduct(item = {}) {
-  const type = BYPRODUCT_TYPES.some((entry) => entry.value === item.type) ? item.type : "byproduct";
+  const knownType = getByproductType(item.type || item.type_label || "부산물");
   return {
     id: item.id || createId(),
     name: String(item.name || "이름 없는 항목").slice(0, 80),
-    type,
+    type: String(knownType.label || knownType.value || "부산물").slice(0, 60),
     zoneId: item.zoneId || item.zone_id || "",
-    grade: GRADES.includes(item.grade) ? item.grade : "F",
-    quantity: clampNumber(item.quantity ?? 1, 0, 999999),
     description: String(item.description || "").slice(0, 700),
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
   };
@@ -1080,19 +1077,11 @@ function renderByproductForm(item = null) {
       </label>
       <label>
         <span>종류</span>
-        <select name="type">${renderOptions(BYPRODUCT_TYPES, entry.type)}</select>
+        <input name="type" required maxlength="60" value="${escapeHtml(entry.type || "")}" placeholder="예: 부산물, 채집품, 재료">
       </label>
       <label>
         <span>구역</span>
         <select name="zoneId">${renderZoneOptions(entry.zoneId)}</select>
-      </label>
-      <label>
-        <span>등급</span>
-        <select name="grade">${renderOptions(GRADES, entry.grade)}</select>
-      </label>
-      <label>
-        <span>수량</span>
-        <input name="quantity" type="number" min="0" max="999999" value="${escapeHtml(entry.quantity)}">
       </label>
       <label class="garden-form-wide">
         <span>설명</span>
@@ -1132,10 +1121,6 @@ function renderByproductsPage() {
                       </span>
                     </div>
                     <p>${escapeHtml(item.description || "설명이 없습니다.")}</p>
-                    <dl>
-                      <div><dt>등급</dt><dd>${escapeHtml(item.grade)}</dd></div>
-                      <div><dt>수량</dt><dd>${escapeHtml(item.quantity)}</dd></div>
-                    </dl>
                     <div class="garden-card-actions">
                       <button class="garden-button" type="button" data-action="edit-byproduct" data-id="${escapeHtml(item.id)}">수정</button>
                       <button class="garden-button is-danger" type="button" data-action="delete-byproduct" data-id="${escapeHtml(item.id)}">삭제</button>
@@ -1474,8 +1459,6 @@ async function handleByproductSubmit(form) {
     name: formData.get("name"),
     type: formData.get("type"),
     zoneId: formData.get("zoneId"),
-    grade: formData.get("grade"),
-    quantity: formData.get("quantity"),
     description: formData.get("description"),
     createdAt: state.map.byproducts.find((entry) => entry.id === id)?.createdAt,
   });
