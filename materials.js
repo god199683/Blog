@@ -620,6 +620,7 @@ function renderSpaceCards(spaces = []) {
           <h3>${escapeHtml(space.title || "이름 없는 공간")}</h3>
           <p>${escapeHtml(preview)}</p>
           <div class="materials-space-card-actions">
+            <button type="button" data-space-rename="${escapeHtml(space.id)}">이름 수정</button>
             <button type="button" data-space-delete="${escapeHtml(space.id)}">삭제</button>
           </div>
         </article>
@@ -1078,6 +1079,35 @@ async function deleteMaterial(materialId) {
   renderDashboard();
 }
 
+async function renameSpace(spaceId) {
+  const space = state.materials.find((material) => material.id === spaceId && material.material_type === "space");
+  if (!space) return;
+
+  const title = window.prompt("새 공간 이름을 입력해주세요.", space.title || "이름 없는 공간")?.trim();
+  if (!title || title === space.title) return;
+
+  const updatedAt = new Date().toISOString();
+  const rows = await requestRest(
+    `blog_materials?id=eq.${encodeURIComponent(spaceId)}&user_id=eq.${encodeURIComponent(state.session.user.id)}`,
+    state.session.access_token,
+    {
+      method: "PATCH",
+      headers: {
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        title: title.slice(0, 120),
+        updated_at: updatedAt,
+      }),
+    }
+  );
+  const fallback = { ...space, title: title.slice(0, 120), updated_at: updatedAt };
+  const updated = normalizeMaterial(Array.isArray(rows) ? rows[0] || fallback : fallback);
+  state.materials = state.materials.map((material) => (material.id === spaceId ? updated : material));
+  state.selectedMaterialId = spaceId;
+  renderDashboard();
+}
+
 async function deleteSelectedMaterials() {
   const ids = [...state.selectedMaterialIds];
   if (ids.length === 0 && state.selectedMaterialId) ids.push(state.selectedMaterialId);
@@ -1184,6 +1214,13 @@ els.list?.addEventListener("change", (event) => {
 });
 
 els.spaceGrid?.addEventListener("click", async (event) => {
+  const renameButton = event.target.closest("[data-space-rename]");
+  if (renameButton) {
+    event.preventDefault();
+    await renameSpace(renameButton.dataset.spaceRename);
+    return;
+  }
+
   const deleteButton = event.target.closest("[data-space-delete]");
   if (deleteButton) {
     event.preventDefault();
@@ -1199,6 +1236,7 @@ els.spaceGrid?.addEventListener("click", async (event) => {
 });
 
 els.spaceGrid?.addEventListener("keydown", (event) => {
+  if (event.target.closest("button, input, select, textarea, a")) return;
   const card = event.target.closest("[data-space-card]");
   if (!card || (event.key !== "Enter" && event.key !== " ")) return;
   event.preventDefault();
