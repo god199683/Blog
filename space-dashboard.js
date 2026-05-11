@@ -496,7 +496,7 @@ function getPageIntro() {
   const updated = formatDate(state.space?.updated_at || state.space?.created_at);
   const copy = {
     dashboard: ["대시보드", `${title}의 정원 현황을 한눈에 확인합니다.`],
-    map: ["정원 맵", "그림판형 맵을 미리 보고 구역 흐름을 관리합니다."],
+    map: ["정원 맵", "정원 맵을 미리 보고 구역 흐름을 관리합니다."],
     zones: ["구역 관리", "정원 내부 구역과 생태계 정보를 관리합니다."],
     creatures: ["동식물 관리", "정원 안의 식물, 동물, 영체를 기록합니다."],
     byproducts: ["부산물/채집품", "구역에서 얻은 부산물과 채집품을 정리합니다."],
@@ -902,11 +902,9 @@ function drawPreview(canvas) {
 
 function renderMapPage() {
   const selectedZone = state.map.zones.find((zone) => zone.id === state.selectedZoneId) || null;
-  const editHref = `./map-editor.html?space=${encodeURIComponent(state.spaceId)}`;
   return `
     ${getPageIntro()}
     <section class="garden-map-toolbar">
-      <a class="garden-button is-primary" href="${editHref}">맵 편집</a>
       <button class="garden-button" type="button" data-action="map-zoom-out">-</button>
       <span>${Math.round(state.mapZoom * 100)}%</span>
       <button class="garden-button" type="button" data-action="map-zoom-in">+</button>
