@@ -3,116 +3,227 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="자료실 공간 맵 제작 에디터">
-    <title>맵 제작 | 자료실</title>
+    <meta name="description" content="자료실 공간 맵 그림판 에디터">
+    <title>맵 편집 | 자료실</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
-  <body class="map-editor-page">
-    <header class="site-header">
-      <a class="brand" href="./materials.html#spaces" aria-label="자료실 공간으로 이동">
-        <span class="brand-mark" data-map-brand-initial aria-hidden="true">B</span>
-        <span data-map-brand-title>자료실</span>
-      </a>
-      <div class="auth-actions" aria-label="계정 메뉴" data-auth-actions>
-        <a class="auth-button auth-login" href="./login.html">로그인</a>
-        <a class="auth-button auth-signup" href="./signup.html">회원가입</a>
+  <body class="map-editor-page paint-editor-page">
+    <header class="paint-titlebar" aria-label="맵 에디터 상단바">
+      <div class="paint-window-title">
+        <span aria-hidden="true">🎨</span>
+        <input type="text" data-map-title aria-label="공간 이름" placeholder="제목 없음">
+        <strong>- 그림판</strong>
+      </div>
+      <div class="paint-window-actions" aria-hidden="true">
+        <span>—</span>
+        <span>□</span>
+        <a href="./materials.html#spaces" aria-label="자료실 공간으로 돌아가기">×</a>
       </div>
     </header>
 
-    <main class="map-editor-main" aria-label="맵 제작 에디터">
-      <section class="map-editor-shell">
-        <header class="map-editor-topbar">
-          <div class="map-title-block">
-            <p class="map-editor-kicker">공간 맵</p>
-            <input class="map-title-input" type="text" data-map-title aria-label="공간 이름" placeholder="공간 이름">
-          </div>
-          <div class="map-editor-actions">
-            <span data-map-save-state>저장 준비</span>
-            <button class="editor-ghost-button" type="button" data-map-reset>초기화</button>
-            <button class="editor-primary-button" type="button" data-map-save>저장</button>
-            <a class="editor-icon-button" href="./materials.html#spaces" aria-label="자료실 공간으로 돌아가기">×</a>
-          </div>
-        </header>
+    <nav class="paint-menubar" aria-label="그림판 메뉴">
+      <div class="paint-menu-links">
+        <button type="button" data-map-save>파일</button>
+        <button type="button" data-map-undo>편집</button>
+        <button type="button" data-map-fit>보기</button>
+      </div>
+      <div class="paint-quick-actions" role="toolbar" aria-label="빠른 작업">
+        <button type="button" data-map-save title="저장" aria-label="저장">💾</button>
+        <button type="button" data-map-export title="PNG 내보내기" aria-label="PNG 내보내기">↗</button>
+        <button type="button" data-map-undo title="되돌리기" aria-label="되돌리기">↶</button>
+        <button type="button" data-map-redo title="다시 실행" aria-label="다시 실행">↷</button>
+        <span data-map-save-state>저장 준비</span>
+      </div>
+      <div class="paint-app-actions">
+        <button type="button" data-map-reset title="초기화" aria-label="초기화">🧹</button>
+        <a href="./space-dashboard.html" data-map-dashboard-link title="관리 페이지" aria-label="관리 페이지">⚙</a>
+      </div>
+    </nav>
 
-        <div class="map-paint-ribbon" aria-label="그림판 도구막대">
-          <section class="map-ribbon-group" aria-label="도구">
+    <main class="map-editor-main paint-editor-main" aria-label="맵 제작 에디터">
+      <section class="map-editor-shell paint-shell">
+        <div class="map-paint-ribbon paint-ribbon" aria-label="그림판 도구막대">
+          <section class="map-ribbon-group paint-group paint-group-select" aria-label="선택">
+            <div class="paint-group-tools">
+              <button class="paint-large-tool" type="button" data-map-tool="select" aria-pressed="false" title="선택">
+                <span class="paint-icon paint-icon-select" aria-hidden="true"></span>
+              </button>
+              <button type="button" data-map-delete-selection title="선택 삭제">⌫</button>
+            </div>
+            <strong>선택</strong>
+          </section>
+
+          <section class="map-ribbon-group paint-group paint-group-image" aria-label="이미지">
+            <div class="paint-group-tools paint-two-col">
+              <button type="button" data-map-import-image title="이미지 불러오기">🖼</button>
+              <input type="file" data-map-image-input accept="image/*" hidden>
+              <button type="button" data-map-resize title="캔버스 크기 적용">↔</button>
+              <button type="button" data-map-grow="wide" title="가로 확장">⇔</button>
+              <button type="button" data-map-grow="tall" title="세로 확장">⇕</button>
+              <button type="button" data-map-grow="both" title="전체 확장">⤢</button>
+            </div>
+            <strong>이미지</strong>
+          </section>
+
+          <section class="map-ribbon-group paint-group paint-group-tools" aria-label="도구">
+            <div class="paint-group-tools paint-tool-matrix" role="toolbar" aria-label="도구">
+              <button type="button" data-map-tool="pencil" title="연필" aria-pressed="false">✎</button>
+              <button type="button" data-map-tool="brush" title="브러시" aria-pressed="true">🖌</button>
+              <button type="button" data-map-tool="fill" title="채우기" aria-pressed="false">▰</button>
+              <button type="button" data-map-tool="text" title="텍스트" aria-pressed="false">A</button>
+              <button type="button" data-map-tool="erase" title="지우개" aria-pressed="false">⌫</button>
+              <button type="button" data-map-tool="picker" title="색 추출" aria-pressed="false">⌖</button>
+              <button type="button" data-map-tool="zoom" title="확대" aria-pressed="false">⌕</button>
+              <button type="button" data-map-tool="marker" title="표식" aria-pressed="false">●</button>
+            </div>
             <strong>도구</strong>
-            <div class="map-tool-grid map-tool-grid--paint" role="toolbar" aria-label="맵 제작 도구">
-              <button type="button" data-map-tool="brush" aria-pressed="true">펜</button>
-              <button type="button" data-map-tool="erase">지우개</button>
-              <button type="button" data-map-tool="marker">표식</button>
-              <button type="button" data-map-tool="label">글자</button>
-            </div>
           </section>
 
-          <section class="map-ribbon-group map-ribbon-group--colors" aria-label="색상">
-            <strong>색상</strong>
-            <div class="map-palette" data-map-palette aria-label="타일 색상"></div>
+          <section class="map-ribbon-group paint-group paint-group-brush" aria-label="브러시">
+            <div class="paint-group-tools">
+              <button class="paint-large-tool" type="button" data-map-tool="brush" title="브러시">
+                <span class="paint-icon paint-icon-brush" aria-hidden="true"></span>
+              </button>
+              <select data-map-brush-style aria-label="브러시 종류">
+                <option value="round">둥근 브러시</option>
+                <option value="square">사각 브러시</option>
+                <option value="soft">부드러운 브러시</option>
+              </select>
+            </div>
+            <strong>브러시</strong>
           </section>
 
-          <section class="map-ribbon-group map-ribbon-group--size" aria-label="제작 영역 크기">
-            <strong>제작 영역</strong>
-            <div class="map-size-controls">
-              <label>
-                <span>너비</span>
-                <input type="number" min="320" max="6000" step="20" data-map-width>
-              </label>
-              <label>
-                <span>높이</span>
-                <input type="number" min="240" max="4200" step="20" data-map-height>
-              </label>
-              <button type="button" data-map-resize>적용</button>
+          <section class="map-ribbon-group paint-group paint-group-shapes" aria-label="도형">
+            <div class="paint-shape-grid" role="toolbar" aria-label="도형">
+              <button type="button" data-map-shape="line" title="선">╲</button>
+              <button type="button" data-map-shape="curve" title="곡선">⌒</button>
+              <button type="button" data-map-shape="ellipse" title="원">○</button>
+              <button type="button" data-map-shape="rectangle" title="사각형">□</button>
+              <button type="button" data-map-shape="roundrect" title="둥근 사각형">▢</button>
+              <button type="button" data-map-shape="freeform" title="자유 도형">▱</button>
+              <button type="button" data-map-shape="triangle" title="삼각형">△</button>
+              <button type="button" data-map-shape="right-triangle" title="직각 삼각형">◺</button>
+              <button type="button" data-map-shape="diamond" title="마름모">◇</button>
+              <button type="button" data-map-shape="pentagon" title="오각형">⬟</button>
+              <button type="button" data-map-shape="hexagon" title="육각형">⬡</button>
+              <button type="button" data-map-shape="arrow-right" title="오른쪽 화살표">→</button>
+              <button type="button" data-map-shape="arrow-left" title="왼쪽 화살표">←</button>
+              <button type="button" data-map-shape="arrow-up" title="위쪽 화살표">↑</button>
+              <button type="button" data-map-shape="arrow-down" title="아래쪽 화살표">↓</button>
+              <button type="button" data-map-shape="star" title="별">☆</button>
+              <button type="button" data-map-shape="burst" title="번쩍임">✷</button>
+              <button type="button" data-map-shape="speech" title="말풍선">▱</button>
+              <button type="button" data-map-shape="cloud" title="구름">☁</button>
             </div>
-            <div class="map-grow-controls" aria-label="제작 영역 빠른 확장">
-              <button type="button" data-map-grow="wide">가로 +</button>
-              <button type="button" data-map-grow="tall">세로 +</button>
-              <button type="button" data-map-grow="both">전체 +</button>
+            <div class="paint-shape-options">
+              <button type="button" data-map-fill-toggle aria-pressed="false">채우기</button>
+              <select data-map-line-style aria-label="선 스타일">
+                <option value="solid">실선</option>
+                <option value="dash">점선</option>
+              </select>
             </div>
+            <strong>도형</strong>
           </section>
 
-          <section class="map-ribbon-group map-ribbon-group--view" aria-label="보기">
-            <strong>보기</strong>
-            <label class="map-brush-control">
-              <span>굵기</span>
-              <input type="range" min="1" max="44" step="1" value="6" data-map-brush-size>
+          <section class="map-ribbon-group paint-group paint-group-colors" aria-label="색">
+            <div class="paint-color-current">
+              <button class="is-primary" type="button" data-map-color-role="primary" aria-label="주 색">
+                <span data-map-primary-preview></span>
+              </button>
+              <button type="button" data-map-color-role="secondary" aria-label="보조 색">
+                <span data-map-secondary-preview></span>
+              </button>
+            </div>
+            <div class="map-palette paint-palette" data-map-palette aria-label="색상 팔레트"></div>
+            <label class="paint-custom-color" title="다른 색">
+              <input type="color" data-map-custom-color aria-label="다른 색">
+              <span aria-hidden="true"></span>
             </label>
-            <label class="map-zoom-control">
-              <span>확대</span>
-              <input type="range" min="0.35" max="2.5" step="0.05" value="1" data-map-zoom>
-            </label>
-            <div class="map-view-controls">
-              <button type="button" data-map-fit>맞춤</button>
-              <button type="button" data-map-workspace-toggle aria-pressed="false">넓게</button>
-            </div>
+            <strong>색</strong>
           </section>
 
-          <section class="map-ribbon-group map-ribbon-group--note" aria-label="공간 설명">
-            <strong>설명</strong>
-            <textarea rows="3" data-map-note placeholder="공간 설명"></textarea>
+          <section class="map-ribbon-group paint-group paint-group-layer" aria-label="레이어">
+            <div class="paint-group-tools">
+              <button class="paint-large-tool" type="button" data-map-layer-toggle aria-pressed="true" title="레이어">
+                <span class="paint-icon paint-icon-layer" aria-hidden="true"></span>
+              </button>
+            </div>
+            <strong>레이어</strong>
           </section>
         </div>
 
-        <div class="map-paint-body">
-          <section class="map-workspace" aria-label="맵 작업 영역">
-            <div class="map-canvas-wrap" data-map-canvas-wrap>
-              <div class="map-canvas-stage">
-                <canvas data-map-canvas width="1024" height="640" aria-label="맵 캔버스"></canvas>
+        <div class="paint-size-strip" aria-label="캔버스 설정">
+          <label>
+            <span>너비</span>
+            <input type="number" min="320" max="6000" step="20" data-map-width>
+          </label>
+          <label>
+            <span>높이</span>
+            <input type="number" min="240" max="4200" step="20" data-map-height>
+          </label>
+          <label class="paint-note-field">
+            <span>설명</span>
+            <input type="text" data-map-note placeholder="공간 설명">
+          </label>
+        </div>
+
+        <div class="map-paint-body paint-body">
+          <aside class="paint-left-sliders" aria-label="브러시 세부 설정">
+            <label title="굵기">
+              <span aria-hidden="true">≋</span>
+              <input type="range" min="1" max="64" step="1" value="6" data-map-brush-size aria-label="굵기">
+              <b data-map-brush-value>6</b>
+            </label>
+            <label title="불투명도">
+              <span aria-hidden="true">◒</span>
+              <input type="range" min="0.1" max="1" step="0.05" value="1" data-map-opacity aria-label="불투명도">
+              <b data-map-opacity-value>100</b>
+            </label>
+          </aside>
+
+          <section class="map-workspace paint-workspace" aria-label="맵 작업 영역">
+            <div class="map-canvas-wrap paint-canvas-wrap" data-map-canvas-wrap>
+              <div class="map-canvas-stage paint-canvas-stage" data-map-canvas-stage>
+                <div class="paint-canvas-frame" data-map-canvas-frame>
+                  <canvas data-map-canvas width="1024" height="640" aria-label="맵 캔버스"></canvas>
+                  <span class="paint-resize-handle is-nw" data-map-resize-handle="nw" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-n" data-map-resize-handle="n" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-ne" data-map-resize-handle="ne" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-e" data-map-resize-handle="e" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-se" data-map-resize-handle="se" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-s" data-map-resize-handle="s" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-sw" data-map-resize-handle="sw" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-w" data-map-resize-handle="w" aria-hidden="true"></span>
+                </div>
               </div>
             </div>
           </section>
 
-          <aside class="map-marker-dock" aria-label="맵 표식">
+          <aside class="map-layer-dock paint-layer-dock" data-map-layer-dock aria-label="레이어와 표식">
             <header>
-              <strong>표식</strong>
-              <span>클릭하면 삭제</span>
+              <strong>레이어</strong>
+              <button type="button" data-map-layer-toggle aria-label="레이어 닫기">×</button>
             </header>
-            <div class="map-marker-list" data-map-marker-list></div>
+            <div class="paint-layer-list" data-map-layer-list></div>
           </aside>
         </div>
 
-        <footer class="map-statusbar" aria-label="맵 상태">
-          <span data-map-status>1024 × 640</span>
-          <span>그림판처럼 드래그해서 그리고, 공간이 부족하면 제작 영역을 확장하세요.</span>
+        <footer class="map-statusbar paint-statusbar" aria-label="맵 상태">
+          <span data-map-status>1024 × 640px</span>
+          <span data-map-pointer>준비</span>
+          <label>
+            <select data-map-zoom-select aria-label="확대 비율">
+              <option value="0.5">50%</option>
+              <option value="0.75">75%</option>
+              <option value="1" selected>100%</option>
+              <option value="1.25">125%</option>
+              <option value="1.5">150%</option>
+              <option value="2">200%</option>
+            </select>
+          </label>
+          <button type="button" data-map-zoom-out aria-label="축소">⊖</button>
+          <input type="range" min="0.35" max="2.5" step="0.05" value="1" data-map-zoom aria-label="확대 비율">
+          <button type="button" data-map-zoom-in aria-label="확대">⊕</button>
         </footer>
       </section>
     </main>

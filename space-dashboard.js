@@ -102,6 +102,8 @@ const state = {
   creatureGradeFilter: "all",
 };
 
+const dashboardImageCache = new Map();
+
 const els = {
   view: document.querySelector("[data-space-view]"),
   brandTitle: document.querySelector("[data-space-brand-title]"),
@@ -619,6 +621,129 @@ function drawMarker(ctx, marker, scale) {
   ctx.restore();
 }
 
+function getDashboardShapeBounds(shape = {}, scale = 1) {
+  const x = (Number(shape.x) || 0) * scale;
+  const y = (Number(shape.y) || 0) * scale;
+  const width = (Number(shape.width) || 0) * scale;
+  const height = (Number(shape.height) || 0) * scale;
+  const left = Math.min(x, x + width);
+  const top = Math.min(y, y + height);
+  return {
+    left,
+    top,
+    width: Math.abs(width),
+    height: Math.abs(height),
+    right: left + Math.abs(width),
+    bottom: top + Math.abs(height),
+  };
+}
+
+function getDashboardImage(src, onload) {
+  if (!src) return null;
+  if (dashboardImageCache.has(src)) return dashboardImageCache.get(src);
+  const image = new Image();
+  image.onload = onload;
+  image.src = src;
+  dashboardImageCache.set(src, image);
+  return image;
+}
+
+function drawDashboardPolygon(ctx, points = []) {
+  if (points.length === 0) return;
+  ctx.moveTo(points[0].x, points[0].y);
+  points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+  ctx.closePath();
+}
+
+function drawDashboardShapePath(ctx, shape, bounds, scale) {
+  const { left, top, width, height, right, bottom } = bounds;
+  const cx = left + width / 2;
+  const cy = top + height / 2;
+  ctx.beginPath();
+  if (shape.type === "line") {
+    ctx.moveTo((Number(shape.x) || 0) * scale, (Number(shape.y) || 0) * scale);
+    ctx.lineTo(((Number(shape.x) || 0) + (Number(shape.width) || 0)) * scale, ((Number(shape.y) || 0) + (Number(shape.height) || 0)) * scale);
+    return;
+  }
+  if (shape.type === "curve") {
+    ctx.moveTo(left, bottom);
+    ctx.quadraticCurveTo(cx, top - Math.max(16, height * 0.28), right, bottom);
+    return;
+  }
+  if (shape.type === "ellipse") {
+    ctx.ellipse(cx, cy, Math.max(1, width / 2), Math.max(1, height / 2), 0, 0, Math.PI * 2);
+    return;
+  }
+  if (shape.type === "triangle") {
+    drawDashboardPolygon(ctx, [{ x: cx, y: top }, { x: right, y: bottom }, { x: left, y: bottom }]);
+    return;
+  }
+  if (shape.type === "right-triangle") {
+    drawDashboardPolygon(ctx, [{ x: left, y: top }, { x: right, y: bottom }, { x: left, y: bottom }]);
+    return;
+  }
+  if (shape.type === "diamond") {
+    drawDashboardPolygon(ctx, [{ x: cx, y: top }, { x: right, y: cy }, { x: cx, y: bottom }, { x: left, y: cy }]);
+    return;
+  }
+  if (shape.type?.startsWith("arrow-")) {
+    drawDashboardPolygon(ctx, [
+      { x: left, y: top + height * 0.25 },
+      { x: right - width * 0.35, y: top + height * 0.25 },
+      { x: right - width * 0.35, y: top },
+      { x: right, y: cy },
+      { x: right - width * 0.35, y: bottom },
+      { x: right - width * 0.35, y: top + height * 0.75 },
+      { x: left, y: top + height * 0.75 },
+    ]);
+    return;
+  }
+  if (shape.type === "star" || shape.type === "burst") {
+    const count = shape.type === "star" ? 5 : 8;
+    const outer = Math.min(width, height) / 2;
+    const inner = outer * 0.45;
+    drawDashboardPolygon(
+      ctx,
+      Array.from({ length: count * 2 }, (_, index) => {
+        const angle = -Math.PI / 2 + (index * Math.PI) / count;
+        const radius = index % 2 === 0 ? outer : inner;
+        return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+      })
+    );
+    return;
+  }
+  if (shape.type === "roundrect" || shape.type === "speech") {
+    drawRoundedRect(ctx, left, top, width, shape.type === "speech" ? height * 0.78 : height, Math.min(18, width / 5, height / 5));
+    return;
+  }
+  ctx.rect(left, top, width, height);
+}
+
+function drawDashboardShape(ctx, shape, scale, canvas) {
+  const bounds = getDashboardShapeBounds(shape, scale);
+  if (bounds.width < 1 || bounds.height < 1) return;
+  if (shape.type === "image") {
+    const image = getDashboardImage(shape.src, () => drawPreview(canvas));
+    if (image?.complete && image.naturalWidth) {
+      ctx.save();
+      ctx.globalAlpha = Number(shape.opacity) || 1;
+      ctx.drawImage(image, bounds.left, bounds.top, bounds.width, bounds.height);
+      ctx.restore();
+    }
+    return;
+  }
+  ctx.save();
+  ctx.globalAlpha = Number(shape.opacity) || 1;
+  ctx.strokeStyle = shape.color || "#1f3b57";
+  ctx.fillStyle = shape.fillColor || "transparent";
+  ctx.lineWidth = Math.max(1, (Number(shape.lineWidth) || 3) * scale);
+  if (shape.lineStyle === "dash") ctx.setLineDash([8 * scale, 6 * scale]);
+  drawDashboardShapePath(ctx, shape, bounds, scale);
+  if (shape.filled && shape.fillColor && shape.fillColor !== "transparent" && shape.type !== "line" && shape.type !== "curve") ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawRoundedRect(ctx, left, top, width, height, radius) {
   const safeRadius = Math.min(radius, width / 2, height / 2);
   ctx.beginPath();
@@ -687,6 +812,7 @@ function drawPreview(canvas) {
   ctx.fillStyle = state.map.background || DEFAULT_MAP.background;
   ctx.fillRect(0, 0, width, height);
   drawLegacyCells(ctx, scale);
+  (state.map.shapes || []).forEach((shape) => drawDashboardShape(ctx, shape, scale, canvas));
   state.map.strokes.forEach((stroke) => drawStroke(ctx, stroke, scale));
   state.map.markers.forEach((marker) => drawMarker(ctx, marker, scale));
   drawZoneBadges(ctx, scale);
