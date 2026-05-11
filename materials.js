@@ -48,6 +48,8 @@ const els = {
   count: document.querySelector("[data-material-count]"),
   titleHeading: document.querySelector("[data-material-title-heading]"),
   typeHeading: document.querySelector("[data-material-type-heading]"),
+  table: document.querySelector("[data-material-table]"),
+  spaceGrid: document.querySelector("[data-material-space-grid]"),
   listToggle: document.querySelector("[data-material-list-toggle]"),
   list: document.querySelector("[data-material-list]"),
   featureCard: document.querySelector("[data-material-feature-card]"),
@@ -556,6 +558,49 @@ function renderFeatureArea(materials = []) {
   `;
 }
 
+function renderSpaceCards(spaces = []) {
+  if (!els.spaceGrid) return;
+
+  if (spaces.length === 0) {
+    state.selectedMaterialId = "";
+    els.spaceGrid.innerHTML = `
+      <div class="materials-space-empty">
+        <strong>아직 만든 공간이 없습니다.</strong>
+        <span>공간 영역에서 불러오기를 사용하면 카드로 정리됩니다.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const selectedExists = spaces.some((space) => space.id === state.selectedMaterialId);
+  if (!selectedExists) state.selectedMaterialId = spaces[0].id;
+
+  els.spaceGrid.innerHTML = spaces
+    .map((space) => {
+      const isSelected = space.id && space.id === state.selectedMaterialId;
+      const isChecked = space.id && state.selectedMaterialIds.has(space.id);
+      const preview = getMaterialPreview(space);
+      return `
+        <article class="materials-space-board-card ${isSelected || isChecked ? "is-selected" : ""}" data-space-card="${escapeHtml(space.id)}" tabindex="0">
+          <div class="materials-space-card-top">
+            ${
+              state.selectionMode
+                ? `<input class="materials-select-check" type="checkbox" data-material-check="${escapeHtml(space.id)}" ${isChecked ? "checked" : ""} aria-label="${escapeHtml(space.title)} 선택">`
+                : `<span>공간</span>`
+            }
+            <time datetime="${escapeHtml(space.created_at || space.updated_at || "")}">${escapeHtml(formatDate(space.created_at || space.updated_at))}</time>
+          </div>
+          <h3>${escapeHtml(space.title || "이름 없는 공간")}</h3>
+          <p>${escapeHtml(preview)}</p>
+          <div class="materials-space-card-actions">
+            <button type="button" data-space-delete="${escapeHtml(space.id)}">삭제</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderMiniList(materials = []) {
   if (!els.miniList) return;
   if (materials.length === 0) {
@@ -601,14 +646,32 @@ function renderMiniList(materials = []) {
 
 function renderDashboard() {
   const materials = getCurrentMaterials();
+  const isSpaceSection = state.activeSection === "spaces";
   renderStats();
   renderSections();
   renderMaterialTree();
   renderToolState();
   renderBoardHeader(materials);
-  renderFeatureArea(materials);
-  renderMaterialRows(materials);
-  renderMiniList(materials);
+  if (els.table) els.table.hidden = isSpaceSection;
+  if (els.spaceGrid) els.spaceGrid.hidden = !isSpaceSection;
+  if (els.listToggle) els.listToggle.hidden = isSpaceSection;
+
+  if (isSpaceSection) {
+    renderSpaceCards(materials);
+    if (els.featureCard) {
+      els.featureCard.hidden = true;
+      els.featureCard.innerHTML = "";
+    }
+    if (els.miniList) {
+      els.miniList.hidden = true;
+      els.miniList.innerHTML = "";
+    }
+  } else {
+    if (els.spaceGrid) els.spaceGrid.innerHTML = "";
+    renderFeatureArea(materials);
+    renderMaterialRows(materials);
+    renderMiniList(materials);
+  }
   const sortLabel = getTitleSortLabel();
   if (els.titleSort) {
     els.titleSort.dataset.sortDirection = state.titleSortDirection;
@@ -1083,6 +1146,39 @@ els.list?.addEventListener("keydown", (event) => {
 });
 
 els.list?.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-material-check]");
+  if (!checkbox) return;
+  if (checkbox.checked) {
+    state.selectedMaterialIds.add(checkbox.dataset.materialCheck);
+  } else {
+    state.selectedMaterialIds.delete(checkbox.dataset.materialCheck);
+  }
+  renderDashboard();
+});
+
+els.spaceGrid?.addEventListener("click", async (event) => {
+  const deleteButton = event.target.closest("[data-space-delete]");
+  if (deleteButton) {
+    event.preventDefault();
+    await deleteMaterial(deleteButton.dataset.spaceDelete);
+    return;
+  }
+
+  if (event.target.closest("[data-material-check]")) return;
+  const card = event.target.closest("[data-space-card]");
+  if (!card) return;
+  event.preventDefault();
+  selectMaterial(card.dataset.spaceCard);
+});
+
+els.spaceGrid?.addEventListener("keydown", (event) => {
+  const card = event.target.closest("[data-space-card]");
+  if (!card || (event.key !== "Enter" && event.key !== " ")) return;
+  event.preventDefault();
+  selectMaterial(card.dataset.spaceCard);
+});
+
+els.spaceGrid?.addEventListener("change", (event) => {
   const checkbox = event.target.closest("[data-material-check]");
   if (!checkbox) return;
   if (checkbox.checked) {

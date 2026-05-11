@@ -3946,6 +3946,118 @@ body.is-book-mode .viewer-page-content {
   min-height: clamp(10rem, 26vw, 17rem);
 }
 
+.materials-space-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+  gap: 0.72rem;
+  padding: 0.9rem;
+}
+
+.materials-space-grid[hidden] {
+  display: none;
+}
+
+.materials-space-board-card,
+.materials-space-empty {
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff 0%, #f5fbff 100%);
+  box-shadow: 0 12px 24px rgba(14, 116, 144, 0.045);
+}
+
+.materials-space-board-card {
+  display: grid;
+  gap: 0.58rem;
+  min-height: 9rem;
+  padding: 0.82rem;
+  color: #5f7488;
+  cursor: pointer;
+}
+
+.materials-space-board-card:hover,
+.materials-space-board-card:focus-visible,
+.materials-space-board-card.is-selected {
+  border-color: rgba(56, 189, 248, 0.38);
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+  outline: none;
+}
+
+.materials-space-card-top,
+.materials-space-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.materials-space-card-top {
+  color: #8aa0b2;
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.materials-space-board-card h3 {
+  margin: 0;
+  overflow: hidden;
+  color: #20364a;
+  font-size: 0.95rem;
+  font-weight: 790;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.materials-space-board-card p {
+  display: -webkit-box;
+  min-height: 2.6rem;
+  margin: 0;
+  overflow: hidden;
+  color: #6f8497;
+  font-size: 0.78rem;
+  line-height: 1.65;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.materials-space-card-actions {
+  justify-content: flex-end;
+}
+
+.materials-space-card-actions button {
+  min-height: 1.65rem;
+  padding: 0 0.58rem;
+  border: 1px solid rgba(216, 234, 251, 0.9);
+  border-radius: 999px;
+  background: #fff;
+  color: #6f8497;
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.materials-space-card-actions button:hover,
+.materials-space-card-actions button:focus-visible {
+  background: #f0f9ff;
+  color: var(--sky-dark);
+}
+
+.materials-space-empty {
+  display: grid;
+  gap: 0.3rem;
+  min-height: 8rem;
+  padding: 1rem;
+  place-content: center;
+  text-align: center;
+}
+
+.materials-space-empty strong {
+  color: #20364a;
+  font-size: 0.9rem;
+}
+
+.materials-space-empty span {
+  color: #8aa0b2;
+  font-size: 0.76rem;
+}
+
 .materials-summary dd {
   color: var(--sky-dark);
 }
