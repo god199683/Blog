@@ -15,6 +15,7 @@ const DEFAULT_MAP = {
   strokes: [],
   shapes: [],
   markers: [],
+  layers: [],
   zones: [],
   creatures: [],
   byproducts: [],
@@ -113,6 +114,7 @@ const state = {
   history: [],
   redo: [],
   layerDockOpen: true,
+  ribbonCollapsed: localStorage.getItem("mapEditorRibbon") === "collapsed",
 };
 
 const els = {
@@ -138,6 +140,7 @@ const els = {
   saveState: document.querySelector("[data-map-save-state]"),
   status: document.querySelector("[data-map-status]"),
   pointer: document.querySelector("[data-map-pointer]"),
+  ribbonToggle: document.querySelector("[data-map-ribbon-toggle]"),
   primaryPreview: document.querySelector("[data-map-primary-preview]"),
   secondaryPreview: document.querySelector("[data-map-secondary-preview]"),
   customColor: document.querySelector("[data-map-custom-color]"),
@@ -182,6 +185,10 @@ function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, number));
 }
 
+function clampCanvasPixels(value, min, max) {
+  return Math.round(clampNumber(value, min, max));
+}
+
 function createId() {
   return globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
@@ -219,11 +226,11 @@ function redo() {
 }
 
 function getCanvasWidth(map = state.map) {
-  return clampNumber(map.canvasWidth || map.width * map.tileSize, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
+  return clampCanvasPixels(map.canvasWidth || map.width * map.tileSize, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
 }
 
 function getCanvasHeight(map = state.map) {
-  return clampNumber(map.canvasHeight || map.height * map.tileSize, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
+  return clampCanvasPixels(map.canvasHeight || map.height * map.tileSize, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
 }
 
 function normalizePoint(point = {}) {
@@ -274,6 +281,15 @@ function normalizeShape(shape = {}) {
   };
 }
 
+function normalizeLayer(layer = {}, index = 0) {
+  return {
+    id: layer.id || createId(),
+    name: String(layer.name || `레이어 ${index + 1}`).slice(0, 80),
+    visible: layer.visible !== false,
+    createdAt: layer.createdAt || layer.created_at || new Date().toISOString(),
+  };
+}
+
 function cloneMap(map = DEFAULT_MAP) {
   const tileSize = Number(map.tileSize) || DEFAULT_MAP.tileSize;
   const legacyWidth = Number(map.width) || DEFAULT_MAP.width;
@@ -288,15 +304,16 @@ function cloneMap(map = DEFAULT_MAP) {
     kind: "blog-map",
     version: 3,
     tileSize,
-    canvasWidth: clampNumber(canvasWidth, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH),
-    canvasHeight: clampNumber(canvasHeight, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT),
-    width: Math.ceil(clampNumber(canvasWidth, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH) / tileSize),
-    height: Math.ceil(clampNumber(canvasHeight, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT) / tileSize),
+    canvasWidth: clampCanvasPixels(canvasWidth, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH),
+    canvasHeight: clampCanvasPixels(canvasHeight, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT),
+    width: Math.ceil(clampCanvasPixels(canvasWidth, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH) / tileSize),
+    height: Math.ceil(clampCanvasPixels(canvasHeight, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT) / tileSize),
     background: map.background || DEFAULT_MAP.background,
     cells: map.cells && typeof map.cells === "object" ? map.cells : {},
     strokes: Array.isArray(map.strokes) ? map.strokes.map(normalizeStroke).filter((stroke) => stroke.points.length > 0) : [],
     shapes: Array.isArray(map.shapes) ? map.shapes.map(normalizeShape) : [],
     markers: Array.isArray(map.markers) ? map.markers.map(normalizeMarker) : [],
+    layers: Array.isArray(map.layers) ? map.layers.map(normalizeLayer) : [],
     zones: Array.isArray(map.zones) ? map.zones : [],
     creatures: Array.isArray(map.creatures) ? map.creatures : [],
     byproducts: Array.isArray(map.byproducts) ? map.byproducts : [],
@@ -370,7 +387,16 @@ function setZoom(value) {
   drawMap();
 }
 
+function syncRibbonState() {
+  document.body.classList.toggle("paint-ribbon-collapsed", state.ribbonCollapsed);
+  if (!els.ribbonToggle) return;
+  els.ribbonToggle.textContent = state.ribbonCollapsed ? "도구 펼치기" : "도구 접기";
+  els.ribbonToggle.title = state.ribbonCollapsed ? "도구 펼치기" : "도구 접기";
+  els.ribbonToggle.setAttribute("aria-expanded", String(!state.ribbonCollapsed));
+}
+
 function syncControls() {
+  syncRibbonState();
   if (els.title) els.title.value = state.space?.title || "";
   if (els.note) els.note.value = state.map.note || "";
   if (els.width) els.width.value = String(getCanvasWidth());
@@ -422,27 +448,23 @@ function renderLayers() {
   });
   if (!els.layerList) return;
 
-  const layers = [
-    ...state.map.markers.map((item) => ({ id: item.id, type: "marker", label: item.type === "label" ? "텍스트" : "표식", name: item.label })),
-    ...state.map.shapes.map((item) => ({ id: item.id, type: "shape", label: SHAPE_LABELS[item.type] || "도형", name: item.type === "image" ? "이미지" : SHAPE_LABELS[item.type] })),
-    ...state.map.strokes.map((item, index) => ({ id: item.id, type: "stroke", label: item.tool === "erase" ? "지우개" : "그리기", name: `${index + 1}번 선` })),
-  ];
+  const layers = Array.isArray(state.map.layers) ? state.map.layers : [];
 
   if (layers.length === 0) {
     els.layerList.innerHTML = `<p>아직 레이어가 없습니다.</p>`;
     return;
   }
 
-  els.layerList.innerHTML = layers
+  els.layerList.innerHTML = [...layers]
     .reverse()
     .map(
       (layer) => `
         <div class="paint-layer-item">
           <span>
-            <strong>${escapeHtml(layer.label)}</strong>
-            <small>${escapeHtml(layer.name || layer.label)}</small>
+            <strong>${escapeHtml(layer.name || "레이어")}</strong>
+            <small>${layer.visible ? "표시 중" : "숨김"}</small>
           </span>
-          <button type="button" data-layer-delete="${escapeHtml(layer.type)}:${escapeHtml(layer.id)}" aria-label="레이어 삭제">×</button>
+          <button type="button" data-layer-delete="${escapeHtml(layer.id)}" aria-label="레이어 삭제">×</button>
         </div>
       `
     )
@@ -1013,9 +1035,16 @@ function handleCanvasDown(point, event) {
 }
 
 function resizeMap(width, height, { trim = true } = {}) {
+  const previousWidth = getCanvasWidth();
+  const previousHeight = getCanvasHeight();
   pushHistory();
-  const nextWidth = clampNumber(width, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
-  const nextHeight = clampNumber(height, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
+  const nextWidth = clampCanvasPixels(width, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
+  const nextHeight = clampCanvasPixels(height, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
+  if (nextWidth === previousWidth && nextHeight === previousHeight) {
+    state.history.pop();
+    syncControls();
+    return;
+  }
   state.map.canvasWidth = nextWidth;
   state.map.canvasHeight = nextHeight;
   state.map.width = Math.ceil(nextWidth / state.map.tileSize);
@@ -1033,8 +1062,8 @@ function resizeMap(width, height, { trim = true } = {}) {
 }
 
 function resizeMapLive(width, height) {
-  const nextWidth = clampNumber(width, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
-  const nextHeight = clampNumber(height, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
+  const nextWidth = clampCanvasPixels(width, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
+  const nextHeight = clampCanvasPixels(height, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
   state.map.canvasWidth = nextWidth;
   state.map.canvasHeight = nextHeight;
   state.map.width = Math.ceil(nextWidth / state.map.tileSize);
@@ -1044,14 +1073,9 @@ function resizeMapLive(width, height) {
 }
 
 function applyResizeFromInputs() {
-  const width = clampNumber(els.width?.value || getCanvasWidth(), MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
-  const height = clampNumber(els.height?.value || getCanvasHeight(), MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
-  const isShrinking = width < getCanvasWidth() || height < getCanvasHeight();
-  if (isShrinking && !window.confirm("줄어든 영역 밖의 내용은 보이지 않을 수 있습니다. 적용할까요?")) {
-    syncControls();
-    return;
-  }
-  resizeMap(width, height, { trim: true });
+  const width = clampCanvasPixels(els.width?.value || getCanvasWidth(), MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH);
+  const height = clampCanvasPixels(els.height?.value || getCanvasHeight(), MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT);
+  resizeMap(width, height, { trim: false });
 }
 
 function growMap(direction = "both") {
@@ -1086,13 +1110,20 @@ function deleteSelection() {
   renderAll();
 }
 
-function deleteLayer(key = "") {
-  const [type, id] = key.split(":");
-  if (!type || !id) return;
+function addLayer() {
   pushHistory();
-  if (type === "marker") state.map.markers = state.map.markers.filter((item) => item.id !== id);
-  if (type === "shape") state.map.shapes = state.map.shapes.filter((item) => item.id !== id);
-  if (type === "stroke") state.map.strokes = state.map.strokes.filter((item) => item.id !== id);
+  const nextIndex = (state.map.layers || []).length + 1;
+  state.map.layers = [...(state.map.layers || []), normalizeLayer({ name: `레이어 ${nextIndex}` }, nextIndex - 1)];
+  state.layerDockOpen = true;
+  renderAll();
+}
+
+function deleteLayer(id = "") {
+  if (!id) return;
+  const before = state.map.layers?.length || 0;
+  pushHistory();
+  state.map.layers = (state.map.layers || []).filter((item) => item.id !== id);
+  if (state.map.layers.length === before) state.history.pop();
   renderAll();
 }
 
@@ -1251,6 +1282,13 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-map-ribbon-toggle]")) {
+    state.ribbonCollapsed = !state.ribbonCollapsed;
+    localStorage.setItem("mapEditorRibbon", state.ribbonCollapsed ? "collapsed" : "expanded");
+    syncRibbonState();
+    return;
+  }
+
   if (event.target.closest("[data-map-export]")) {
     exportPng();
     return;
@@ -1304,9 +1342,15 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-map-add-layer]")) {
+    addLayer();
+    return;
+  }
+
   const layerDelete = event.target.closest("[data-layer-delete]");
   if (layerDelete) {
     deleteLayer(layerDelete.dataset.layerDelete);
+    return;
   }
 });
 
@@ -1332,6 +1376,10 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target === els.width || event.target === els.height) {
+    applyResizeFromInputs();
+    return;
+  }
   if (event.target === els.brushStyle) {
     state.brushStyle = els.brushStyle.value || "round";
     return;
@@ -1348,6 +1396,14 @@ document.addEventListener("change", (event) => {
     const file = els.imageInput.files?.[0];
     els.imageInput.value = "";
     importImage(file);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if ((event.target === els.width || event.target === els.height) && event.key === "Enter") {
+    event.preventDefault();
+    applyResizeFromInputs();
+    event.target.blur();
   }
 });
 
@@ -1422,6 +1478,9 @@ window.addEventListener("pointermove", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
+  const editableTarget = event.target.closest?.("input, textarea, select, [contenteditable='true']");
+  if (editableTarget && !(event.ctrlKey || event.metaKey)) return;
+
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undo();
