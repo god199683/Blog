@@ -28,11 +28,12 @@ const DEFAULT_MAP = {
   creatures: [],
   byproducts: [],
   accessKeys: [],
+  trash: [],
   settings: { ...DEFAULT_SETTINGS },
   note: "",
 };
 
-const PAGES = new Set(["dashboard", "map", "zones", "creatures", "byproducts", "settings", "access"]);
+const PAGES = new Set(["dashboard", "map", "zones", "creatures", "byproducts", "settings", "access", "trash"]);
 
 const ZONE_TYPES = [
   { value: "default", label: "기본", icon: "🌳" },
@@ -96,6 +97,15 @@ const ACCESS_ROLE_PERIOD_DAYS = {
   friend: 30,
   guest: 7,
 };
+
+const DASHBOARD_COLLECTION_LABELS = {
+  zones: "구역",
+  creatures: "동식물",
+  byproducts: "항목",
+  accessKeys: "출입 권한",
+};
+
+const DASHBOARD_TRASH_COLLECTIONS = Object.keys(DASHBOARD_COLLECTION_LABELS);
 
 const state = {
   session: null,
@@ -325,6 +335,33 @@ function normalizeAccessKey(item = {}) {
   };
 }
 
+function normalizeDashboardItem(collection, item = {}) {
+  if (collection === "zones") return normalizeZone(item);
+  if (collection === "creatures") return normalizeCreature(item);
+  if (collection === "byproducts") return normalizeByproduct(item);
+  if (collection === "accessKeys") return normalizeAccessKey(item);
+  return { ...item, id: item.id || createId(), name: String(item.name || "항목").slice(0, 80) };
+}
+
+function getDashboardItemTitle(collection, item = {}) {
+  if (collection === "zones") return item.name || "이름 없는 구역";
+  if (collection === "creatures") return item.name || "이름 없는 동식물";
+  if (collection === "byproducts") return item.name || "이름 없는 항목";
+  if (collection === "accessKeys") return item.name || "출입자";
+  return item.name || "항목";
+}
+
+function normalizeDashboardTrashEntry(entry = {}) {
+  const collection = DASHBOARD_TRASH_COLLECTIONS.includes(entry.collection) ? entry.collection : "byproducts";
+  const item = normalizeDashboardItem(collection, entry.item || entry.snapshot || {});
+  return {
+    id: entry.id || createId(),
+    collection,
+    item,
+    deletedAt: entry.deletedAt || entry.deleted_at || new Date().toISOString(),
+  };
+}
+
 function cloneMap(map = DEFAULT_MAP) {
   const tileSize = Number(map.tileSize) || DEFAULT_MAP.tileSize;
   const legacyWidth = Number(map.width) || DEFAULT_MAP.width;
@@ -372,6 +409,9 @@ function cloneMap(map = DEFAULT_MAP) {
     byproducts: Array.isArray(map.byproducts) ? map.byproducts.map(normalizeByproduct) : [],
     accessKeys: Array.isArray(map.accessKeys || map.access_keys)
       ? (map.accessKeys || map.access_keys).map(normalizeAccessKey)
+      : [],
+    trash: Array.isArray(map.trash || map.dashboardTrash || map.dashboard_trash)
+      ? (map.trash || map.dashboardTrash || map.dashboard_trash).map(normalizeDashboardTrashEntry)
       : [],
     settings: normalizeSettings(map.settings || {}),
     note: String(map.note || ""),
@@ -462,6 +502,7 @@ function getPageIntro() {
     byproducts: ["부산물/채집품", "구역에서 얻은 부산물과 채집품을 정리합니다."],
     settings: ["시스템 설정", "정원의 성장, 보호, 자동화 설정을 조정합니다."],
     access: ["출입 관리", "정원에 들어올 수 있는 대상과 권한 기간을 관리합니다."],
+    trash: ["휴지통", "삭제한 대시보드 항목을 복원하거나 완전히 비웁니다."],
   }[state.activePage] || ["대시보드", ""];
 
   return `
@@ -507,6 +548,7 @@ function getStatusRows() {
     ["자가 세척", settings.selfCleaning ? "활성" : "비활성"],
     ["출입 권한", `${state.map.accessKeys.length}개`],
     ["동식물", `${state.map.creatures.length}개`],
+    ["휴지통", `${state.map.trash.length}개`],
   ];
 }
 
@@ -1306,6 +1348,42 @@ function renderAccessPage() {
   `;
 }
 
+function renderTrashPage() {
+  const trash = state.map.trash || [];
+  return `
+    ${getPageIntro()}
+    <section class="garden-page-actions">
+      <button class="garden-button is-danger" type="button" data-action="empty-dashboard-trash" ${trash.length ? "" : "disabled"}>비우기</button>
+    </section>
+    ${renderCard(
+      "삭제된 항목",
+      trash.length
+        ? `<div class="garden-table">
+            <div class="garden-table-head garden-trash-row">
+              <span>이름</span><span>종류</span><span>삭제일</span><span>관리</span>
+            </div>
+            ${trash
+              .map((entry) => {
+                const title = getDashboardItemTitle(entry.collection, entry.item);
+                return `
+                  <div class="garden-table-row garden-trash-row">
+                    <strong>${escapeHtml(title)}</strong>
+                    <span>${escapeHtml(DASHBOARD_COLLECTION_LABELS[entry.collection] || "항목")}</span>
+                    <span>${escapeHtml(formatDate(entry.deletedAt))}</span>
+                    <span class="garden-inline-actions">
+                      <button type="button" data-action="restore-dashboard-trash" data-id="${escapeHtml(entry.id)}">복원</button>
+                      <button type="button" data-action="delete-dashboard-trash" data-id="${escapeHtml(entry.id)}">삭제</button>
+                    </span>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">휴지통이 비어 있습니다.</p>`
+    )}
+  `;
+}
+
 function render() {
   if (!els.view) return;
   syncChrome();
@@ -1317,6 +1395,7 @@ function render() {
     byproducts: renderByproductsPage,
     settings: renderSettingsPage,
     access: renderAccessPage,
+    trash: renderTrashPage,
   };
   els.view.innerHTML = renderers[state.activePage]?.() || renderDashboard();
   requestAnimationFrame(() => {
@@ -1383,15 +1462,65 @@ function closeEditor() {
 
 async function deleteEntity(collection, id, message = "삭제할까요?") {
   if (!id || !window.confirm(message)) return;
-  state.map[collection] = state.map[collection].filter((item) => item.id !== id);
+  const item = state.map[collection].find((entry) => entry.id === id);
+  if (!item) return;
+  state.map.trash = [
+    normalizeDashboardTrashEntry({
+      collection,
+      item: structuredClone(item),
+      deletedAt: new Date().toISOString(),
+    }),
+    ...(state.map.trash || []),
+  ];
+  state.map[collection] = state.map[collection].filter((entry) => entry.id !== id);
   if (collection === "zones") {
-    state.map.creatures = state.map.creatures.map((item) => (item.zoneId === id ? { ...item, zoneId: "" } : item));
-    state.map.byproducts = state.map.byproducts.map((item) => (item.zoneId === id ? { ...item, zoneId: "" } : item));
     if (state.selectedZoneId === id) state.selectedZoneId = "";
   }
   if (collection === "creatures" && state.selectedCreatureId === id) {
     state.selectedCreatureId = "";
   }
+  if (state.editType && state.editId === id) {
+    state.editType = "";
+    state.editId = "";
+  }
+  await saveSpaceContent();
+  render();
+}
+
+function clearDeletedZoneReferences(zoneIds = []) {
+  const deletedIds = new Set(zoneIds.filter(Boolean));
+  if (deletedIds.size === 0) return;
+  state.map.creatures = state.map.creatures.map((item) => (deletedIds.has(item.zoneId) ? { ...item, zoneId: "" } : item));
+  state.map.byproducts = state.map.byproducts.map((item) => (deletedIds.has(item.zoneId) ? { ...item, zoneId: "" } : item));
+}
+
+async function restoreTrashEntry(trashId) {
+  const entry = state.map.trash.find((item) => item.id === trashId);
+  if (!entry) return;
+  const collection = entry.collection;
+  const restored = normalizeDashboardItem(collection, entry.item);
+  if (state.map[collection].some((item) => item.id === restored.id)) {
+    restored.id = createId();
+  }
+  state.map[collection] = [...state.map[collection], restored];
+  state.map.trash = state.map.trash.filter((item) => item.id !== trashId);
+  await saveSpaceContent();
+  render();
+}
+
+async function permanentlyDeleteTrashEntry(trashId) {
+  if (!trashId || !window.confirm("내용을 정말로 삭제할까요?")) return;
+  const entry = state.map.trash.find((item) => item.id === trashId);
+  if (entry?.collection === "zones") clearDeletedZoneReferences([entry.item?.id]);
+  state.map.trash = state.map.trash.filter((item) => item.id !== trashId);
+  await saveSpaceContent();
+  render();
+}
+
+async function emptyDashboardTrash() {
+  if (!state.map.trash.length || !window.confirm("내용을 정말로 삭제할까요?")) return;
+  clearDeletedZoneReferences(state.map.trash.filter((item) => item.collection === "zones").map((item) => item.item?.id));
+  state.map.trash = [];
   await saveSpaceContent();
   render();
 }
@@ -1417,10 +1546,13 @@ async function handleAction(action, target) {
     render();
     return;
   }
-  if (action === "delete-zone") return deleteEntity("zones", target.dataset.id, "구역을 삭제할까요?");
-  if (action === "delete-creature") return deleteEntity("creatures", target.dataset.id, "동식물을 삭제할까요?");
-  if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "항목을 삭제할까요?");
-  if (action === "delete-access") return deleteEntity("accessKeys", target.dataset.id, "출입 권한을 삭제할까요?");
+  if (action === "delete-zone") return deleteEntity("zones", target.dataset.id, "구역을 휴지통으로 이동할까요?");
+  if (action === "delete-creature") return deleteEntity("creatures", target.dataset.id, "동식물을 휴지통으로 이동할까요?");
+  if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "항목을 휴지통으로 이동할까요?");
+  if (action === "delete-access") return deleteEntity("accessKeys", target.dataset.id, "출입 권한을 휴지통으로 이동할까요?");
+  if (action === "restore-dashboard-trash") return restoreTrashEntry(target.dataset.id || "");
+  if (action === "delete-dashboard-trash") return permanentlyDeleteTrashEntry(target.dataset.id || "");
+  if (action === "empty-dashboard-trash") return emptyDashboardTrash();
   if (action === "go-zone") return setActivePage("zones");
   if (action === "select-zone") {
     state.selectedZoneId = target.dataset.id || "";

@@ -7309,6 +7309,10 @@ body.is-book-mode :is(button, select):disabled {
   grid-template-columns: minmax(0, 1fr) 7rem minmax(7rem, 0.7fr) minmax(10rem, 1fr) 5.5rem;
 }
 
+.garden-trash-row {
+  grid-template-columns: minmax(0, 1fr) 6.2rem 7rem 7rem;
+}
+
 .garden-creature-detail {
   display: grid;
   gap: 0.72rem;
@@ -7476,6 +7480,11 @@ body.is-book-mode :is(button, select):disabled {
 .garden-button.is-danger {
   border-color: rgba(214, 92, 92, 0.24);
   color: var(--garden-danger);
+}
+
+.garden-button:disabled {
+  cursor: default;
+  opacity: 0.46;
 }
 
 .garden-map-layout {
@@ -8019,7 +8028,8 @@ body.is-book-mode :is(button, select):disabled {
 
   .garden-creature-row,
   .garden-creature-list-row,
-  .garden-access-row {
+  .garden-access-row,
+  .garden-trash-row {
     grid-template-columns: 1fr;
     gap: 0.2rem;
     align-items: start;
