@@ -6312,11 +6312,14 @@ body.is-book-mode :is(button, select):disabled {
 }
 
 .paint-ribbon {
-  display: grid;
-  grid-template-columns: 4.4rem 12rem 10.5rem 5.2rem minmax(14rem, 1fr) minmax(21rem, 1.2fr) 5.2rem;
+  display: flex;
+  align-items: stretch;
   min-height: 8.45rem;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid #dfe6ef;
   background: #f7f9fc;
+  scrollbar-gutter: stable;
 }
 
 .paint-group {
@@ -6324,9 +6327,39 @@ body.is-book-mode :is(button, select):disabled {
   align-content: space-between;
   justify-items: center;
   gap: 0.35rem;
+  width: var(--paint-group-width, 8rem);
   min-width: 0;
   padding: 0.62rem 0.58rem 0.48rem;
   border-right: 1px solid #e1e7ef;
+  flex: 0 0 var(--paint-group-width, 8rem);
+}
+
+.paint-group-select {
+  --paint-group-width: 4.4rem;
+}
+
+.paint-group-image {
+  --paint-group-width: 11rem;
+}
+
+.paint-group.paint-group-tools {
+  --paint-group-width: 10rem;
+}
+
+.paint-group-brush {
+  --paint-group-width: 7.1rem;
+}
+
+.paint-group-shapes {
+  --paint-group-width: 20rem;
+}
+
+.paint-group-colors {
+  --paint-group-width: 24rem;
+}
+
+.paint-group-layer {
+  --paint-group-width: 5.2rem;
 }
 
 .paint-group:last-child {
@@ -6375,7 +6408,7 @@ body.is-book-mode :is(button, select):disabled {
   font-size: 0.72rem;
 }
 
-.paint-group-tools {
+.paint-group > .paint-group-tools {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6612,6 +6645,7 @@ body.is-book-mode :is(button, select):disabled {
   display: grid;
   grid-template-columns: 4.8rem minmax(0, 1fr) 14rem;
   min-height: 0;
+  overflow: hidden;
   flex: 1;
   background: #eef3fb;
 }
@@ -6654,6 +6688,7 @@ body.is-book-mode :is(button, select):disabled {
 .paint-workspace {
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   padding: 0;
   background: #eef3fb;
 }
@@ -6879,13 +6914,41 @@ body.is-book-mode :is(button, select):disabled {
 
 @media (max-width: 1200px) {
   .paint-ribbon {
-    grid-template-columns: 4.4rem 10rem 9.5rem 5rem minmax(12rem, 1fr);
-    overflow-x: auto;
+    min-height: 8rem;
   }
 
-  .paint-group-colors,
-  .paint-group-layer {
-    min-width: 18rem;
+  .paint-group {
+    padding-inline: 0.48rem;
+  }
+
+  .paint-group-colors {
+    --paint-group-width: 22rem;
+  }
+
+  .paint-group-shapes {
+    --paint-group-width: 18.5rem;
+  }
+
+  .paint-palette {
+    grid-template-columns: repeat(10, 1.06rem);
+    gap: 0.22rem;
+  }
+
+  .paint-palette button {
+    width: 1.06rem;
+    height: 1.06rem;
+    min-width: 1.06rem;
+    min-height: 1.06rem;
+  }
+
+  .paint-color-current button {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .paint-color-current button.is-primary {
+    width: 2.3rem;
+    height: 2.3rem;
   }
 }
 
