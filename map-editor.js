@@ -580,7 +580,17 @@ els.save?.addEventListener("click", async () => {
 
 els.reset?.addEventListener("click", () => {
   if (!window.confirm("맵을 초기화할까요?")) return;
-  state.map = structuredClone(DEFAULT_MAP);
+  const preservedManagement = {
+    zones: Array.isArray(state.map.zones) ? structuredClone(state.map.zones) : [],
+    creatures: Array.isArray(state.map.creatures) ? structuredClone(state.map.creatures) : [],
+    byproducts: Array.isArray(state.map.byproducts) ? structuredClone(state.map.byproducts) : [],
+    accessKeys: Array.isArray(state.map.accessKeys) ? structuredClone(state.map.accessKeys) : [],
+    settings: state.map.settings && typeof state.map.settings === "object" ? structuredClone(state.map.settings) : undefined,
+  };
+  state.map = {
+    ...structuredClone(DEFAULT_MAP),
+    ...preservedManagement,
+  };
   renderAll();
 });
 

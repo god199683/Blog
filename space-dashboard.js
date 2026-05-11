@@ -2,9 +2,19 @@ const SUPABASE_URL = "https://ipylqxcmajrwtvvmrvfy.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
+const DEFAULT_SETTINGS = {
+  infiniteGrowth: true,
+  growthMode: "stage1",
+  pollutionShield: true,
+  selfCleaning: true,
+  autoClassify: true,
+  autoEnvironment: true,
+  autoFeed: true,
+};
+
 const DEFAULT_MAP = {
   kind: "blog-map",
-  version: 2,
+  version: 3,
   width: 32,
   height: 20,
   tileSize: 32,
@@ -14,8 +24,68 @@ const DEFAULT_MAP = {
   cells: {},
   strokes: [],
   markers: [],
+  zones: [],
+  creatures: [],
+  byproducts: [],
+  accessKeys: [],
+  settings: { ...DEFAULT_SETTINGS },
   note: "",
 };
+
+const PAGES = new Set(["dashboard", "map", "zones", "creatures", "byproducts", "settings", "access"]);
+
+const ZONE_TYPES = [
+  { value: "default", label: "기본", icon: "🌳" },
+  { value: "sacred", label: "신성림", icon: "✨" },
+  { value: "water", label: "수생", icon: "💧" },
+  { value: "garden", label: "정원", icon: "🌸" },
+  { value: "farm", label: "농경", icon: "🌾" },
+  { value: "magic", label: "마법숲", icon: "🍄" },
+  { value: "desert", label: "사막", icon: "🔥" },
+  { value: "cave", label: "동굴", icon: "🪨" },
+  { value: "snow", label: "설원", icon: "❄️" },
+];
+
+const ZONE_ICONS = ["🌳", "💧", "🏡", "🌿", "🦊", "🌸", "🍄", "🔥", "❄️", "🌙", "⚡", "🪨"];
+
+const CREATURE_TYPES = [
+  { value: "plant", label: "식물", icon: "🌱" },
+  { value: "animal", label: "동물", icon: "🦊" },
+  { value: "spirit", label: "영체", icon: "✨" },
+  { value: "other", label: "기타", icon: "•" },
+];
+
+const GRADES = ["F", "E", "D", "C", "B", "A", "S", "SS", "SSS", "Ex"];
+
+const GROWTH_STAGES = [
+  { value: "seed", label: "씨앗" },
+  { value: "sprout", label: "새싹" },
+  { value: "growing", label: "성장 중" },
+  { value: "mature", label: "성숙" },
+  { value: "ex", label: "Ex급" },
+];
+
+const GROWTH_MODES = [
+  { value: "off", label: "OFF", icon: "⏸️", description: "성장을 멈춥니다." },
+  { value: "stage1", label: "1단계", icon: "⏩", description: "2배속으로 성장합니다." },
+  { value: "stage2", label: "2단계", icon: "⚡", description: "즉시 성장합니다." },
+];
+
+const BYPRODUCT_TYPES = [
+  { value: "byproduct", label: "부산물", icon: "💎" },
+  { value: "collectible", label: "채집품", icon: "🧺" },
+  { value: "material", label: "재료", icon: "🧩" },
+  { value: "seed", label: "씨앗", icon: "🌱" },
+  { value: "other", label: "기타", icon: "•" },
+];
+
+const ACCESS_ROLES = [
+  { value: "owner", label: "소유주" },
+  { value: "partner", label: "파트너" },
+  { value: "pet", label: "펫" },
+  { value: "guest", label: "손님" },
+  { value: "manager", label: "관리자" },
+];
 
 const state = {
   session: null,
@@ -23,22 +93,26 @@ const state = {
   spaceId: new URLSearchParams(window.location.search).get("space") || "",
   space: null,
   map: structuredClone(DEFAULT_MAP),
+  activePage: readActivePageFromHash(),
+  editType: "",
+  editId: "",
+  selectedZoneId: "",
+  mapZoom: 1,
+  creatureTypeFilter: "all",
+  creatureGradeFilter: "all",
 };
 
 const els = {
+  view: document.querySelector("[data-space-view]"),
   brandTitle: document.querySelector("[data-space-brand-title]"),
   initials: document.querySelectorAll("[data-space-brand-initial]"),
-  title: document.querySelector("[data-space-title]"),
-  summary: document.querySelector("[data-space-summary]"),
-  updated: document.querySelector("[data-space-updated]"),
-  editLinks: document.querySelectorAll("[data-space-edit-link]"),
-  preview: document.querySelector("[data-space-preview]"),
-  note: document.querySelector("[data-space-note]"),
-  markers: document.querySelector("[data-space-markers]"),
-  stats: document.querySelectorAll("[data-space-stat]"),
+  navLinks: document.querySelectorAll("[data-space-page-link]"),
 };
 
-const ctx = els.preview?.getContext("2d");
+function readActivePageFromHash() {
+  const page = window.location.hash.replace("#", "") || "dashboard";
+  return PAGES.has(page) ? page : "dashboard";
+}
 
 async function requestRest(path, token, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -65,16 +139,6 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#039;");
 }
 
-function formatDate(value = "") {
-  const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  }).format(date);
-}
-
 function clampNumber(value, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return min;
@@ -85,11 +149,29 @@ function createId() {
   return globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
 
-function normalizePoint(point) {
-  return {
-    x: Number(point?.x) || 0,
-    y: Number(point?.y) || 0,
-  };
+function toBool(value, fallback = false) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+  if (value === 1) return true;
+  if (value === 0) return false;
+  return fallback;
+}
+
+function formatDate(value = "") {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).format(date);
+}
+
+function getSpaceTitle() {
+  return state.space?.title || "Ciel's Garden";
 }
 
 function getCanvasWidth(map = state.map) {
@@ -98,6 +180,108 @@ function getCanvasWidth(map = state.map) {
 
 function getCanvasHeight(map = state.map) {
   return clampNumber(map.canvasHeight || map.height * map.tileSize, 240, 4200);
+}
+
+function normalizePoint(point) {
+  return {
+    x: Number(point?.x) || 0,
+    y: Number(point?.y) || 0,
+  };
+}
+
+function normalizeSettings(settings = {}) {
+  return {
+    infiniteGrowth: toBool(settings.infiniteGrowth ?? settings.infinite_growth, DEFAULT_SETTINGS.infiniteGrowth),
+    growthMode: ["off", "stage1", "stage2"].includes(settings.growthMode || settings.growth_mode)
+      ? settings.growthMode || settings.growth_mode
+      : DEFAULT_SETTINGS.growthMode,
+    pollutionShield: toBool(settings.pollutionShield ?? settings.pollution_shield, DEFAULT_SETTINGS.pollutionShield),
+    selfCleaning: toBool(settings.selfCleaning ?? settings.self_cleaning, DEFAULT_SETTINGS.selfCleaning),
+    autoClassify: toBool(settings.autoClassify ?? settings.auto_classify, DEFAULT_SETTINGS.autoClassify),
+    autoEnvironment: toBool(settings.autoEnvironment ?? settings.auto_environment, DEFAULT_SETTINGS.autoEnvironment),
+    autoFeed: toBool(settings.autoFeed ?? settings.auto_feed, DEFAULT_SETTINGS.autoFeed),
+  };
+}
+
+function getZoneType(type = "default") {
+  return ZONE_TYPES.find((item) => item.value === type) || ZONE_TYPES[0];
+}
+
+function getCreatureType(type = "other") {
+  return CREATURE_TYPES.find((item) => item.value === type) || CREATURE_TYPES[CREATURE_TYPES.length - 1];
+}
+
+function getGrowthStage(stage = "seed") {
+  return GROWTH_STAGES.find((item) => item.value === stage) || GROWTH_STAGES[0];
+}
+
+function getByproductType(type = "byproduct") {
+  return BYPRODUCT_TYPES.find((item) => item.value === type) || BYPRODUCT_TYPES[0];
+}
+
+function normalizeZone(zone = {}) {
+  const ecosystem = ZONE_TYPES.some((item) => item.value === zone.ecosystem) ? zone.ecosystem : "default";
+  return {
+    id: zone.id || createId(),
+    name: String(zone.name || "새 구역").slice(0, 60),
+    ecosystem,
+    climate: String(zone.climate || "온화").slice(0, 60),
+    icon: zone.icon || getZoneType(ecosystem).icon,
+    color: /^#[0-9a-f]{6}$/i.test(zone.color || "") ? zone.color : "#4aa8d8",
+    description: String(zone.description || "").slice(0, 700),
+    autoFeed: toBool(zone.autoFeed ?? zone.auto_feed, true),
+    autoEnvironment: toBool(zone.autoEnvironment ?? zone.auto_environment, true),
+    createdAt: zone.createdAt || zone.created_at || new Date().toISOString(),
+  };
+}
+
+function normalizeCreature(creature = {}) {
+  const type = CREATURE_TYPES.some((item) => item.value === creature.type) ? creature.type : "plant";
+  const grade = GRADES.includes(creature.grade) ? creature.grade : "F";
+  const growthStage = GROWTH_STAGES.some((item) => item.value === creature.growthStage || creature.growth_stage)
+    ? creature.growthStage || creature.growth_stage
+    : "seed";
+  const growthMode = ["off", "stage1", "stage2"].includes(creature.growthMode || creature.growth_mode)
+    ? creature.growthMode || creature.growth_mode
+    : state.map.settings?.growthMode || DEFAULT_SETTINGS.growthMode;
+  return {
+    id: creature.id || createId(),
+    name: String(creature.name || "이름 없는 개체").slice(0, 80),
+    type,
+    grade,
+    zoneId: creature.zoneId || creature.zone_id || "",
+    growthStage,
+    growthMode,
+    description: String(creature.description || "").slice(0, 700),
+    autoClassified: toBool(creature.autoClassified ?? creature.auto_classified, true),
+    createdAt: creature.createdAt || creature.created_at || new Date().toISOString(),
+  };
+}
+
+function normalizeByproduct(item = {}) {
+  const type = BYPRODUCT_TYPES.some((entry) => entry.value === item.type) ? item.type : "byproduct";
+  return {
+    id: item.id || createId(),
+    name: String(item.name || "이름 없는 항목").slice(0, 80),
+    type,
+    zoneId: item.zoneId || item.zone_id || "",
+    grade: GRADES.includes(item.grade) ? item.grade : "F",
+    quantity: clampNumber(item.quantity ?? 1, 0, 999999),
+    description: String(item.description || "").slice(0, 700),
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
+}
+
+function normalizeAccessKey(item = {}) {
+  return {
+    id: item.id || createId(),
+    name: String(item.name || "출입자").slice(0, 80),
+    role: ACCESS_ROLES.some((role) => role.value === item.role) ? item.role : "guest",
+    key: String(item.key || generateAccessKey()).slice(0, 40),
+    memo: String(item.memo || "").slice(0, 400),
+    active: toBool(item.active, true),
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
 }
 
 function cloneMap(map = DEFAULT_MAP) {
@@ -131,16 +315,25 @@ function cloneMap(map = DEFAULT_MAP) {
   return {
     ...structuredClone(DEFAULT_MAP),
     ...map,
-    version: 2,
+    kind: "blog-map",
+    version: 3,
     tileSize,
-    canvasWidth,
-    canvasHeight,
-    width: Math.ceil(canvasWidth / tileSize),
-    height: Math.ceil(canvasHeight / tileSize),
+    canvasWidth: clampNumber(canvasWidth, 320, 6000),
+    canvasHeight: clampNumber(canvasHeight, 240, 4200),
+    width: Math.ceil(clampNumber(canvasWidth, 320, 6000) / tileSize),
+    height: Math.ceil(clampNumber(canvasHeight, 240, 4200) / tileSize),
     background: map.background || DEFAULT_MAP.background,
     cells,
     strokes,
     markers,
+    zones: Array.isArray(map.zones) ? map.zones.map(normalizeZone) : [],
+    creatures: Array.isArray(map.creatures) ? map.creatures.map(normalizeCreature) : [],
+    byproducts: Array.isArray(map.byproducts) ? map.byproducts.map(normalizeByproduct) : [],
+    accessKeys: Array.isArray(map.accessKeys || map.access_keys)
+      ? (map.accessKeys || map.access_keys).map(normalizeAccessKey)
+      : [],
+    settings: normalizeSettings(map.settings || {}),
+    note: String(map.note || ""),
   };
 }
 
@@ -149,26 +342,218 @@ function parseMapContent(content = "") {
     const parsed = JSON.parse(content || "");
     if (parsed?.kind === "blog-map") return cloneMap(parsed);
   } catch {}
-  return {
-    ...structuredClone(DEFAULT_MAP),
+  return cloneMap({
+    ...DEFAULT_MAP,
     note: String(content || ""),
-  };
-}
-
-function setStat(key, value) {
-  const item = [...els.stats].find((stat) => stat.dataset.spaceStat === key);
-  if (item) item.textContent = value;
-}
-
-function syncBrand() {
-  const title = `${state.id || "Blog"}'s 자료실`;
-  if (els.brandTitle) els.brandTitle.textContent = title;
-  els.initials.forEach((initial) => {
-    initial.textContent = (state.id || "B").slice(0, 1).toUpperCase();
   });
 }
 
-function drawLegacyCells(scale) {
+function generateAccessKey() {
+  return Math.random().toString(36).slice(2, 6).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
+}
+
+function getZoneName(zoneId = "") {
+  if (!zoneId) return "전체 정원";
+  return state.map.zones.find((zone) => zone.id === zoneId)?.name || "알 수 없는 구역";
+}
+
+function getZonePath(zoneId = "") {
+  const zone = state.map.zones.find((item) => item.id === zoneId);
+  if (!zone) return "전체 정원";
+  return `${zone.icon} ${zone.name}`;
+}
+
+function getZoneCounts(zoneId = "") {
+  const creatures = state.map.creatures.filter((item) => item.zoneId === zoneId);
+  return {
+    plants: creatures.filter((item) => item.type === "plant").length,
+    creatures: creatures.filter((item) => item.type !== "plant").length,
+    total: creatures.length,
+    byproducts: state.map.byproducts.filter((item) => item.zoneId === zoneId).length,
+  };
+}
+
+function renderOptions(items, selectedValue = "") {
+  return items
+    .map((item) => {
+      const value = typeof item === "string" ? item : item.value;
+      const label = typeof item === "string" ? item : item.label;
+      return `<option value="${escapeHtml(value)}" ${value === selectedValue ? "selected" : ""}>${escapeHtml(label)}</option>`;
+    })
+    .join("");
+}
+
+function renderZoneOptions(selectedValue = "", includeEmpty = true) {
+  const empty = includeEmpty ? `<option value="" ${selectedValue ? "" : "selected"}>전체 정원</option>` : "";
+  return `${empty}${state.map.zones
+    .map((zone) => `<option value="${escapeHtml(zone.id)}" ${zone.id === selectedValue ? "selected" : ""}>${escapeHtml(zone.name)}</option>`)
+    .join("")}`;
+}
+
+function syncChrome() {
+  const title = getSpaceTitle();
+  if (els.brandTitle) els.brandTitle.textContent = title;
+  els.initials.forEach((initial) => {
+    initial.textContent = (title || state.id || "B").slice(0, 1).toUpperCase();
+  });
+  document.title = `${title} | 공간 관리`;
+  els.navLinks.forEach((link) => {
+    const active = link.dataset.spacePageLink === state.activePage;
+    link.classList.toggle("is-active", active);
+    if (active) {
+      link.setAttribute("aria-current", "page");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  });
+}
+
+function getPageIntro() {
+  const title = getSpaceTitle();
+  const updated = formatDate(state.space?.updated_at || state.space?.created_at);
+  const copy = {
+    dashboard: ["대시보드", `${title}의 정원 현황을 한눈에 확인합니다.`],
+    map: ["정원 맵", "그림판형 맵을 미리 보고 구역 흐름을 관리합니다."],
+    zones: ["구역 관리", "정원 내부 구역과 생태계 정보를 관리합니다."],
+    creatures: ["동식물 관리", "정원 안의 식물, 동물, 영체를 기록합니다."],
+    byproducts: ["부산물/채집품", "구역에서 얻은 부산물과 채집품을 정리합니다."],
+    settings: ["시스템 설정", "정원의 성장, 보호, 자동화 설정을 조정합니다."],
+    access: ["출입 관리", "정원에 들어올 수 있는 대상과 패스키를 관리합니다."],
+  }[state.activePage] || ["대시보드", ""];
+
+  return `
+    <header class="garden-page-heading">
+      <p class="garden-kicker">${escapeHtml(title)}</p>
+      <div>
+        <h1>${escapeHtml(copy[0])}</h1>
+        <p>${escapeHtml(copy[1])}</p>
+      </div>
+      <small>마지막 수정 ${escapeHtml(updated)}</small>
+    </header>
+  `;
+}
+
+function renderCard(title, body, actions = "") {
+  return `
+    <section class="garden-card">
+      <div class="garden-card-head">
+        <h2>${title}</h2>
+        ${actions}
+      </div>
+      ${body}
+    </section>
+  `;
+}
+
+function renderStatCard(icon, label, value, description = "") {
+  return `
+    <article class="garden-stat-card">
+      <span>${icon} ${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <p>${escapeHtml(description)}</p>
+    </article>
+  `;
+}
+
+function getStatusRows() {
+  const settings = state.map.settings;
+  const growthMode = GROWTH_MODES.find((item) => item.value === settings.growthMode) || GROWTH_MODES[1];
+  return [
+    ["성장 모드", `${growthMode.label} - ${growthMode.description}`],
+    ["오염 방지", settings.pollutionShield ? "활성" : "비활성"],
+    ["자가 세척", settings.selfCleaning ? "활성" : "비활성"],
+    ["출입 패스키", `${state.map.accessKeys.length}개`],
+    ["Ex급 개체", `${state.map.creatures.filter((item) => item.grade === "Ex").length}개`],
+  ];
+}
+
+function renderDashboard() {
+  const zones = state.map.zones;
+  const creatures = state.map.creatures;
+  const plants = creatures.filter((item) => item.type === "plant").length;
+  const living = creatures.filter((item) => item.type !== "plant").length;
+  const byproducts = state.map.byproducts;
+  const recentCreatures = [...creatures]
+    .sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""))
+    .slice(0, 6);
+
+  return `
+    ${getPageIntro()}
+    <section class="garden-stats">
+      ${renderStatCard("🗺️", "구역", String(zones.length), "정원에 등록된 구역")}
+      ${renderStatCard("🌱", "식물", String(plants), "식물형 개체")}
+      ${renderStatCard("🦊", "생물", String(living), "동물과 영체")}
+      ${renderStatCard("💎", "부산물", String(byproducts.length), "채집 가능한 항목")}
+    </section>
+
+    <section class="garden-dashboard-layout">
+      ${renderCard(
+        "시스템 상태",
+        `<div class="garden-status-list">
+          ${getStatusRows()
+            .map(
+              ([label, value]) => `
+                <div>
+                  <span>${escapeHtml(label)}</span>
+                  <strong>${escapeHtml(value)}</strong>
+                </div>
+              `
+            )
+            .join("")}
+        </div>`
+      )}
+
+      ${renderCard(
+        "구역 현황",
+        zones.length
+          ? `<div class="garden-zone-list">
+              ${zones
+                .map((zone) => {
+                  const counts = getZoneCounts(zone.id);
+                  return `
+                    <button class="garden-zone-row" type="button" data-action="go-zone" data-id="${escapeHtml(zone.id)}">
+                      <i style="--zone-color:${escapeHtml(zone.color)}">${zone.icon}</i>
+                      <span>
+                        <strong>${escapeHtml(zone.name)}</strong>
+                        <small>${escapeHtml(getZoneType(zone.ecosystem).label)} · ${escapeHtml(zone.climate)}</small>
+                      </span>
+                      <b>${counts.plants} / ${counts.creatures}</b>
+                    </button>
+                  `;
+                })
+                .join("")}
+            </div>`
+          : `<p class="garden-empty">등록된 구역이 없습니다. 구역 관리에서 첫 구역을 만들어주세요.</p>`
+      )}
+    </section>
+
+    ${renderCard(
+      "최근 동식물",
+      recentCreatures.length
+        ? `<div class="garden-table">
+            <div class="garden-table-head garden-creature-row">
+              <span>이름</span><span>유형</span><span>등급</span><span>성장 단계</span>
+            </div>
+            ${recentCreatures
+              .map((item) => {
+                const type = getCreatureType(item.type);
+                return `
+                  <div class="garden-table-row garden-creature-row">
+                    <strong>${type.icon} ${escapeHtml(item.name)}</strong>
+                    <span>${escapeHtml(type.label)}</span>
+                    <span class="garden-grade grade-${escapeHtml(item.grade)}">${escapeHtml(item.grade)}</span>
+                    <span>${escapeHtml(getGrowthStage(item.growthStage).label)}</span>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">등록된 동식물이 없습니다.</p>`
+    )}
+  `;
+}
+
+function drawLegacyCells(ctx, scale) {
   const tile = (state.map.tileSize || DEFAULT_MAP.tileSize) * scale;
   Object.entries(state.map.cells || {}).forEach(([key, cell]) => {
     const [x, y] = key.split(",").map(Number);
@@ -177,7 +562,7 @@ function drawLegacyCells(scale) {
   });
 }
 
-function drawStroke(stroke, scale) {
+function drawStroke(ctx, stroke, scale) {
   const points = stroke.points || [];
   if (points.length === 0) return;
   ctx.save();
@@ -210,12 +595,12 @@ function drawStroke(stroke, scale) {
   ctx.restore();
 }
 
-function drawMarker(marker, scale) {
+function drawMarker(ctx, marker, scale) {
   const x = (Number(marker.x) || 0) * scale;
   const y = (Number(marker.y) || 0) * scale;
   const label = marker.label || "표식";
   ctx.save();
-  ctx.font = `700 ${Math.max(10, 15 * scale)}px sans-serif`;
+  ctx.font = `700 ${Math.max(10, 14 * scale)}px sans-serif`;
   ctx.textBaseline = "middle";
 
   if (marker.type === "label") {
@@ -234,63 +619,592 @@ function drawMarker(marker, scale) {
   ctx.restore();
 }
 
-function drawPreview() {
-  if (!ctx || !els.preview) return;
-  const maxWidth = 960;
-  const maxHeight = 560;
-  const scale = Math.min(maxWidth / getCanvasWidth(), maxHeight / getCanvasHeight(), 1);
+function drawRoundedRect(ctx, left, top, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(left + safeRadius, top);
+  ctx.lineTo(left + width - safeRadius, top);
+  ctx.quadraticCurveTo(left + width, top, left + width, top + safeRadius);
+  ctx.lineTo(left + width, top + height - safeRadius);
+  ctx.quadraticCurveTo(left + width, top + height, left + width - safeRadius, top + height);
+  ctx.lineTo(left + safeRadius, top + height);
+  ctx.quadraticCurveTo(left, top + height, left, top + height - safeRadius);
+  ctx.lineTo(left, top + safeRadius);
+  ctx.quadraticCurveTo(left, top, left + safeRadius, top);
+  ctx.closePath();
+}
+
+function drawZoneBadges(ctx, scale) {
+  if (state.map.zones.length === 0) return;
+  const width = getCanvasWidth() * scale;
+  const height = getCanvasHeight() * scale;
+  const radiusX = width * 0.32;
+  const radiusY = height * 0.26;
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  state.map.zones.forEach((zone, index) => {
+    const angle = (Math.PI * 2 * index) / Math.max(state.map.zones.length, 1) - Math.PI / 2;
+    const x = centerX + Math.cos(angle) * radiusX;
+    const y = centerY + Math.sin(angle) * radiusY;
+    const label = `${zone.icon} ${zone.name}`;
+    ctx.save();
+    ctx.font = "700 13px sans-serif";
+    const textWidth = ctx.measureText(label).width;
+    const boxWidth = Math.min(Math.max(textWidth + 24, 86), 180);
+    const boxHeight = 34;
+    const left = Math.max(12, Math.min(width - boxWidth - 12, x - boxWidth / 2));
+    const top = Math.max(12, Math.min(height - boxHeight - 12, y - boxHeight / 2));
+    ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+    ctx.strokeStyle = zone.color || "#4aa8d8";
+    ctx.lineWidth = 1;
+    drawRoundedRect(ctx, left, top, boxWidth, boxHeight, 10);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#1e3a5f";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label.slice(0, 18), left + 12, top + boxHeight / 2);
+    ctx.restore();
+  });
+}
+
+function drawPreview(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const holder = canvas.closest(".garden-map-preview");
+  const holderWidth = holder?.clientWidth ? holder.clientWidth - 34 : 960;
+  const maxWidth = Math.max(320, holderWidth);
+  const maxHeight = state.activePage === "map" ? 620 : 420;
+  const baseScale = Math.min(maxWidth / getCanvasWidth(), maxHeight / getCanvasHeight(), 1);
+  const scale = baseScale * state.mapZoom;
   const width = Math.max(1, Math.round(getCanvasWidth() * scale));
   const height = Math.max(1, Math.round(getCanvasHeight() * scale));
-  els.preview.width = width;
-  els.preview.height = height;
+  canvas.width = width;
+  canvas.height = height;
 
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = state.map.background || DEFAULT_MAP.background;
   ctx.fillRect(0, 0, width, height);
-  drawLegacyCells(scale);
-  state.map.strokes.forEach((stroke) => drawStroke(stroke, scale));
-  state.map.markers.forEach((marker) => drawMarker(marker, scale));
+  drawLegacyCells(ctx, scale);
+  state.map.strokes.forEach((stroke) => drawStroke(ctx, stroke, scale));
+  state.map.markers.forEach((marker) => drawMarker(ctx, marker, scale));
+  drawZoneBadges(ctx, scale);
 }
 
-function renderMarkers() {
-  if (!els.markers) return;
-  if (state.map.markers.length === 0) {
-    els.markers.innerHTML = `<p class="space-empty-text">표식이 없습니다.</p>`;
-    return;
-  }
+function renderMapPage() {
+  const selectedZone = state.map.zones.find((zone) => zone.id === state.selectedZoneId) || null;
+  const editHref = `./map-editor.html?space=${encodeURIComponent(state.spaceId)}`;
+  return `
+    ${getPageIntro()}
+    <section class="garden-map-toolbar">
+      <a class="garden-button is-primary" href="${editHref}">맵 편집</a>
+      <button class="garden-button" type="button" data-action="map-zoom-out">-</button>
+      <span>${Math.round(state.mapZoom * 100)}%</span>
+      <button class="garden-button" type="button" data-action="map-zoom-in">+</button>
+      <button class="garden-button" type="button" data-action="map-zoom-reset">맞춤</button>
+    </section>
 
-  els.markers.innerHTML = state.map.markers
-    .map(
-      (marker) => `
-        <article class="space-marker-card">
-          <strong>${escapeHtml(marker.label || "표식")}</strong>
-          <span>${Math.round(marker.x)}, ${Math.round(marker.y)}</span>
-        </article>
-      `
-    )
-    .join("");
+    <section class="garden-map-layout">
+      <div class="garden-card garden-map-preview">
+        <div class="garden-card-head">
+          <h2>맵 미리보기</h2>
+          <span>${getCanvasWidth()} x ${getCanvasHeight()}</span>
+        </div>
+        <div class="garden-canvas-stage">
+          <canvas data-garden-map-canvas aria-label="정원 맵 미리보기"></canvas>
+        </div>
+      </div>
+
+      <aside class="garden-card garden-map-detail">
+        <div class="garden-card-head">
+          <h2>상세 정보</h2>
+        </div>
+        ${
+          selectedZone
+            ? `<div class="garden-detail-body">
+                <b style="--zone-color:${escapeHtml(selectedZone.color)}">${selectedZone.icon}</b>
+                <h3>${escapeHtml(selectedZone.name)}</h3>
+                <p>${escapeHtml(getZoneType(selectedZone.ecosystem).label)} · ${escapeHtml(selectedZone.climate)}</p>
+                <small>${escapeHtml(selectedZone.description || "설명이 없습니다.")}</small>
+              </div>`
+            : `<p class="garden-empty">아래 구역을 선택하면 상세 정보가 여기에 표시됩니다.</p>`
+        }
+      </aside>
+    </section>
+
+    ${renderCard(
+      "구역 바로가기",
+      state.map.zones.length
+        ? `<div class="garden-zone-chip-grid">
+            ${state.map.zones
+              .map(
+                (zone) => `
+                  <button class="garden-zone-chip ${zone.id === state.selectedZoneId ? "is-selected" : ""}" type="button" data-action="select-zone" data-id="${escapeHtml(zone.id)}">
+                    <i style="--zone-color:${escapeHtml(zone.color)}">${zone.icon}</i>
+                    <span>${escapeHtml(zone.name)}</span>
+                  </button>
+                `
+              )
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">구역 관리에서 구역을 추가하면 맵에도 함께 표시됩니다.</p>`
+    )}
+  `;
 }
 
-function renderDashboard() {
-  const strokes = state.map.strokes.length;
-  const cells = Object.keys(state.map.cells || {}).length;
-  const elements = strokes + cells + state.map.markers.length;
-  const note = String(state.map.note || "").trim();
+function renderZoneForm(zone = null) {
+  const item = zone || normalizeZone({ name: "" });
+  return `
+    <form class="garden-form" data-form="zone">
+      <input type="hidden" name="id" value="${zone ? escapeHtml(zone.id) : ""}">
+      <label>
+        <span>구역 이름</span>
+        <input name="name" required maxlength="60" value="${zone ? escapeHtml(item.name) : ""}" placeholder="구역 이름">
+      </label>
+      <label>
+        <span>생태계 유형</span>
+        <select name="ecosystem">${renderOptions(ZONE_TYPES, item.ecosystem)}</select>
+      </label>
+      <label>
+        <span>기후</span>
+        <input name="climate" maxlength="60" value="${escapeHtml(item.climate)}" placeholder="온화">
+      </label>
+      <label>
+        <span>아이콘</span>
+        <select name="icon">${renderOptions(ZONE_ICONS, item.icon)}</select>
+      </label>
+      <label>
+        <span>색상</span>
+        <input name="color" type="color" value="${escapeHtml(item.color)}">
+      </label>
+      <label class="garden-form-wide">
+        <span>설명</span>
+        <textarea name="description" rows="3" maxlength="700" placeholder="구역 설명">${escapeHtml(item.description)}</textarea>
+      </label>
+      <label class="garden-check">
+        <input type="checkbox" name="autoEnvironment" ${item.autoEnvironment ? "checked" : ""}>
+        <span>맞춤 환경 자동 제공</span>
+      </label>
+      <label class="garden-check">
+        <input type="checkbox" name="autoFeed" ${item.autoFeed ? "checked" : ""}>
+        <span>먹이 자동 제공</span>
+      </label>
+      <div class="garden-form-actions">
+        <button class="garden-button is-primary" type="submit">${zone ? "구역 수정" : "구역 추가"}</button>
+        <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
+      </div>
+    </form>
+  `;
+}
 
-  if (els.title) els.title.textContent = state.space?.title || "공간";
-  if (els.summary) els.summary.textContent = `${getCanvasWidth()} x ${getCanvasHeight()} 캔버스에 저장된 공간입니다.`;
-  if (els.updated) els.updated.textContent = `수정일 ${formatDate(state.space?.updated_at || state.space?.created_at)}`;
-  els.editLinks.forEach((link) => {
-    link.href = `./map-editor.html?space=${encodeURIComponent(state.spaceId)}`;
+function renderZonesPage() {
+  const editingZone = state.editType === "zone" ? state.map.zones.find((zone) => zone.id === state.editId) || null : null;
+  return `
+    ${getPageIntro()}
+    <section class="garden-page-actions">
+      <button class="garden-button is-primary" type="button" data-action="open-zone-form">구역 추가</button>
+    </section>
+    ${state.editType === "zone" ? renderCard(editingZone ? "구역 수정" : "새 구역", renderZoneForm(editingZone)) : ""}
+    ${renderCard(
+      "구역 목록",
+      state.map.zones.length
+        ? `<div class="garden-card-grid">
+            ${state.map.zones
+              .map((zone) => {
+                const counts = getZoneCounts(zone.id);
+                return `
+                  <article class="garden-entity-card">
+                    <div class="garden-entity-top">
+                      <i style="--zone-color:${escapeHtml(zone.color)}">${zone.icon}</i>
+                      <span>
+                        <strong>${escapeHtml(zone.name)}</strong>
+                        <small>${escapeHtml(getZoneType(zone.ecosystem).label)} · ${escapeHtml(zone.climate)}</small>
+                      </span>
+                    </div>
+                    <p>${escapeHtml(zone.description || "설명이 없습니다.")}</p>
+                    <dl>
+                      <div><dt>식물</dt><dd>${counts.plants}</dd></div>
+                      <div><dt>생물</dt><dd>${counts.creatures}</dd></div>
+                      <div><dt>부산물</dt><dd>${counts.byproducts}</dd></div>
+                    </dl>
+                    <div class="garden-card-actions">
+                      <button class="garden-button" type="button" data-action="edit-zone" data-id="${escapeHtml(zone.id)}">수정</button>
+                      <button class="garden-button is-danger" type="button" data-action="delete-zone" data-id="${escapeHtml(zone.id)}">삭제</button>
+                    </div>
+                  </article>
+                `;
+              })
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">등록된 구역이 없습니다.</p>`
+    )}
+  `;
+}
+
+function renderCreatureForm(creature = null) {
+  const item = creature || normalizeCreature({ name: "" });
+  return `
+    <form class="garden-form" data-form="creature">
+      <input type="hidden" name="id" value="${creature ? escapeHtml(creature.id) : ""}">
+      <label>
+        <span>이름</span>
+        <input name="name" required maxlength="80" value="${creature ? escapeHtml(item.name) : ""}" placeholder="개체 이름">
+      </label>
+      <label>
+        <span>유형</span>
+        <select name="type">${renderOptions(CREATURE_TYPES, item.type)}</select>
+      </label>
+      <label>
+        <span>등급</span>
+        <select name="grade">${renderOptions(GRADES, item.grade)}</select>
+      </label>
+      <label>
+        <span>구역</span>
+        <select name="zoneId">${renderZoneOptions(item.zoneId)}</select>
+      </label>
+      <label>
+        <span>성장 단계</span>
+        <select name="growthStage">${renderOptions(GROWTH_STAGES, item.growthStage)}</select>
+      </label>
+      <label>
+        <span>성장 모드</span>
+        <select name="growthMode">${renderOptions(GROWTH_MODES, item.growthMode)}</select>
+      </label>
+      <label class="garden-form-wide">
+        <span>설명</span>
+        <textarea name="description" rows="3" maxlength="700" placeholder="개체 설명">${escapeHtml(item.description)}</textarea>
+      </label>
+      <label class="garden-check">
+        <input type="checkbox" name="autoClassified" ${item.autoClassified ? "checked" : ""}>
+        <span>자동 분류</span>
+      </label>
+      <div class="garden-form-actions">
+        <button class="garden-button is-primary" type="submit">${creature ? "개체 수정" : "개체 추가"}</button>
+        <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
+      </div>
+    </form>
+  `;
+}
+
+function getFilteredCreatures() {
+  return state.map.creatures.filter((item) => {
+    const typeMatch = state.creatureTypeFilter === "all" || item.type === state.creatureTypeFilter;
+    const gradeMatch = state.creatureGradeFilter === "all" || item.grade === state.creatureGradeFilter;
+    return typeMatch && gradeMatch;
   });
-  if (els.note) els.note.textContent = note || "설명이 없습니다.";
+}
 
-  setStat("size", `${getCanvasWidth()} x ${getCanvasHeight()}`);
-  setStat("tiles", String(strokes));
-  setStat("markers", String(state.map.markers.length));
-  setStat("coverage", String(elements));
-  drawPreview();
-  renderMarkers();
+function renderCreaturesPage() {
+  const editingCreature =
+    state.editType === "creature" ? state.map.creatures.find((item) => item.id === state.editId) || null : null;
+  const creatures = getFilteredCreatures();
+  return `
+    ${getPageIntro()}
+    <section class="garden-page-actions">
+      <button class="garden-button is-primary" type="button" data-action="open-creature-form">동식물 추가</button>
+      <select data-creature-type-filter aria-label="유형 필터">
+        <option value="all" ${state.creatureTypeFilter === "all" ? "selected" : ""}>전체 유형</option>
+        ${renderOptions(CREATURE_TYPES, state.creatureTypeFilter)}
+      </select>
+      <select data-creature-grade-filter aria-label="등급 필터">
+        <option value="all" ${state.creatureGradeFilter === "all" ? "selected" : ""}>전체 등급</option>
+        ${renderOptions(GRADES, state.creatureGradeFilter)}
+      </select>
+    </section>
+    ${state.editType === "creature" ? renderCard(editingCreature ? "동식물 수정" : "새 동식물", renderCreatureForm(editingCreature)) : ""}
+    ${renderCard(
+      "동식물 목록",
+      creatures.length
+        ? `<div class="garden-table">
+            <div class="garden-table-head garden-creature-list-row">
+              <span>이름</span><span>유형</span><span>등급</span><span>구역</span><span>성장</span><span>분류</span><span>관리</span>
+            </div>
+            ${creatures
+              .map((item) => {
+                const type = getCreatureType(item.type);
+                return `
+                  <div class="garden-table-row garden-creature-list-row">
+                    <strong>${type.icon} ${escapeHtml(item.name)}</strong>
+                    <span>${escapeHtml(type.label)}</span>
+                    <span class="garden-grade grade-${escapeHtml(item.grade)}">${escapeHtml(item.grade)}</span>
+                    <span>${escapeHtml(getZoneName(item.zoneId))}</span>
+                    <span>${escapeHtml(getGrowthStage(item.growthStage).label)}</span>
+                    <span>${item.autoClassified ? "자동" : "수동"}</span>
+                    <span class="garden-inline-actions">
+                      <button type="button" data-action="edit-creature" data-id="${escapeHtml(item.id)}">수정</button>
+                      <button type="button" data-action="delete-creature" data-id="${escapeHtml(item.id)}">삭제</button>
+                    </span>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">조건에 맞는 동식물이 없습니다.</p>`
+    )}
+  `;
+}
+
+function renderByproductForm(item = null) {
+  const entry = item || normalizeByproduct({ name: "" });
+  return `
+    <form class="garden-form" data-form="byproduct">
+      <input type="hidden" name="id" value="${item ? escapeHtml(item.id) : ""}">
+      <label>
+        <span>이름</span>
+        <input name="name" required maxlength="80" value="${item ? escapeHtml(entry.name) : ""}" placeholder="항목 이름">
+      </label>
+      <label>
+        <span>종류</span>
+        <select name="type">${renderOptions(BYPRODUCT_TYPES, entry.type)}</select>
+      </label>
+      <label>
+        <span>구역</span>
+        <select name="zoneId">${renderZoneOptions(entry.zoneId)}</select>
+      </label>
+      <label>
+        <span>등급</span>
+        <select name="grade">${renderOptions(GRADES, entry.grade)}</select>
+      </label>
+      <label>
+        <span>수량</span>
+        <input name="quantity" type="number" min="0" max="999999" value="${escapeHtml(entry.quantity)}">
+      </label>
+      <label class="garden-form-wide">
+        <span>설명</span>
+        <textarea name="description" rows="3" maxlength="700" placeholder="획득 조건이나 용도">${escapeHtml(entry.description)}</textarea>
+      </label>
+      <div class="garden-form-actions">
+        <button class="garden-button is-primary" type="submit">${item ? "항목 수정" : "항목 추가"}</button>
+        <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderByproductsPage() {
+  const editingItem =
+    state.editType === "byproduct" ? state.map.byproducts.find((item) => item.id === state.editId) || null : null;
+  return `
+    ${getPageIntro()}
+    <section class="garden-page-actions">
+      <button class="garden-button is-primary" type="button" data-action="open-byproduct-form">항목 추가</button>
+    </section>
+    ${state.editType === "byproduct" ? renderCard(editingItem ? "항목 수정" : "새 항목", renderByproductForm(editingItem)) : ""}
+    ${renderCard(
+      "부산물/채집품 목록",
+      state.map.byproducts.length
+        ? `<div class="garden-card-grid">
+            ${state.map.byproducts
+              .map((item) => {
+                const type = getByproductType(item.type);
+                return `
+                  <article class="garden-entity-card">
+                    <div class="garden-entity-top">
+                      <i>${type.icon}</i>
+                      <span>
+                        <strong>${escapeHtml(item.name)}</strong>
+                        <small>${escapeHtml(type.label)} · ${escapeHtml(getZoneName(item.zoneId))}</small>
+                      </span>
+                    </div>
+                    <p>${escapeHtml(item.description || "설명이 없습니다.")}</p>
+                    <dl>
+                      <div><dt>등급</dt><dd>${escapeHtml(item.grade)}</dd></div>
+                      <div><dt>수량</dt><dd>${escapeHtml(item.quantity)}</dd></div>
+                    </dl>
+                    <div class="garden-card-actions">
+                      <button class="garden-button" type="button" data-action="edit-byproduct" data-id="${escapeHtml(item.id)}">수정</button>
+                      <button class="garden-button is-danger" type="button" data-action="delete-byproduct" data-id="${escapeHtml(item.id)}">삭제</button>
+                    </div>
+                  </article>
+                `;
+              })
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">등록된 부산물이나 채집품이 없습니다.</p>`
+    )}
+  `;
+}
+
+function renderToggleRow(key, title, description) {
+  const active = Boolean(state.map.settings[key]);
+  return `
+    <div class="garden-setting-row">
+      <span>
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(description)}</small>
+      </span>
+      <button class="garden-toggle ${active ? "is-active" : ""}" type="button" data-action="toggle-setting" data-key="${escapeHtml(key)}" aria-pressed="${active}">
+        <i></i>
+      </button>
+    </div>
+  `;
+}
+
+function renderSettingsPage() {
+  return `
+    ${getPageIntro()}
+    <p class="garden-warning">※ 소유주와 파트너, 펫, 손님에게는 시스템 영향 없음</p>
+    ${renderCard(
+      "🌱 성장 시스템",
+      `<div class="garden-settings-list">
+        ${renderToggleRow("infiniteGrowth", "무한 재배 및 성장", "기본 On - Ex급 도달 시 성장 자동 정지")}
+        <div class="garden-growth-grid">
+          ${GROWTH_MODES
+            .map(
+              (mode) => `
+                <button class="${state.map.settings.growthMode === mode.value ? "is-selected" : ""}" type="button" data-action="set-growth-mode" data-value="${escapeHtml(mode.value)}">
+                  <b>${mode.icon}</b>
+                  <strong>${escapeHtml(mode.label)}</strong>
+                  <span>${escapeHtml(mode.description)}</span>
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+      </div>`
+    )}
+    ${renderCard(
+      "🛡️ 환경 보호",
+      `<div class="garden-settings-list">
+        ${renderToggleRow("pollutionShield", "오염 방지 마법", "정원 전체의 오염을 막습니다.")}
+        ${renderToggleRow("selfCleaning", "자가 세척 마법", "불순물과 흔적을 자동으로 정리합니다.")}
+      </div>`
+    )}
+    ${renderCard(
+      "🤖 자동화",
+      `<div class="garden-settings-list">
+        ${renderToggleRow("autoClassify", "동식물 자동 분류", "등록한 개체를 자동으로 유형별 분류합니다.")}
+        ${renderToggleRow("autoEnvironment", "맞춤 환경 자동 제공", "구역별 환경을 자동으로 맞춥니다.")}
+        ${renderToggleRow("autoFeed", "먹이 자동 제공", "필요한 먹이를 자동으로 공급합니다.")}
+      </div>`
+    )}
+  `;
+}
+
+function renderAccessForm(item = null) {
+  const entry = item || normalizeAccessKey({ name: "", key: generateAccessKey() });
+  return `
+    <form class="garden-form" data-form="access">
+      <input type="hidden" name="id" value="${item ? escapeHtml(item.id) : ""}">
+      <label>
+        <span>이름</span>
+        <input name="name" required maxlength="80" value="${item ? escapeHtml(entry.name) : ""}" placeholder="출입자 이름">
+      </label>
+      <label>
+        <span>역할</span>
+        <select name="role">${renderOptions(ACCESS_ROLES, entry.role)}</select>
+      </label>
+      <label>
+        <span>패스키</span>
+        <input name="key" required maxlength="40" value="${escapeHtml(entry.key)}">
+      </label>
+      <label class="garden-form-wide">
+        <span>메모</span>
+        <textarea name="memo" rows="3" maxlength="400" placeholder="출입 조건이나 설명">${escapeHtml(entry.memo)}</textarea>
+      </label>
+      <label class="garden-check">
+        <input type="checkbox" name="active" ${entry.active ? "checked" : ""}>
+        <span>활성화</span>
+      </label>
+      <div class="garden-form-actions">
+        <button class="garden-button is-primary" type="submit">${item ? "패스키 수정" : "패스키 추가"}</button>
+        <button class="garden-button" type="button" data-action="generate-access-key">새 키</button>
+        <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderAccessPage() {
+  const editingItem =
+    state.editType === "access" ? state.map.accessKeys.find((item) => item.id === state.editId) || null : null;
+  return `
+    ${getPageIntro()}
+    <section class="garden-page-actions">
+      <button class="garden-button is-primary" type="button" data-action="open-access-form">패스키 추가</button>
+    </section>
+    ${state.editType === "access" ? renderCard(editingItem ? "패스키 수정" : "새 패스키", renderAccessForm(editingItem)) : ""}
+    ${renderCard(
+      "출입 패스키",
+      state.map.accessKeys.length
+        ? `<div class="garden-table">
+            <div class="garden-table-head garden-access-row">
+              <span>이름</span><span>역할</span><span>패스키</span><span>상태</span><span>관리</span>
+            </div>
+            ${state.map.accessKeys
+              .map(
+                (item) => `
+                  <div class="garden-table-row garden-access-row">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <span>${escapeHtml(ACCESS_ROLES.find((role) => role.value === item.role)?.label || item.role)}</span>
+                    <span><code>${escapeHtml(item.key)}</code></span>
+                    <span>${item.active ? "활성" : "비활성"}</span>
+                    <span class="garden-inline-actions">
+                      <button type="button" data-action="edit-access" data-id="${escapeHtml(item.id)}">수정</button>
+                      <button type="button" data-action="delete-access" data-id="${escapeHtml(item.id)}">삭제</button>
+                    </span>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">등록된 출입 패스키가 없습니다.</p>`
+    )}
+  `;
+}
+
+function render() {
+  if (!els.view) return;
+  syncChrome();
+  const renderers = {
+    dashboard: renderDashboard,
+    map: renderMapPage,
+    zones: renderZonesPage,
+    creatures: renderCreaturesPage,
+    byproducts: renderByproductsPage,
+    settings: renderSettingsPage,
+    access: renderAccessPage,
+  };
+  els.view.innerHTML = renderers[state.activePage]?.() || renderDashboard();
+  requestAnimationFrame(() => {
+    document.querySelectorAll("[data-garden-map-canvas]").forEach(drawPreview);
+  });
+}
+
+function setActivePage(page, syncHash = true) {
+  state.activePage = PAGES.has(page) ? page : "dashboard";
+  state.editType = "";
+  state.editId = "";
+  if (syncHash) {
+    history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${state.activePage}`);
+  }
+  render();
+}
+
+async function saveSpaceContent() {
+  const content = JSON.stringify(state.map);
+  const updatedAt = new Date().toISOString();
+  const rows = await requestRest(
+    `blog_materials?id=eq.${encodeURIComponent(state.spaceId)}&user_id=eq.${encodeURIComponent(state.session.user.id)}`,
+    state.session.access_token,
+    {
+      method: "PATCH",
+      headers: {
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        content,
+        updated_at: updatedAt,
+      }),
+    }
+  );
+  state.space = {
+    ...(state.space || {}),
+    ...(Array.isArray(rows) ? rows[0] || {} : {}),
+    content,
+    updated_at: updatedAt,
+  };
 }
 
 async function loadSpace(session) {
@@ -302,6 +1216,221 @@ async function loadSpace(session) {
   if (!space || space.material_type !== "space") throw new Error("공간 정보를 찾지 못했습니다.");
   return space;
 }
+
+function openEditor(type, id = "") {
+  state.editType = type;
+  state.editId = id;
+  render();
+}
+
+function closeEditor() {
+  state.editType = "";
+  state.editId = "";
+  render();
+}
+
+async function deleteEntity(collection, id, message = "삭제할까요?") {
+  if (!id || !window.confirm(message)) return;
+  state.map[collection] = state.map[collection].filter((item) => item.id !== id);
+  if (collection === "zones") {
+    state.map.creatures = state.map.creatures.map((item) => (item.zoneId === id ? { ...item, zoneId: "" } : item));
+    state.map.byproducts = state.map.byproducts.map((item) => (item.zoneId === id ? { ...item, zoneId: "" } : item));
+    if (state.selectedZoneId === id) state.selectedZoneId = "";
+  }
+  await saveSpaceContent();
+  render();
+}
+
+async function handleAction(action, target) {
+  if (action === "open-zone-form") return openEditor("zone");
+  if (action === "open-creature-form") return openEditor("creature");
+  if (action === "open-byproduct-form") return openEditor("byproduct");
+  if (action === "open-access-form") return openEditor("access");
+  if (action === "cancel-edit") return closeEditor();
+  if (action === "edit-zone") return openEditor("zone", target.dataset.id || "");
+  if (action === "edit-creature") return openEditor("creature", target.dataset.id || "");
+  if (action === "edit-byproduct") return openEditor("byproduct", target.dataset.id || "");
+  if (action === "edit-access") return openEditor("access", target.dataset.id || "");
+  if (action === "delete-zone") return deleteEntity("zones", target.dataset.id, "구역을 삭제할까요?");
+  if (action === "delete-creature") return deleteEntity("creatures", target.dataset.id, "동식물을 삭제할까요?");
+  if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "항목을 삭제할까요?");
+  if (action === "delete-access") return deleteEntity("accessKeys", target.dataset.id, "패스키를 삭제할까요?");
+  if (action === "go-zone") return setActivePage("zones");
+  if (action === "select-zone") {
+    state.selectedZoneId = target.dataset.id || "";
+    render();
+    return;
+  }
+  if (action === "map-zoom-in") {
+    state.mapZoom = clampNumber(state.mapZoom + 0.1, 0.5, 2);
+    render();
+    return;
+  }
+  if (action === "map-zoom-out") {
+    state.mapZoom = clampNumber(state.mapZoom - 0.1, 0.5, 2);
+    render();
+    return;
+  }
+  if (action === "map-zoom-reset") {
+    state.mapZoom = 1;
+    render();
+    return;
+  }
+  if (action === "toggle-setting") {
+    const key = target.dataset.key;
+    if (!Object.prototype.hasOwnProperty.call(state.map.settings, key)) return;
+    state.map.settings[key] = !state.map.settings[key];
+    await saveSpaceContent();
+    render();
+    return;
+  }
+  if (action === "set-growth-mode") {
+    state.map.settings.growthMode = target.dataset.value || DEFAULT_SETTINGS.growthMode;
+    await saveSpaceContent();
+    render();
+    return;
+  }
+  if (action === "generate-access-key") {
+    const input = document.querySelector('form[data-form="access"] input[name="key"]');
+    if (input) input.value = generateAccessKey();
+  }
+}
+
+async function handleZoneSubmit(form) {
+  const formData = new FormData(form);
+  const id = String(formData.get("id") || "");
+  const item = normalizeZone({
+    id: id || createId(),
+    name: formData.get("name"),
+    ecosystem: formData.get("ecosystem"),
+    climate: formData.get("climate"),
+    icon: formData.get("icon"),
+    color: formData.get("color"),
+    description: formData.get("description"),
+    autoEnvironment: formData.has("autoEnvironment"),
+    autoFeed: formData.has("autoFeed"),
+    createdAt: state.map.zones.find((zone) => zone.id === id)?.createdAt,
+  });
+  state.map.zones = id ? state.map.zones.map((zone) => (zone.id === id ? item : zone)) : [...state.map.zones, item];
+  await saveSpaceContent();
+  closeEditor();
+}
+
+async function handleCreatureSubmit(form) {
+  const formData = new FormData(form);
+  const id = String(formData.get("id") || "");
+  const item = normalizeCreature({
+    id: id || createId(),
+    name: formData.get("name"),
+    type: formData.get("type"),
+    grade: formData.get("grade"),
+    zoneId: formData.get("zoneId"),
+    growthStage: formData.get("growthStage"),
+    growthMode: formData.get("growthMode"),
+    description: formData.get("description"),
+    autoClassified: formData.has("autoClassified"),
+    createdAt: state.map.creatures.find((creature) => creature.id === id)?.createdAt,
+  });
+  state.map.creatures = id
+    ? state.map.creatures.map((creature) => (creature.id === id ? item : creature))
+    : [...state.map.creatures, item];
+  await saveSpaceContent();
+  closeEditor();
+}
+
+async function handleByproductSubmit(form) {
+  const formData = new FormData(form);
+  const id = String(formData.get("id") || "");
+  const item = normalizeByproduct({
+    id: id || createId(),
+    name: formData.get("name"),
+    type: formData.get("type"),
+    zoneId: formData.get("zoneId"),
+    grade: formData.get("grade"),
+    quantity: formData.get("quantity"),
+    description: formData.get("description"),
+    createdAt: state.map.byproducts.find((entry) => entry.id === id)?.createdAt,
+  });
+  state.map.byproducts = id
+    ? state.map.byproducts.map((entry) => (entry.id === id ? item : entry))
+    : [...state.map.byproducts, item];
+  await saveSpaceContent();
+  closeEditor();
+}
+
+async function handleAccessSubmit(form) {
+  const formData = new FormData(form);
+  const id = String(formData.get("id") || "");
+  const item = normalizeAccessKey({
+    id: id || createId(),
+    name: formData.get("name"),
+    role: formData.get("role"),
+    key: formData.get("key"),
+    memo: formData.get("memo"),
+    active: formData.has("active"),
+    createdAt: state.map.accessKeys.find((entry) => entry.id === id)?.createdAt,
+  });
+  state.map.accessKeys = id
+    ? state.map.accessKeys.map((entry) => (entry.id === id ? item : entry))
+    : [...state.map.accessKeys, item];
+  await saveSpaceContent();
+  closeEditor();
+}
+
+document.addEventListener("click", async (event) => {
+  const pageLink = event.target.closest("[data-space-page-link]");
+  if (pageLink) {
+    event.preventDefault();
+    setActivePage(pageLink.dataset.spacePageLink || "dashboard");
+    return;
+  }
+
+  const actionTarget = event.target.closest("[data-action]");
+  if (!actionTarget) return;
+  event.preventDefault();
+  try {
+    await handleAction(actionTarget.dataset.action, actionTarget);
+  } catch (error) {
+    window.alert(error.message || "작업을 처리하지 못했습니다.");
+  }
+});
+
+document.addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-form]");
+  if (!form) return;
+  event.preventDefault();
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
+  try {
+    if (form.dataset.form === "zone") await handleZoneSubmit(form);
+    if (form.dataset.form === "creature") await handleCreatureSubmit(form);
+    if (form.dataset.form === "byproduct") await handleByproductSubmit(form);
+    if (form.dataset.form === "access") await handleAccessSubmit(form);
+  } catch (error) {
+    window.alert(error.message || "저장하지 못했습니다.");
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const typeFilter = event.target.closest("[data-creature-type-filter]");
+  if (typeFilter) {
+    state.creatureTypeFilter = typeFilter.value || "all";
+    render();
+    return;
+  }
+  const gradeFilter = event.target.closest("[data-creature-grade-filter]");
+  if (gradeFilter) {
+    state.creatureGradeFilter = gradeFilter.value || "all";
+    render();
+  }
+});
+
+window.addEventListener("hashchange", () => {
+  setActivePage(readActivePageFromHash(), false);
+});
 
 window.blogSession?.ready.then(async (session) => {
   const id = window.blogSession.getId(session);
@@ -316,13 +1445,11 @@ window.blogSession?.ready.then(async (session) => {
 
   state.session = session;
   state.id = id;
-  syncBrand();
 
   try {
     state.space = await loadSpace(session);
     state.map = parseMapContent(state.space.content || "");
-    document.title = `${state.space.title || "공간 관리"} | 자료실`;
-    renderDashboard();
+    render();
   } catch (error) {
     window.alert(error.message || "공간을 불러오지 못했습니다.");
     window.location.href = "./materials.html#spaces";

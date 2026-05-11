@@ -3,132 +3,65 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="자료실 공간 설정 페이지">
-    <title>공간 설정 | 자료실</title>
+    <meta name="description" content="자료실 공간 관리 페이지">
+    <title>공간 관리 | 자료실</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
-  <body class="space-dashboard-page">
-    <aside class="space-settings-sidebar" aria-label="공간 관리 메뉴">
-      <div class="space-settings-brand">
+  <body class="space-dashboard-page garden-app-page">
+    <aside class="space-settings-sidebar garden-sidebar" aria-label="공간 관리 메뉴">
+      <div class="space-settings-brand garden-brand">
         <span class="space-settings-mark" data-space-brand-initial aria-hidden="true">B</span>
         <div>
-          <strong data-space-brand-title>자료실</strong>
-          <span>공간 관리 시스템</span>
+          <strong data-space-brand-title>정원 관리</strong>
+          <span>정원 관리 시스템</span>
         </div>
       </div>
 
-      <nav class="space-settings-nav">
+      <nav class="space-settings-nav garden-nav">
+        <a href="#dashboard" data-space-page-link="dashboard" aria-current="page">
+          <span aria-hidden="true">🏠</span>
+          대시보드
+        </a>
+        <a href="#map" data-space-page-link="map">
+          <span aria-hidden="true">🌍</span>
+          정원 맵
+        </a>
+        <a href="#zones" data-space-page-link="zones">
+          <span aria-hidden="true">🗺️</span>
+          구역 관리
+        </a>
+        <a href="#creatures" data-space-page-link="creatures">
+          <span aria-hidden="true">🌱</span>
+          동식물 관리
+        </a>
+        <a href="#byproducts" data-space-page-link="byproducts">
+          <span aria-hidden="true">💎</span>
+          부산물/채집품
+        </a>
+        <a href="#settings" data-space-page-link="settings">
+          <span aria-hidden="true">⚙️</span>
+          시스템 설정
+        </a>
+        <a href="#access" data-space-page-link="access">
+          <span aria-hidden="true">🔑</span>
+          출입 관리
+        </a>
         <a href="./materials.html#spaces">
-          <span aria-hidden="true">⌂</span>
+          <span aria-hidden="true">←</span>
           공간 목록
-        </a>
-        <a class="is-active" href="#overview">
-          <span aria-hidden="true">⚙</span>
-          공간 설정
-        </a>
-        <a href="./map-editor.html" data-space-edit-link>
-          <span aria-hidden="true">✎</span>
-          맵 편집
-        </a>
-        <a href="#preview">
-          <span aria-hidden="true">□</span>
-          미리보기
-        </a>
-        <a href="#markers">
-          <span aria-hidden="true">•</span>
-          표식 목록
         </a>
       </nav>
 
-      <div class="space-settings-status">
+      <div class="space-settings-status garden-status">
         <span aria-hidden="true"></span>
         시스템 활성 중
       </div>
     </aside>
 
-    <main class="space-dashboard-main" aria-label="공간 설정">
-      <div class="space-settings-container">
-        <header class="space-settings-heading">
-          <p class="space-dashboard-kicker">공간 관리</p>
-          <h1>⚙️ 공간 설정</h1>
-          <p data-space-summary>저장된 공간 정보를 불러오는 중입니다.</p>
-          <small data-space-updated>-</small>
-        </header>
-
-        <section class="space-settings-card" id="overview" aria-labelledby="space-overview-title">
-          <div class="space-panel-head">
-            <h2 id="space-overview-title" data-space-title>공간</h2>
-          </div>
-          <div class="space-dashboard-stats" aria-label="공간 지표">
-            <article>
-              <span>캔버스</span>
-              <strong data-space-stat="size">-</strong>
-            </article>
-            <article>
-              <span>그린 선</span>
-              <strong data-space-stat="tiles">0</strong>
-            </article>
-            <article>
-              <span>표식</span>
-              <strong data-space-stat="markers">0</strong>
-            </article>
-            <article>
-              <span>요소</span>
-              <strong data-space-stat="coverage">0</strong>
-            </article>
-          </div>
-        </section>
-
-        <section class="space-settings-card" aria-labelledby="space-map-control-title">
-          <div class="space-panel-head">
-            <h2 id="space-map-control-title">🗺️ 맵 관리</h2>
-          </div>
-          <div class="space-settings-list">
-            <div class="space-settings-row">
-              <div>
-                <p>맵 편집</p>
-                <span>그림판 형식의 제작 화면에서 공간을 수정합니다.</span>
-              </div>
-              <a class="space-settings-button" href="./map-editor.html" data-space-edit-link>열기</a>
-            </div>
-            <div class="space-settings-mode-grid" aria-label="공간 관리 모드">
-              <a class="is-selected" href="#preview">
-                <strong>미리보기</strong>
-                <span>저장된 맵 확인</span>
-              </a>
-              <a href="#markers">
-                <strong>표식</strong>
-                <span>표식 위치 확인</span>
-              </a>
-              <a href="./materials.html#spaces">
-                <strong>자료실</strong>
-                <span>공간 목록으로 이동</span>
-              </a>
-            </div>
-          </div>
-        </section>
-
-        <section class="space-settings-card space-dashboard-preview" id="preview" aria-labelledby="space-preview-title">
-          <div class="space-panel-head">
-            <h2 id="space-preview-title">맵 미리보기</h2>
-          </div>
-          <div class="space-preview-canvas-wrap">
-            <canvas data-space-preview width="960" height="560" aria-label="공간 맵 미리보기"></canvas>
-          </div>
-        </section>
-
-        <section class="space-settings-card space-dashboard-note" aria-labelledby="space-note-title">
-          <div class="space-panel-head">
-            <h2 id="space-note-title">설명</h2>
-          </div>
-          <p data-space-note>설명이 없습니다.</p>
-        </section>
-
-        <section class="space-settings-card space-dashboard-markers" id="markers" aria-labelledby="space-marker-title">
-          <div class="space-panel-head">
-            <h2 id="space-marker-title">표식 목록</h2>
-          </div>
-          <div data-space-markers></div>
+    <main class="space-dashboard-main garden-main" aria-label="공간 관리">
+      <div class="space-settings-container garden-container" data-space-view>
+        <section class="garden-loading-card">
+          <p>공간 정보를 불러오는 중입니다.</p>
         </section>
       </div>
     </main>
