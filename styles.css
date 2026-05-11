@@ -7761,6 +7761,177 @@ body.is-book-mode :is(button, select):disabled {
   font-size: 0.74rem;
 }
 
+.materials-space-title-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.36rem;
+  min-width: 0;
+}
+
+.materials-space-title-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2rem;
+  padding: 0 0.55rem;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 7px;
+  background: #fff;
+  color: #20364a;
+  font-size: 0.86rem;
+  font-weight: 740;
+}
+
+.materials-space-title-form button {
+  min-height: 2rem;
+  padding: 0 0.55rem;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 7px;
+  background: #fff;
+  color: #557085;
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.materials-space-title-form button:hover,
+.materials-space-title-form button:focus-visible {
+  background: #f0f9ff;
+  color: var(--sky-dark);
+}
+
+.garden-sidebar,
+.garden-main {
+  transition: width 0.18s ease, flex-basis 0.18s ease;
+}
+
+.garden-sidebar-toggle {
+  display: inline-grid;
+  width: 1.9rem;
+  height: 1.9rem;
+  margin-left: auto;
+  place-items: center;
+  border: 1px solid rgba(186, 230, 253, 0.9);
+  border-radius: 7px;
+  background: #fff;
+  color: #557085;
+  cursor: pointer;
+}
+
+.garden-sidebar-toggle span {
+  position: relative;
+  display: block;
+  width: 0.88rem;
+  height: 0.68rem;
+}
+
+.garden-sidebar-toggle span::before,
+.garden-sidebar-toggle span::after {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.garden-sidebar-toggle span::before {
+  top: 0.1rem;
+  box-shadow: 0 0.24rem 0 currentColor;
+}
+
+.garden-sidebar-toggle span::after {
+  bottom: 0;
+}
+
+.garden-sidebar-toggle:hover,
+.garden-sidebar-toggle:focus-visible {
+  background: var(--garden-card-hover);
+  color: var(--garden-accent-dark);
+  outline: none;
+}
+
+.garden-app-page.is-garden-sidebar-collapsed .garden-sidebar {
+  width: 4.8rem;
+  flex-basis: 4.8rem;
+}
+
+.garden-app-page.is-garden-sidebar-collapsed .space-settings-brand {
+  flex-direction: column;
+  justify-content: center;
+  padding-inline: 0.55rem;
+}
+
+.garden-app-page.is-garden-sidebar-collapsed .space-settings-brand > div {
+  display: none;
+}
+
+.garden-app-page.is-garden-sidebar-collapsed .garden-sidebar-toggle {
+  margin-left: 0;
+}
+
+.garden-app-page.is-garden-sidebar-collapsed .space-settings-nav {
+  padding-inline: 0.52rem;
+}
+
+.garden-app-page.is-garden-sidebar-collapsed .space-settings-nav a {
+  justify-content: center;
+  padding: 0;
+  font-size: 0;
+}
+
+.garden-app-page.is-garden-sidebar-collapsed .space-settings-nav span {
+  width: 1.45rem;
+  font-size: 0.98rem;
+}
+
+.garden-app-page.is-garden-sidebar-collapsed .space-settings-status {
+  justify-content: center;
+  padding: 0;
+  font-size: 0;
+}
+
+.garden-card,
+.garden-table,
+.garden-table-head,
+.garden-table-row,
+.materials-space-board-card,
+.materials-space-grid {
+  min-width: 0;
+}
+
+.garden-table {
+  overflow-x: auto;
+}
+
+.garden-table-head > *,
+.garden-table-row > *,
+.garden-card-head > *,
+.materials-space-card-top > *,
+.materials-space-card-actions > * {
+  min-width: 0;
+}
+
+.garden-page-actions,
+.garden-card-actions,
+.garden-form-actions,
+.garden-inline-actions,
+.materials-space-card-actions {
+  flex-wrap: wrap;
+}
+
+.garden-button,
+.garden-inline-actions button,
+.materials-space-card-actions button {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.garden-form input[readonly] {
+  background: #f7fbff;
+  color: #557085;
+}
+
 @media (max-width: 1080px) {
   .garden-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7780,9 +7951,33 @@ body.is-book-mode :is(button, select):disabled {
 
   .garden-sidebar {
     width: 100%;
+    flex-basis: auto;
     min-height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--garden-border);
+  }
+
+  .garden-app-page.is-garden-sidebar-collapsed .garden-sidebar {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .garden-app-page.is-garden-sidebar-collapsed .space-settings-brand > div {
+    display: block;
+  }
+
+  .garden-app-page.is-garden-sidebar-collapsed .space-settings-brand {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+
+  .garden-app-page.is-garden-sidebar-collapsed .space-settings-nav a {
+    padding: 0 0.74rem;
+    font-size: 0.78rem;
+  }
+
+  .garden-app-page.is-garden-sidebar-collapsed .space-settings-status {
+    display: none;
   }
 
   .garden-nav {
@@ -7829,5 +8024,9 @@ body.is-book-mode :is(button, select):disabled {
     gap: 0.2rem;
     align-items: start;
     padding-block: 0.6rem;
+  }
+
+  .materials-space-title-form {
+    grid-template-columns: 1fr;
   }
 }

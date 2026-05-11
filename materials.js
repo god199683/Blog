@@ -33,6 +33,7 @@ const state = {
   selectedMaterialIds: new Set(),
   selectionMode: false,
   titleSortDirection: "none",
+  editingSpaceId: "",
 };
 
 const els = {
@@ -606,6 +607,7 @@ function renderSpaceCards(spaces = []) {
     .map((space) => {
       const isSelected = space.id && space.id === state.selectedMaterialId;
       const isChecked = space.id && state.selectedMaterialIds.has(space.id);
+      const isEditing = space.id && space.id === state.editingSpaceId;
       const preview = getMaterialPreview(space);
       return `
         <article class="materials-space-board-card ${isSelected || isChecked ? "is-selected" : ""}" data-space-card="${escapeHtml(space.id)}" tabindex="0">
@@ -617,10 +619,18 @@ function renderSpaceCards(spaces = []) {
             }
             <time datetime="${escapeHtml(space.created_at || space.updated_at || "")}">${escapeHtml(formatDate(space.created_at || space.updated_at))}</time>
           </div>
-          <h3>${escapeHtml(space.title || "이름 없는 공간")}</h3>
+          ${
+            isEditing
+              ? `<form class="materials-space-title-form" data-space-rename-form="${escapeHtml(space.id)}">
+                  <input name="title" data-space-title-input maxlength="120" value="${escapeHtml(space.title || "이름 없는 공간")}" aria-label="공간 이름">
+                  <button type="submit">저장</button>
+                  <button type="button" data-space-rename-cancel>취소</button>
+                </form>`
+              : `<h3>${escapeHtml(space.title || "이름 없는 공간")}</h3>`
+          }
           <p>${escapeHtml(preview)}</p>
           <div class="materials-space-card-actions">
-            <button type="button" data-space-rename="${escapeHtml(space.id)}">이름 수정</button>
+            <button type="button" data-space-rename="${escapeHtml(space.id)}" ${isEditing ? "disabled" : ""}>이름 수정</button>
             <button type="button" data-space-delete="${escapeHtml(space.id)}">삭제</button>
           </div>
         </article>
@@ -1076,15 +1086,38 @@ async function deleteMaterial(materialId) {
   state.materials = state.materials.filter((material) => material.id !== materialId);
   state.selectedMaterialIds.delete(materialId);
   if (state.selectedMaterialId === materialId) state.selectedMaterialId = "";
+  if (state.editingSpaceId === materialId) state.editingSpaceId = "";
   renderDashboard();
 }
 
-async function renameSpace(spaceId) {
+function startSpaceRename(spaceId) {
+  const space = state.materials.find((material) => material.id === spaceId && material.material_type === "space");
+  if (!space) return;
+  state.editingSpaceId = spaceId;
+  state.selectedMaterialId = spaceId;
+  renderDashboard();
+  requestAnimationFrame(() => {
+    const input = els.spaceGrid?.querySelector("[data-space-title-input]");
+    input?.focus();
+    input?.select();
+  });
+}
+
+function cancelSpaceRename() {
+  state.editingSpaceId = "";
+  renderDashboard();
+}
+
+async function saveSpaceTitle(spaceId, rawTitle) {
   const space = state.materials.find((material) => material.id === spaceId && material.material_type === "space");
   if (!space) return;
 
-  const title = window.prompt("새 공간 이름을 입력해주세요.", space.title || "이름 없는 공간")?.trim();
-  if (!title || title === space.title) return;
+  const title = String(rawTitle || "").trim();
+  if (!title) return;
+  if (title === space.title) {
+    cancelSpaceRename();
+    return;
+  }
 
   const updatedAt = new Date().toISOString();
   const rows = await requestRest(
@@ -1105,6 +1138,7 @@ async function renameSpace(spaceId) {
   const updated = normalizeMaterial(Array.isArray(rows) ? rows[0] || fallback : fallback);
   state.materials = state.materials.map((material) => (material.id === spaceId ? updated : material));
   state.selectedMaterialId = spaceId;
+  state.editingSpaceId = "";
   renderDashboard();
 }
 
@@ -1127,6 +1161,7 @@ async function deleteSelectedMaterials() {
     state.materials = state.materials.filter((material) => !idSet.has(material.id));
     state.selectedMaterialIds.clear();
     state.selectedMaterialId = "";
+    if (idSet.has(state.editingSpaceId)) state.editingSpaceId = "";
     state.selectionMode = false;
     renderDashboard();
   } catch (error) {
@@ -1217,7 +1252,18 @@ els.spaceGrid?.addEventListener("click", async (event) => {
   const renameButton = event.target.closest("[data-space-rename]");
   if (renameButton) {
     event.preventDefault();
-    await renameSpace(renameButton.dataset.spaceRename);
+    startSpaceRename(renameButton.dataset.spaceRename);
+    return;
+  }
+
+  if (event.target.closest("[data-space-rename-cancel]")) {
+    event.preventDefault();
+    cancelSpaceRename();
+    return;
+  }
+
+  if (event.target.closest("[data-space-rename-form]")) {
+    event.stopPropagation();
     return;
   }
 
@@ -1235,7 +1281,24 @@ els.spaceGrid?.addEventListener("click", async (event) => {
   openSpaceDashboard(card.dataset.spaceCard);
 });
 
+els.spaceGrid?.addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-space-rename-form]");
+  if (!form) return;
+  event.preventDefault();
+  const input = form.querySelector("[data-space-title-input]");
+  try {
+    await saveSpaceTitle(form.dataset.spaceRenameForm, input?.value || "");
+  } catch (error) {
+    window.alert(error.message || "공간 이름을 저장하지 못했습니다.");
+  }
+});
+
 els.spaceGrid?.addEventListener("keydown", (event) => {
+  if (event.target.closest("[data-space-rename-form]") && event.key === "Escape") {
+    event.preventDefault();
+    cancelSpaceRename();
+    return;
+  }
   if (event.target.closest("button, input, select, textarea, a")) return;
   const card = event.target.closest("[data-space-card]");
   if (!card || (event.key !== "Enter" && event.key !== " ")) return;
@@ -1327,6 +1390,7 @@ els.importInput?.addEventListener("change", async (event) => {
 
 els.treeAll?.addEventListener("click", () => {
   setActiveSection("materials");
+  state.editingSpaceId = "";
   state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
   state.searchQuery = "";
   state.selectedMaterialId = "";
@@ -1364,6 +1428,7 @@ els.tree?.addEventListener("click", async (event) => {
   const select = event.target.closest("[data-material-tree-select]");
   if (select) {
     setActiveSection("materials");
+    state.editingSpaceId = "";
     state.activeMaterialNodeId = select.dataset.materialTreeSelect;
     state.searchQuery = "";
     state.selectedMaterialId = "";
@@ -1376,6 +1441,7 @@ els.tree?.addEventListener("click", async (event) => {
 els.sectionButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setActiveSection(button.dataset.materialSection || "materials");
+    state.editingSpaceId = "";
     if (state.activeSection === "materials" && !findMaterialNode(state.materialTree, state.activeMaterialNodeId)) {
       state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
     }

@@ -79,11 +79,23 @@ const BYPRODUCT_TYPES = [
 
 const ACCESS_ROLES = [
   { value: "owner", label: "소유주" },
-  { value: "partner", label: "파트너" },
-  { value: "pet", label: "펫" },
+  { value: "family", label: "가족" },
+  { value: "friend", label: "동료/친구" },
   { value: "guest", label: "손님" },
-  { value: "manager", label: "관리자" },
 ];
+
+const ACCESS_ROLE_ALIASES = {
+  partner: "friend",
+  manager: "friend",
+  pet: "family",
+};
+
+const ACCESS_ROLE_PERIOD_DAYS = {
+  owner: null,
+  family: null,
+  friend: 30,
+  guest: 7,
+};
 
 const state = {
   session: null,
@@ -98,6 +110,7 @@ const state = {
   selectedCreatureId: "",
   mapZoom: 1,
   creatureTypeFilter: "all",
+  sidebarCollapsed: localStorage.getItem("spaceDashboardSidebar") === "collapsed",
 };
 
 const dashboardImageCache = new Map();
@@ -107,6 +120,7 @@ const els = {
   brandTitle: document.querySelector("[data-space-brand-title]"),
   initials: document.querySelectorAll("[data-space-brand-initial]"),
   navLinks: document.querySelectorAll("[data-space-page-link]"),
+  sidebarToggle: document.querySelector("[data-space-sidebar-toggle]"),
 };
 
 function readActivePageFromHash() {
@@ -168,6 +182,32 @@ function formatDate(value = "") {
     month: "numeric",
     day: "numeric",
   }).format(date);
+}
+
+function normalizeAccessRole(role = "guest") {
+  const value = ACCESS_ROLE_ALIASES[role] || role;
+  return ACCESS_ROLES.some((item) => item.value === value) ? value : "guest";
+}
+
+function getAccessRole(role = "guest") {
+  const value = normalizeAccessRole(role);
+  return ACCESS_ROLES.find((item) => item.value === value) || ACCESS_ROLES[ACCESS_ROLES.length - 1];
+}
+
+function createAccessExpiry(role = "guest", baseDate = new Date().toISOString()) {
+  const days = ACCESS_ROLE_PERIOD_DAYS[normalizeAccessRole(role)];
+  if (!days) return "";
+  const date = new Date(baseDate);
+  if (Number.isNaN(date.getTime())) date.setTime(Date.now());
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+}
+
+function formatAccessPeriod(itemOrRole = "guest") {
+  const role = typeof itemOrRole === "string" ? normalizeAccessRole(itemOrRole) : normalizeAccessRole(itemOrRole.role);
+  if (!ACCESS_ROLE_PERIOD_DAYS[role]) return "영구";
+  const expiresAt = typeof itemOrRole === "string" ? createAccessExpiry(role) : itemOrRole.expiresAt || createAccessExpiry(role, itemOrRole.createdAt);
+  return `${formatDate(expiresAt)}까지`;
 }
 
 function getSpaceTitle() {
@@ -272,14 +312,16 @@ function normalizeByproduct(item = {}) {
 }
 
 function normalizeAccessKey(item = {}) {
+  const role = normalizeAccessRole(item.role);
+  const createdAt = item.createdAt || item.created_at || new Date().toISOString();
   return {
     id: item.id || createId(),
     name: String(item.name || "출입자").slice(0, 80),
-    role: ACCESS_ROLES.some((role) => role.value === item.role) ? item.role : "guest",
-    key: String(item.key || generateAccessKey()).slice(0, 40),
+    role,
+    expiresAt: item.expiresAt || item.expires_at || item.permissionExpiresAt || item.permission_expires_at || createAccessExpiry(role, createdAt),
     memo: String(item.memo || "").slice(0, 400),
     active: toBool(item.active, true),
-    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+    createdAt,
   };
 }
 
@@ -347,10 +389,6 @@ function parseMapContent(content = "") {
   });
 }
 
-function generateAccessKey() {
-  return Math.random().toString(36).slice(2, 6).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
-}
-
 function getZoneName(zoneId = "") {
   if (!zoneId) return "전체 정원";
   return state.map.zones.find((zone) => zone.id === zoneId)?.name || "알 수 없는 구역";
@@ -391,10 +429,16 @@ function renderZoneOptions(selectedValue = "", includeEmpty = true) {
 
 function syncChrome() {
   const title = getSpaceTitle();
+  document.body.classList.toggle("is-garden-sidebar-collapsed", state.sidebarCollapsed);
   if (els.brandTitle) els.brandTitle.textContent = title;
   els.initials.forEach((initial) => {
     initial.textContent = (title || state.id || "B").slice(0, 1).toUpperCase();
   });
+  if (els.sidebarToggle) {
+    els.sidebarToggle.setAttribute("aria-expanded", String(!state.sidebarCollapsed));
+    els.sidebarToggle.setAttribute("aria-label", state.sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기");
+    els.sidebarToggle.title = state.sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기";
+  }
   document.title = `${title} | 공간 관리`;
   els.navLinks.forEach((link) => {
     const active = link.dataset.spacePageLink === state.activePage;
@@ -417,7 +461,7 @@ function getPageIntro() {
     creatures: ["동식물 관리", "정원 안의 식물, 동물, 영체를 기록합니다."],
     byproducts: ["부산물/채집품", "구역에서 얻은 부산물과 채집품을 정리합니다."],
     settings: ["시스템 설정", "정원의 성장, 보호, 자동화 설정을 조정합니다."],
-    access: ["출입 관리", "정원에 들어올 수 있는 대상과 패스키를 관리합니다."],
+    access: ["출입 관리", "정원에 들어올 수 있는 대상과 권한 기간을 관리합니다."],
   }[state.activePage] || ["대시보드", ""];
 
   return `
@@ -461,7 +505,7 @@ function getStatusRows() {
     ["성장 모드", `${growthMode.label} - ${growthMode.description}`],
     ["오염 방지", settings.pollutionShield ? "활성" : "비활성"],
     ["자가 세척", settings.selfCleaning ? "활성" : "비활성"],
-    ["출입 패스키", `${state.map.accessKeys.length}개`],
+    ["출입 권한", `${state.map.accessKeys.length}개`],
     ["동식물", `${state.map.creatures.length}개`],
   ];
 }
@@ -1153,7 +1197,7 @@ function renderToggleRow(key, title, description) {
 function renderSettingsPage() {
   return `
     ${getPageIntro()}
-    <p class="garden-warning">※ 소유주와 파트너, 펫, 손님에게는 시스템 영향 없음</p>
+    <p class="garden-warning">※ 소유주와 가족은 권한 기간이 영구 적용됩니다.</p>
     ${renderCard(
       "🌱 성장 시스템",
       `<div class="garden-settings-list">
@@ -1192,7 +1236,7 @@ function renderSettingsPage() {
 }
 
 function renderAccessForm(item = null) {
-  const entry = item || normalizeAccessKey({ name: "", key: generateAccessKey() });
+  const entry = item || normalizeAccessKey({ name: "", role: "guest" });
   return `
     <form class="garden-form" data-form="access">
       <input type="hidden" name="id" value="${item ? escapeHtml(item.id) : ""}">
@@ -1205,8 +1249,8 @@ function renderAccessForm(item = null) {
         <select name="role">${renderOptions(ACCESS_ROLES, entry.role)}</select>
       </label>
       <label>
-        <span>패스키</span>
-        <input name="key" required maxlength="40" value="${escapeHtml(entry.key)}">
+        <span>권한 기간</span>
+        <input name="permissionPeriod" data-access-period-preview value="${escapeHtml(formatAccessPeriod(entry))}" readonly aria-readonly="true">
       </label>
       <label class="garden-form-wide">
         <span>메모</span>
@@ -1217,8 +1261,7 @@ function renderAccessForm(item = null) {
         <span>활성화</span>
       </label>
       <div class="garden-form-actions">
-        <button class="garden-button is-primary" type="submit">${item ? "패스키 수정" : "패스키 추가"}</button>
-        <button class="garden-button" type="button" data-action="generate-access-key">새 키</button>
+        <button class="garden-button is-primary" type="submit">${item ? "권한 수정" : "권한 추가"}</button>
         <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
       </div>
     </form>
@@ -1231,23 +1274,23 @@ function renderAccessPage() {
   return `
     ${getPageIntro()}
     <section class="garden-page-actions">
-      <button class="garden-button is-primary" type="button" data-action="open-access-form">패스키 추가</button>
+      <button class="garden-button is-primary" type="button" data-action="open-access-form">권한 추가</button>
     </section>
-    ${state.editType === "access" ? renderCard(editingItem ? "패스키 수정" : "새 패스키", renderAccessForm(editingItem)) : ""}
+    ${state.editType === "access" ? renderCard(editingItem ? "권한 수정" : "새 권한", renderAccessForm(editingItem)) : ""}
     ${renderCard(
-      "출입 패스키",
+      "출입 권한",
       state.map.accessKeys.length
         ? `<div class="garden-table">
             <div class="garden-table-head garden-access-row">
-              <span>이름</span><span>역할</span><span>패스키</span><span>상태</span><span>관리</span>
+              <span>이름</span><span>역할</span><span>권한 기간</span><span>상태</span><span>관리</span>
             </div>
             ${state.map.accessKeys
               .map(
                 (item) => `
                   <div class="garden-table-row garden-access-row">
                     <strong>${escapeHtml(item.name)}</strong>
-                    <span>${escapeHtml(ACCESS_ROLES.find((role) => role.value === item.role)?.label || item.role)}</span>
-                    <span><code>${escapeHtml(item.key)}</code></span>
+                    <span>${escapeHtml(getAccessRole(item.role).label)}</span>
+                    <span>${escapeHtml(formatAccessPeriod(item))}</span>
                     <span>${item.active ? "활성" : "비활성"}</span>
                     <span class="garden-inline-actions">
                       <button type="button" data-action="edit-access" data-id="${escapeHtml(item.id)}">수정</button>
@@ -1258,7 +1301,7 @@ function renderAccessPage() {
               )
               .join("")}
           </div>`
-        : `<p class="garden-empty">등록된 출입 패스키가 없습니다.</p>`
+        : `<p class="garden-empty">등록된 출입 권한이 없습니다.</p>`
     )}
   `;
 }
@@ -1354,6 +1397,12 @@ async function deleteEntity(collection, id, message = "삭제할까요?") {
 }
 
 async function handleAction(action, target) {
+  if (action === "toggle-sidebar") {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    localStorage.setItem("spaceDashboardSidebar", state.sidebarCollapsed ? "collapsed" : "expanded");
+    syncChrome();
+    return;
+  }
   if (action === "open-zone-form") return openEditor("zone");
   if (action === "open-creature-form") return openEditor("creature");
   if (action === "open-byproduct-form") return openEditor("byproduct");
@@ -1371,7 +1420,7 @@ async function handleAction(action, target) {
   if (action === "delete-zone") return deleteEntity("zones", target.dataset.id, "구역을 삭제할까요?");
   if (action === "delete-creature") return deleteEntity("creatures", target.dataset.id, "동식물을 삭제할까요?");
   if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "항목을 삭제할까요?");
-  if (action === "delete-access") return deleteEntity("accessKeys", target.dataset.id, "패스키를 삭제할까요?");
+  if (action === "delete-access") return deleteEntity("accessKeys", target.dataset.id, "출입 권한을 삭제할까요?");
   if (action === "go-zone") return setActivePage("zones");
   if (action === "select-zone") {
     state.selectedZoneId = target.dataset.id || "";
@@ -1406,10 +1455,6 @@ async function handleAction(action, target) {
     await saveSpaceContent();
     render();
     return;
-  }
-  if (action === "generate-access-key") {
-    const input = document.querySelector('form[data-form="access"] input[name="key"]');
-    if (input) input.value = generateAccessKey();
   }
 }
 
@@ -1472,14 +1517,17 @@ async function handleByproductSubmit(form) {
 async function handleAccessSubmit(form) {
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
+  const existing = state.map.accessKeys.find((entry) => entry.id === id);
+  const role = normalizeAccessRole(String(formData.get("role") || "guest"));
+  const expiresAt = existing && existing.role === role ? existing.expiresAt : createAccessExpiry(role);
   const item = normalizeAccessKey({
     id: id || createId(),
     name: formData.get("name"),
-    role: formData.get("role"),
-    key: formData.get("key"),
+    role,
+    expiresAt,
     memo: formData.get("memo"),
     active: formData.has("active"),
-    createdAt: state.map.accessKeys.find((entry) => entry.id === id)?.createdAt,
+    createdAt: existing?.createdAt,
   });
   state.map.accessKeys = id
     ? state.map.accessKeys.map((entry) => (entry.id === id ? item : entry))
@@ -1531,6 +1579,13 @@ document.addEventListener("change", (event) => {
     state.creatureTypeFilter = typeFilter.value || "all";
     state.selectedCreatureId = "";
     render();
+    return;
+  }
+
+  const accessRole = event.target.closest('form[data-form="access"] select[name="role"]');
+  if (accessRole) {
+    const preview = accessRole.form?.querySelector("[data-access-period-preview]");
+    if (preview) preview.value = formatAccessPeriod(accessRole.value);
   }
 });
 
