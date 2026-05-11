@@ -902,9 +902,11 @@ function drawPreview(canvas) {
 
 function renderMapPage() {
   const selectedZone = state.map.zones.find((zone) => zone.id === state.selectedZoneId) || null;
+  const editHref = `./map-editor.html?space=${encodeURIComponent(state.spaceId)}`;
   return `
     ${getPageIntro()}
     <section class="garden-map-toolbar">
+      <a class="garden-button is-primary" href="${editHref}">맵 편집</a>
       <button class="garden-button" type="button" data-action="map-zoom-out">-</button>
       <span>${Math.round(state.mapZoom * 100)}%</span>
       <button class="garden-button" type="button" data-action="map-zoom-in">+</button>

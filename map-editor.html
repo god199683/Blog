@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="자료실 공간 맵 에디터">
+    <title>맵 편집 | 자료실</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body class="map-editor-page paint-editor-page ppt-map-page">
+    <header class="paint-titlebar ppt-titlebar" aria-label="맵 에디터 상단바">
+      <div class="paint-window-title">
+        <span aria-hidden="true">▦</span>
+        <input type="text" data-map-title aria-label="공간 이름" placeholder="제목 없음">
+        <strong>- 맵 에디터</strong>
+      </div>
+      <div class="paint-window-actions">
+        <button type="button" data-map-save title="저장" aria-label="저장">💾</button>
+        <button type="button" data-map-undo title="되돌리기" aria-label="되돌리기">↶</button>
+        <button type="button" data-map-redo title="다시 실행" aria-label="다시 실행">↷</button>
+        <span data-map-save-state>저장 준비</span>
+        <a href="./materials.html#spaces" aria-label="자료실 공간으로 돌아가기">×</a>
+      </div>
+    </header>
+
+    <nav class="paint-menubar ppt-tabs-bar" aria-label="맵 에디터 메뉴">
+      <div class="paint-tabs" aria-label="편집 탭">
+        <span class="is-active">홈</span>
+        <span>삽입</span>
+        <span>그리기</span>
+        <span>도형 서식</span>
+        <span>보기</span>
+      </div>
+      <div class="paint-app-actions">
+        <button class="paint-ribbon-toggle" type="button" data-map-ribbon-toggle aria-expanded="true" title="도구 접기">도구 접기</button>
+        <button type="button" data-map-reset title="초기화" aria-label="초기화">초기화</button>
+        <a href="./space-dashboard.html" data-map-dashboard-link title="관리 페이지" aria-label="관리 페이지">관리</a>
+      </div>
+    </nav>
+
+    <main class="map-editor-main paint-editor-main" aria-label="맵 제작 에디터">
+      <section class="map-editor-shell paint-shell ppt-shell">
+        <div class="map-paint-ribbon paint-ribbon ppt-ribbon" aria-label="파워포인트형 도구막대">
+          <section class="paint-group ppt-group ppt-group-slide" aria-label="슬라이드">
+            <button class="ppt-new-slide" type="button" data-map-new-slide title="새 슬라이드">
+              <span aria-hidden="true"></span>
+              <b>새 슬라이드</b>
+            </button>
+          </section>
+
+          <section class="paint-group ppt-group ppt-group-font" aria-label="글꼴">
+            <div class="ppt-font-row">
+              <select data-map-font-family aria-label="글꼴">
+                <option value="Malgun Gothic">맑은 고딕 (본문)</option>
+                <option value="Arial">Arial</option>
+                <option value="Georgia">Georgia</option>
+                <option value="serif">명조</option>
+              </select>
+              <select data-map-font-size aria-label="글자 크기">
+                <option>12</option>
+                <option selected>18</option>
+                <option>24</option>
+                <option>32</option>
+                <option>44</option>
+              </select>
+            </div>
+            <div class="ppt-icon-row">
+              <button type="button" data-map-tool="text" title="텍스트">가</button>
+              <button type="button" data-map-text-bold title="굵게">가</button>
+              <button type="button" data-map-text-italic title="기울임"><i>가</i></button>
+              <button type="button" data-map-text-underline title="밑줄"><u>가</u></button>
+              <label class="ppt-color-chip" title="글자색">
+                <input type="color" data-map-text-color aria-label="글자색">
+                <span style="background:#111827"></span>
+              </label>
+            </div>
+            <strong>글꼴</strong>
+          </section>
+
+          <section class="paint-group ppt-group ppt-group-shapes" aria-label="도형">
+            <details class="ppt-dropdown ppt-shape-dropdown">
+              <summary>
+                <span class="ppt-shape-icon" aria-hidden="true"></span>
+                도형
+              </summary>
+              <div class="ppt-shape-menu">
+                <p>최근에 사용한 도형</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="rectangle" title="사각형">□</button>
+                  <button type="button" data-map-shape="roundrect" title="둥근 사각형">▢</button>
+                  <button type="button" data-map-shape="line" title="선">╲</button>
+                  <button type="button" data-map-shape="arrow-right" title="화살표">→</button>
+                  <button type="button" data-map-shape="ellipse" title="원">○</button>
+                  <button type="button" data-map-shape="triangle" title="삼각형">△</button>
+                </div>
+                <p>선</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="line" title="선">╲</button>
+                  <button type="button" data-map-shape="arrow-right" title="오른쪽 화살표">→</button>
+                  <button type="button" data-map-shape="arrow-left" title="왼쪽 화살표">←</button>
+                  <button type="button" data-map-shape="arrow-up" title="위쪽 화살표">↑</button>
+                  <button type="button" data-map-shape="arrow-down" title="아래쪽 화살표">↓</button>
+                  <button type="button" data-map-shape="curve" title="곡선">⌒</button>
+                </div>
+                <p>사각형</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="rectangle" title="사각형">□</button>
+                  <button type="button" data-map-shape="roundrect" title="둥근 사각형">▢</button>
+                  <button type="button" data-map-shape="speech" title="메모">▱</button>
+                  <button type="button" data-map-shape="freeform" title="자유 도형">▰</button>
+                </div>
+                <p>기본 도형</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="ellipse" title="원">○</button>
+                  <button type="button" data-map-shape="triangle" title="삼각형">△</button>
+                  <button type="button" data-map-shape="right-triangle" title="직각 삼각형">◺</button>
+                  <button type="button" data-map-shape="diamond" title="마름모">◇</button>
+                  <button type="button" data-map-shape="pentagon" title="오각형">⬟</button>
+                  <button type="button" data-map-shape="hexagon" title="육각형">⬡</button>
+                  <button type="button" data-map-shape="star" title="별">☆</button>
+                  <button type="button" data-map-shape="burst" title="별 및 현수막">✷</button>
+                  <button type="button" data-map-shape="cloud" title="구름">☁</button>
+                  <button type="button" data-map-shape="speech" title="설명선">☰</button>
+                </div>
+                <p>블록 화살표</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="arrow-right" title="오른쪽 화살표">➡</button>
+                  <button type="button" data-map-shape="arrow-left" title="왼쪽 화살표">⬅</button>
+                  <button type="button" data-map-shape="arrow-up" title="위쪽 화살표">⬆</button>
+                  <button type="button" data-map-shape="arrow-down" title="아래쪽 화살표">⬇</button>
+                </div>
+                <p>수식 도형</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="plus" title="더하기">＋</button>
+                  <button type="button" data-map-shape="minus" title="빼기">−</button>
+                  <button type="button" data-map-shape="multiply" title="곱하기">×</button>
+                  <button type="button" data-map-shape="divide" title="나누기">÷</button>
+                </div>
+                <p>순서도</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="flow-rect" title="프로세스">▭</button>
+                  <button type="button" data-map-shape="flow-diamond" title="판단">◇</button>
+                  <button type="button" data-map-shape="flow-data" title="데이터">▱</button>
+                  <button type="button" data-map-shape="flow-doc" title="문서">▰</button>
+                </div>
+                <p>별 및 현수막</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="star" title="별">☆</button>
+                  <button type="button" data-map-shape="burst" title="폭발">✷</button>
+                  <button type="button" data-map-shape="badge" title="배지">✸</button>
+                </div>
+                <p>설명선</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="speech" title="말풍선">▱</button>
+                  <button type="button" data-map-shape="cloud" title="구름 설명선">☁</button>
+                  <button type="button" data-map-shape="callout" title="설명선">▢</button>
+                </div>
+                <p>실행 단추</p>
+                <div class="ppt-shape-grid">
+                  <button type="button" data-map-shape="action-back" title="뒤로">◁</button>
+                  <button type="button" data-map-shape="action-next" title="다음">▷</button>
+                  <button type="button" data-map-shape="action-home" title="홈">⌂</button>
+                </div>
+              </div>
+            </details>
+            <strong>도형</strong>
+          </section>
+
+          <section class="paint-group ppt-group ppt-group-arrange" aria-label="정렬">
+            <details class="ppt-dropdown ppt-arrange-dropdown">
+              <summary>
+                <span class="ppt-arrange-icon" aria-hidden="true"></span>
+                정렬
+              </summary>
+              <div class="ppt-arrange-menu">
+                <p>개체 순서</p>
+                <button type="button" data-map-arrange="front">맨 앞으로 가져오기</button>
+                <button type="button" data-map-arrange="back">맨 뒤로 보내기</button>
+                <button type="button" data-map-arrange="forward">앞으로 가져오기</button>
+                <button type="button" data-map-arrange="backward">뒤로 보내기</button>
+                <p>개체 그룹</p>
+                <button type="button" disabled>그룹</button>
+                <button type="button" disabled>그룹 해제</button>
+                <p>개체 위치</p>
+                <button type="button" data-map-fit>맞춤</button>
+                <button type="button" data-map-delete-selection>선택 창...</button>
+              </div>
+            </details>
+            <strong>정렬</strong>
+          </section>
+
+          <section class="paint-group ppt-group ppt-group-style" aria-label="도형 스타일">
+            <button class="ppt-quick-style" type="button" data-map-style="soft-blue">
+              <span aria-hidden="true"></span>
+              빠른 스타일
+            </button>
+            <details class="ppt-dropdown ppt-color-dropdown">
+              <summary>도형 채우기</summary>
+              <div class="ppt-color-menu" data-map-fill-menu>
+                <p>테마 색</p>
+                <div class="ppt-theme-palette" data-map-fill-palette></div>
+                <p>표준 색</p>
+                <div class="ppt-standard-palette" data-map-fill-standard></div>
+                <button type="button" data-map-fill-none>채우기 없음</button>
+                <button type="button" data-map-fill-custom>다른 채우기 색...</button>
+                <button type="button" data-map-picker="fill">스포이트</button>
+                <button type="button" data-map-fill-picture>그림...</button>
+                <button type="button" data-map-fill-gradient>그라데이션</button>
+                <button type="button" data-map-fill-texture>질감</button>
+              </div>
+            </details>
+            <details class="ppt-dropdown ppt-color-dropdown">
+              <summary>도형 윤곽선</summary>
+              <div class="ppt-color-menu" data-map-outline-menu>
+                <p>테마 색</p>
+                <div class="ppt-theme-palette" data-map-outline-palette></div>
+                <p>표준 색</p>
+                <div class="ppt-standard-palette" data-map-outline-standard></div>
+                <button type="button" data-map-outline-none>윤곽선 없음</button>
+                <button type="button" data-map-outline-custom>다른 윤곽선 색...</button>
+                <button type="button" data-map-picker="outline">스포이트</button>
+                <details class="ppt-submenu">
+                  <summary>두께</summary>
+                  <button type="button" data-map-outline-width="1">1px</button>
+                  <button type="button" data-map-outline-width="2">2px</button>
+                  <button type="button" data-map-outline-width="4">4px</button>
+                  <button type="button" data-map-outline-width="8">8px</button>
+                </details>
+                <details class="ppt-submenu">
+                  <summary>스케치</summary>
+                  <button type="button" data-map-outline-sketch="solid">일반</button>
+                  <button type="button" data-map-outline-sketch="dash">손그림</button>
+                </details>
+                <details class="ppt-submenu">
+                  <summary>대시</summary>
+                  <button type="button" data-map-outline-dash="solid">실선</button>
+                  <button type="button" data-map-outline-dash="dash">점선</button>
+                </details>
+              </div>
+            </details>
+            <button type="button" data-map-style="shadow">도형 효과</button>
+            <input type="color" data-map-custom-color aria-label="사용자 지정 색" hidden>
+            <strong>도형 스타일</strong>
+          </section>
+        </div>
+
+        <div class="paint-size-strip ppt-size-strip" aria-label="슬라이드 설정">
+          <label>
+            <span>너비</span>
+            <input type="number" min="320" max="6000" step="20" data-map-width>
+          </label>
+          <label>
+            <span>높이</span>
+            <input type="number" min="240" max="4200" step="20" data-map-height>
+          </label>
+          <label class="paint-note-field">
+            <span>설명</span>
+            <input type="text" data-map-note placeholder="공간 설명">
+          </label>
+        </div>
+
+        <div class="map-paint-body paint-body ppt-body">
+          <aside class="paint-slide-pane ppt-slide-pane" aria-label="슬라이드 목록">
+            <button class="paint-slide-thumb ppt-slide-thumb is-active" type="button" aria-label="1번 슬라이드">
+              <b>1</b>
+              <canvas data-map-thumbnail width="224" height="126" aria-hidden="true"></canvas>
+              <span data-map-slide-title>공간</span>
+            </button>
+          </aside>
+
+          <section class="map-workspace paint-workspace ppt-workspace" aria-label="맵 작업 영역">
+            <div class="map-canvas-wrap paint-canvas-wrap ppt-canvas-wrap" data-map-canvas-wrap>
+              <div class="map-canvas-stage paint-canvas-stage ppt-canvas-stage" data-map-canvas-stage>
+                <div class="paint-canvas-frame ppt-canvas-frame" data-map-canvas-frame>
+                  <canvas data-map-canvas width="1152" height="648" aria-label="맵 캔버스"></canvas>
+                  <span class="paint-resize-handle is-nw" data-map-resize-handle="nw" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-n" data-map-resize-handle="n" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-ne" data-map-resize-handle="ne" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-e" data-map-resize-handle="e" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-se" data-map-resize-handle="se" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-s" data-map-resize-handle="s" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-sw" data-map-resize-handle="sw" aria-hidden="true"></span>
+                  <span class="paint-resize-handle is-w" data-map-resize-handle="w" aria-hidden="true"></span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="map-layer-dock paint-layer-dock ppt-object-pane" data-map-layer-dock aria-label="개체 목록">
+            <header>
+              <strong>개체</strong>
+              <button type="button" data-map-layer-toggle aria-label="개체 패널 닫기">×</button>
+            </header>
+            <div class="paint-layer-list" data-map-layer-list></div>
+          </aside>
+        </div>
+
+        <footer class="map-statusbar paint-statusbar ppt-statusbar" aria-label="맵 상태">
+          <span data-map-status>1152 × 648px</span>
+          <span data-map-pointer>준비</span>
+          <label>
+            <select data-map-zoom-select aria-label="확대 비율">
+              <option value="0.5">50%</option>
+              <option value="0.75">75%</option>
+              <option value="1" selected>100%</option>
+              <option value="1.25">125%</option>
+              <option value="1.5">150%</option>
+              <option value="2">200%</option>
+            </select>
+          </label>
+          <button type="button" data-map-zoom-out aria-label="축소">⊖</button>
+          <input type="range" min="0.35" max="2.5" step="0.05" value="1" data-map-zoom aria-label="확대 비율">
+          <button type="button" data-map-zoom-in aria-label="확대">⊕</button>
+        </footer>
+      </section>
+    </main>
+
+    <script src="./session.js" defer></script>
+    <script src="./map-editor.js" defer></script>
+  </body>
+</html>
