@@ -97,6 +97,7 @@ const state = {
   editType: "",
   editId: "",
   selectedZoneId: "",
+  selectedCreatureId: "",
   mapZoom: 1,
   creatureTypeFilter: "all",
 };
@@ -1001,10 +1002,32 @@ function getFilteredCreatures() {
   });
 }
 
+function renderCreatureDetail(creature = null) {
+  if (!creature) {
+    return `<section class="garden-creature-detail" hidden></section>`;
+  }
+  const type = getCreatureType(creature.type);
+  return `
+    <section class="garden-creature-detail" aria-label="동식물 상세 설명">
+      <div class="garden-creature-detail-head">
+        <span aria-hidden="true">${type.icon}</span>
+        <div>
+          <strong>${escapeHtml(creature.name)}</strong>
+          <small>${escapeHtml(type.label)} · ${escapeHtml(getZoneName(creature.zoneId))}</small>
+        </div>
+      </div>
+      <p>${escapeHtml(creature.description || "상세 설명이 없습니다.")}</p>
+    </section>
+  `;
+}
+
 function renderCreaturesPage() {
   const editingCreature =
     state.editType === "creature" ? state.map.creatures.find((item) => item.id === state.editId) || null : null;
   const creatures = getFilteredCreatures();
+  const selectedExists = creatures.some((item) => item.id === state.selectedCreatureId);
+  if (!selectedExists) state.selectedCreatureId = "";
+  const selectedCreature = creatures.find((item) => item.id === state.selectedCreatureId) || null;
   return `
     ${getPageIntro()}
     <section class="garden-page-actions">
@@ -1026,7 +1049,7 @@ function renderCreaturesPage() {
               .map((item) => {
                 const type = getCreatureType(item.type);
                 return `
-                  <div class="garden-table-row garden-creature-list-row">
+                  <div class="garden-table-row garden-creature-list-row ${item.id === state.selectedCreatureId ? "is-selected" : ""}" data-action="select-creature" data-id="${escapeHtml(item.id)}" tabindex="0" role="button" aria-pressed="${item.id === state.selectedCreatureId ? "true" : "false"}">
                     <strong>${type.icon} ${escapeHtml(item.name)}</strong>
                     <span>${escapeHtml(type.label)}</span>
                     <span>${escapeHtml(getZoneName(item.zoneId))}</span>
@@ -1042,6 +1065,7 @@ function renderCreaturesPage() {
           </div>`
         : `<p class="garden-empty">조건에 맞는 동식물이 없습니다.</p>`
     )}
+    ${renderCreatureDetail(selectedCreature)}
   `;
 }
 
@@ -1337,6 +1361,9 @@ async function deleteEntity(collection, id, message = "삭제할까요?") {
     state.map.byproducts = state.map.byproducts.map((item) => (item.zoneId === id ? { ...item, zoneId: "" } : item));
     if (state.selectedZoneId === id) state.selectedZoneId = "";
   }
+  if (collection === "creatures" && state.selectedCreatureId === id) {
+    state.selectedCreatureId = "";
+  }
   await saveSpaceContent();
   render();
 }
@@ -1351,6 +1378,11 @@ async function handleAction(action, target) {
   if (action === "edit-creature") return openEditor("creature", target.dataset.id || "");
   if (action === "edit-byproduct") return openEditor("byproduct", target.dataset.id || "");
   if (action === "edit-access") return openEditor("access", target.dataset.id || "");
+  if (action === "select-creature") {
+    state.selectedCreatureId = target.dataset.id || "";
+    render();
+    return;
+  }
   if (action === "delete-zone") return deleteEntity("zones", target.dataset.id, "구역을 삭제할까요?");
   if (action === "delete-creature") return deleteEntity("creatures", target.dataset.id, "동식물을 삭제할까요?");
   if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "항목을 삭제할까요?");
@@ -1514,8 +1546,18 @@ document.addEventListener("change", (event) => {
   const typeFilter = event.target.closest("[data-creature-type-filter]");
   if (typeFilter) {
     state.creatureTypeFilter = typeFilter.value || "all";
+    state.selectedCreatureId = "";
     render();
   }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.target.closest("button, input, select, textarea, a")) return;
+  const row = event.target.closest('[data-action="select-creature"]');
+  if (!row || (event.key !== "Enter" && event.key !== " ")) return;
+  event.preventDefault();
+  state.selectedCreatureId = row.dataset.id || "";
+  render();
 });
 
 window.addEventListener("hashchange", () => {
