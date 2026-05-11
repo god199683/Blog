@@ -354,11 +354,6 @@ function getMaterialPreview(material = {}) {
   return String(material.content || material.url || "자료 설명이 없습니다.").replace(/\s+/g, " ").trim();
 }
 
-function openSpaceEditor(spaceId) {
-  if (!spaceId) return;
-  window.location.href = `./map-editor.html?space=${encodeURIComponent(spaceId)}`;
-}
-
 function openSpaceDashboard(spaceId) {
   if (!spaceId) return;
   window.location.href = `./space-dashboard.html?space=${encodeURIComponent(spaceId)}`;
@@ -625,7 +620,6 @@ function renderSpaceCards(spaces = []) {
           <h3>${escapeHtml(space.title || "이름 없는 공간")}</h3>
           <p>${escapeHtml(preview)}</p>
           <div class="materials-space-card-actions">
-            <button type="button" data-space-edit="${escapeHtml(space.id)}">수정</button>
             <button type="button" data-space-delete="${escapeHtml(space.id)}">삭제</button>
           </div>
         </article>
@@ -1190,13 +1184,6 @@ els.list?.addEventListener("change", (event) => {
 });
 
 els.spaceGrid?.addEventListener("click", async (event) => {
-  const editButton = event.target.closest("[data-space-edit]");
-  if (editButton) {
-    event.preventDefault();
-    openSpaceEditor(editButton.dataset.spaceEdit);
-    return;
-  }
-
   const deleteButton = event.target.closest("[data-space-delete]");
   if (deleteButton) {
     event.preventDefault();

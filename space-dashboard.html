@@ -3,50 +3,65 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="자료실 공간 관리 대시보드">
-    <title>공간 관리 | 자료실</title>
+    <meta name="description" content="자료실 공간 설정 페이지">
+    <title>공간 설정 | 자료실</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body class="space-dashboard-page">
-    <header class="site-header">
-      <a class="brand" href="./materials.html" aria-label="자료실로 이동">
-        <span class="brand-mark" data-space-brand-initial aria-hidden="true">B</span>
-        <span data-space-brand-title>자료실</span>
-      </a>
-      <div class="auth-actions" aria-label="계정 메뉴" data-auth-actions>
-        <a class="auth-button auth-login" href="./login.html">로그인</a>
-        <a class="auth-button auth-signup" href="./signup.html">회원가입</a>
+    <aside class="space-settings-sidebar" aria-label="공간 관리 메뉴">
+      <div class="space-settings-brand">
+        <span class="space-settings-mark" data-space-brand-initial aria-hidden="true">B</span>
+        <div>
+          <strong data-space-brand-title>자료실</strong>
+          <span>공간 관리 시스템</span>
+        </div>
       </div>
-    </header>
 
-    <main class="space-dashboard-main" aria-label="공간 관리">
-      <section class="space-dashboard-shell">
-        <header class="space-dashboard-topbar">
-          <div>
-            <p class="space-dashboard-kicker">공간 관리</p>
-            <h1 data-space-title>공간</h1>
-            <p data-space-summary>저장된 맵을 불러오는 중입니다.</p>
-          </div>
-          <div class="space-dashboard-actions">
-            <a class="editor-ghost-button" href="./materials.html">자료실</a>
-            <a class="editor-primary-button" href="./map-editor.html" data-space-edit-link>맵 수정</a>
-          </div>
+      <nav class="space-settings-nav">
+        <a href="./materials.html#spaces">
+          <span aria-hidden="true">⌂</span>
+          공간 목록
+        </a>
+        <a class="is-active" href="#overview">
+          <span aria-hidden="true">⚙</span>
+          공간 설정
+        </a>
+        <a href="./map-editor.html" data-space-edit-link>
+          <span aria-hidden="true">✎</span>
+          맵 편집
+        </a>
+        <a href="#preview">
+          <span aria-hidden="true">□</span>
+          미리보기
+        </a>
+        <a href="#markers">
+          <span aria-hidden="true">•</span>
+          표식 목록
+        </a>
+      </nav>
+
+      <div class="space-settings-status">
+        <span aria-hidden="true"></span>
+        시스템 활성 중
+      </div>
+    </aside>
+
+    <main class="space-dashboard-main" aria-label="공간 설정">
+      <div class="space-settings-container">
+        <header class="space-settings-heading">
+          <p class="space-dashboard-kicker">공간 관리</p>
+          <h1>⚙️ 공간 설정</h1>
+          <p data-space-summary>저장된 공간 정보를 불러오는 중입니다.</p>
+          <small data-space-updated>-</small>
         </header>
 
-        <div class="space-dashboard-grid">
-          <section class="space-dashboard-preview" aria-labelledby="space-preview-title">
-            <div class="space-panel-head">
-              <h2 id="space-preview-title">맵 미리보기</h2>
-              <span data-space-updated>-</span>
-            </div>
-            <div class="space-preview-canvas-wrap">
-              <canvas data-space-preview width="960" height="560" aria-label="공간 맵 미리보기"></canvas>
-            </div>
-          </section>
-
-          <section class="space-dashboard-stats" aria-label="공간 지표">
+        <section class="space-settings-card" id="overview" aria-labelledby="space-overview-title">
+          <div class="space-panel-head">
+            <h2 id="space-overview-title" data-space-title>공간</h2>
+          </div>
+          <div class="space-dashboard-stats" aria-label="공간 지표">
             <article>
-              <span>맵 크기</span>
+              <span>캔버스</span>
               <strong data-space-stat="size">-</strong>
             </article>
             <article>
@@ -59,25 +74,63 @@
             </article>
             <article>
               <span>요소</span>
-              <strong data-space-stat="coverage">0%</strong>
+              <strong data-space-stat="coverage">0</strong>
             </article>
-          </section>
+          </div>
+        </section>
 
-          <section class="space-dashboard-note" aria-labelledby="space-note-title">
-            <div class="space-panel-head">
-              <h2 id="space-note-title">설명</h2>
+        <section class="space-settings-card" aria-labelledby="space-map-control-title">
+          <div class="space-panel-head">
+            <h2 id="space-map-control-title">🗺️ 맵 관리</h2>
+          </div>
+          <div class="space-settings-list">
+            <div class="space-settings-row">
+              <div>
+                <p>맵 편집</p>
+                <span>그림판 형식의 제작 화면에서 공간을 수정합니다.</span>
+              </div>
+              <a class="space-settings-button" href="./map-editor.html" data-space-edit-link>열기</a>
             </div>
-            <p data-space-note>설명이 없습니다.</p>
-          </section>
+            <div class="space-settings-mode-grid" aria-label="공간 관리 모드">
+              <a class="is-selected" href="#preview">
+                <strong>미리보기</strong>
+                <span>저장된 맵 확인</span>
+              </a>
+              <a href="#markers">
+                <strong>표식</strong>
+                <span>표식 위치 확인</span>
+              </a>
+              <a href="./materials.html#spaces">
+                <strong>자료실</strong>
+                <span>공간 목록으로 이동</span>
+              </a>
+            </div>
+          </div>
+        </section>
 
-          <section class="space-dashboard-markers" aria-labelledby="space-marker-title">
-            <div class="space-panel-head">
-              <h2 id="space-marker-title">표식 목록</h2>
-            </div>
-            <div data-space-markers></div>
-          </section>
-        </div>
-      </section>
+        <section class="space-settings-card space-dashboard-preview" id="preview" aria-labelledby="space-preview-title">
+          <div class="space-panel-head">
+            <h2 id="space-preview-title">맵 미리보기</h2>
+          </div>
+          <div class="space-preview-canvas-wrap">
+            <canvas data-space-preview width="960" height="560" aria-label="공간 맵 미리보기"></canvas>
+          </div>
+        </section>
+
+        <section class="space-settings-card space-dashboard-note" aria-labelledby="space-note-title">
+          <div class="space-panel-head">
+            <h2 id="space-note-title">설명</h2>
+          </div>
+          <p data-space-note>설명이 없습니다.</p>
+        </section>
+
+        <section class="space-settings-card space-dashboard-markers" id="markers" aria-labelledby="space-marker-title">
+          <div class="space-panel-head">
+            <h2 id="space-marker-title">표식 목록</h2>
+          </div>
+          <div data-space-markers></div>
+        </section>
+      </div>
     </main>
 
     <script src="./session.js" defer></script>

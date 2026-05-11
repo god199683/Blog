@@ -31,7 +31,7 @@ const els = {
   title: document.querySelector("[data-space-title]"),
   summary: document.querySelector("[data-space-summary]"),
   updated: document.querySelector("[data-space-updated]"),
-  editLink: document.querySelector("[data-space-edit-link]"),
+  editLinks: document.querySelectorAll("[data-space-edit-link]"),
   preview: document.querySelector("[data-space-preview]"),
   note: document.querySelector("[data-space-note]"),
   markers: document.querySelector("[data-space-markers]"),
@@ -280,7 +280,9 @@ function renderDashboard() {
   if (els.title) els.title.textContent = state.space?.title || "공간";
   if (els.summary) els.summary.textContent = `${getCanvasWidth()} x ${getCanvasHeight()} 캔버스에 저장된 공간입니다.`;
   if (els.updated) els.updated.textContent = `수정일 ${formatDate(state.space?.updated_at || state.space?.created_at)}`;
-  if (els.editLink) els.editLink.href = `./map-editor.html?space=${encodeURIComponent(state.spaceId)}`;
+  els.editLinks.forEach((link) => {
+    link.href = `./map-editor.html?space=${encodeURIComponent(state.spaceId)}`;
+  });
   if (els.note) els.note.textContent = note || "설명이 없습니다.";
 
   setStat("size", `${getCanvasWidth()} x ${getCanvasHeight()}`);
