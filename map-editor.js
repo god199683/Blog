@@ -24,6 +24,12 @@ const PALETTE = [
   { id: "warm", label: "장소", color: "#ffe4b8" },
 ];
 
+const MIN_MAP_WIDTH = 8;
+const MIN_MAP_HEIGHT = 8;
+const MAX_MAP_WIDTH = 220;
+const MAX_MAP_HEIGHT = 160;
+const MAP_GROW_STEP = 8;
+
 const state = {
   session: null,
   id: "",
@@ -34,6 +40,7 @@ const state = {
   tile: PALETTE[1],
   zoom: 1,
   isDrawing: false,
+  workspaceExpanded: false,
 };
 
 const els = {
@@ -42,15 +49,20 @@ const els = {
   title: document.querySelector("[data-map-title]"),
   note: document.querySelector("[data-map-note]"),
   canvas: document.querySelector("[data-map-canvas]"),
+  canvasWrap: document.querySelector("[data-map-canvas-wrap]"),
   palette: document.querySelector("[data-map-palette]"),
   markerList: document.querySelector("[data-map-marker-list]"),
   width: document.querySelector("[data-map-width]"),
   height: document.querySelector("[data-map-height]"),
   resize: document.querySelector("[data-map-resize]"),
+  growButtons: document.querySelectorAll("[data-map-grow]"),
   zoom: document.querySelector("[data-map-zoom]"),
+  fit: document.querySelector("[data-map-fit]"),
+  workspaceToggle: document.querySelector("[data-map-workspace-toggle]"),
   save: document.querySelector("[data-map-save]"),
   reset: document.querySelector("[data-map-reset]"),
   saveState: document.querySelector("[data-map-save-state]"),
+  status: document.querySelector("[data-map-status]"),
   toolButtons: document.querySelectorAll("[data-map-tool]"),
 };
 
@@ -107,6 +119,19 @@ function setSaveState(text, type = "") {
   els.saveState.dataset.type = type;
 }
 
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, number));
+}
+
+function updateStatus() {
+  if (!els.status) return;
+  const filled = Object.keys(state.map.cells || {}).length;
+  const markers = state.map.markers.length;
+  els.status.textContent = `${state.map.width} × ${state.map.height} / 칠한 칸 ${filled} / 표식 ${markers} / ${Math.round(state.zoom * 100)}%`;
+}
+
 function syncBrand() {
   const title = `${state.id || "Blog"}'s 자료실`;
   if (els.brandTitle) els.brandTitle.textContent = title;
@@ -131,10 +156,15 @@ function getCellKey(cell) {
 function drawMap() {
   if (!ctx || !els.canvas) return;
   const tile = state.map.tileSize * state.zoom;
-  els.canvas.width = Math.ceil(state.map.width * tile);
-  els.canvas.height = Math.ceil(state.map.height * tile);
+  const width = Math.ceil(state.map.width * tile);
+  const height = Math.ceil(state.map.height * tile);
+  els.canvas.width = width;
+  els.canvas.height = height;
+  els.canvas.style.width = `${width}px`;
+  els.canvas.style.height = `${height}px`;
 
   ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
+  ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = "#fbfdff";
   ctx.fillRect(0, 0, els.canvas.width, els.canvas.height);
 
@@ -167,9 +197,10 @@ function drawMap() {
     ctx.arc(cx, cy, Math.max(5, tile * 0.18), 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#17324a";
-    ctx.font = `${Math.max(10, 12 * state.zoom)}px sans-serif`;
+    ctx.font = `700 ${Math.max(10, 12 * state.zoom)}px sans-serif`;
     ctx.fillText(marker.label || "표식", cx + tile * 0.22, cy + 4);
   });
+  updateStatus();
 }
 
 function renderPalette() {
@@ -206,6 +237,7 @@ function renderAll() {
   if (els.note) els.note.value = state.map.note || "";
   if (els.width) els.width.value = String(state.map.width);
   if (els.height) els.height.value = String(state.map.height);
+  if (els.zoom) els.zoom.value = String(state.zoom);
   renderPalette();
   renderMarkers();
   drawMap();
@@ -251,6 +283,62 @@ function applyTool(cell) {
     color: state.tile.color,
   };
   drawMap();
+}
+
+function resizeMap(width, height, { trim = true } = {}) {
+  const nextWidth = clampNumber(width, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
+  const nextHeight = clampNumber(height, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
+  state.map.width = nextWidth;
+  state.map.height = nextHeight;
+
+  if (trim) {
+    Object.keys(state.map.cells).forEach((key) => {
+      const [x, y] = key.split(",").map(Number);
+      if (x >= nextWidth || y >= nextHeight) delete state.map.cells[key];
+    });
+    state.map.markers = state.map.markers.filter((marker) => marker.x < nextWidth && marker.y < nextHeight);
+  }
+
+  renderAll();
+}
+
+function applyResizeFromInputs() {
+  const width = clampNumber(els.width?.value || state.map.width, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
+  const height = clampNumber(els.height?.value || state.map.height, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
+  const isShrinking = width < state.map.width || height < state.map.height;
+  if (isShrinking && !window.confirm("줄어든 영역 밖의 내용은 지워집니다. 적용할까요?")) {
+    renderAll();
+    return;
+  }
+  resizeMap(width, height, { trim: true });
+}
+
+function growMap(direction = "both") {
+  const addWidth = direction === "wide" || direction === "both" ? MAP_GROW_STEP : 0;
+  const addHeight = direction === "tall" || direction === "both" ? MAP_GROW_STEP : 0;
+  resizeMap(state.map.width + addWidth, state.map.height + addHeight, { trim: false });
+}
+
+function fitMapToView() {
+  if (!els.canvasWrap) return;
+  const availableWidth = Math.max(240, els.canvasWrap.clientWidth - 48);
+  const availableHeight = Math.max(180, els.canvasWrap.clientHeight - 48);
+  const widthRatio = availableWidth / (state.map.width * state.map.tileSize);
+  const heightRatio = availableHeight / (state.map.height * state.map.tileSize);
+  const nextZoom = clampNumber(Math.min(widthRatio, heightRatio), 0.35, 2.5);
+  state.zoom = Number(nextZoom.toFixed(2));
+  if (els.zoom) els.zoom.value = String(state.zoom);
+  drawMap();
+}
+
+function toggleWorkspace() {
+  state.workspaceExpanded = !state.workspaceExpanded;
+  document.body.classList.toggle("map-editor-expanded", state.workspaceExpanded);
+  if (els.workspaceToggle) {
+    els.workspaceToggle.setAttribute("aria-pressed", String(state.workspaceExpanded));
+    els.workspaceToggle.textContent = state.workspaceExpanded ? "기본" : "넓게";
+  }
+  window.setTimeout(fitMapToView, 80);
 }
 
 async function loadSpace(session) {
@@ -301,12 +389,14 @@ els.palette?.addEventListener("click", (event) => {
 });
 
 els.canvas?.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
   state.isDrawing = true;
   els.canvas.setPointerCapture?.(event.pointerId);
   applyTool(getCellFromEvent(event));
 });
 
 els.canvas?.addEventListener("pointermove", (event) => {
+  event.preventDefault();
   if (!state.isDrawing || state.tool === "marker" || state.tool === "label") return;
   applyTool(getCellFromEvent(event));
 });
@@ -324,22 +414,21 @@ els.markerList?.addEventListener("click", (event) => {
 });
 
 els.resize?.addEventListener("click", () => {
-  const width = Math.min(80, Math.max(8, Number(els.width?.value || state.map.width)));
-  const height = Math.min(60, Math.max(8, Number(els.height?.value || state.map.height)));
-  state.map.width = width;
-  state.map.height = height;
-  Object.keys(state.map.cells).forEach((key) => {
-    const [x, y] = key.split(",").map(Number);
-    if (x >= width || y >= height) delete state.map.cells[key];
-  });
-  state.map.markers = state.map.markers.filter((marker) => marker.x < width && marker.y < height);
-  renderAll();
+  applyResizeFromInputs();
+});
+
+els.growButtons.forEach((button) => {
+  button.addEventListener("click", () => growMap(button.dataset.mapGrow || "both"));
 });
 
 els.zoom?.addEventListener("input", () => {
   state.zoom = Number(els.zoom.value || 1);
   drawMap();
 });
+
+els.fit?.addEventListener("click", fitMapToView);
+
+els.workspaceToggle?.addEventListener("click", toggleWorkspace);
 
 els.save?.addEventListener("click", async () => {
   try {

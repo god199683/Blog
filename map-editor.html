@@ -9,7 +9,7 @@
   </head>
   <body class="map-editor-page">
     <header class="site-header">
-      <a class="brand" href="./materials.html" aria-label="자료실로 이동">
+      <a class="brand" href="./materials.html#spaces" aria-label="자료실 공간으로 이동">
         <span class="brand-mark" data-map-brand-initial aria-hidden="true">B</span>
         <span data-map-brand-title>자료실</span>
       </a>
@@ -22,7 +22,7 @@
     <main class="map-editor-main" aria-label="맵 제작 에디터">
       <section class="map-editor-shell">
         <header class="map-editor-topbar">
-          <div>
+          <div class="map-title-block">
             <p class="map-editor-kicker">공간 맵</p>
             <input class="map-title-input" type="text" data-map-title aria-label="공간 이름" placeholder="공간 이름">
           </div>
@@ -30,66 +30,86 @@
             <span data-map-save-state>저장 준비</span>
             <button class="editor-ghost-button" type="button" data-map-reset>초기화</button>
             <button class="editor-primary-button" type="button" data-map-save>저장</button>
-            <a class="editor-icon-button" href="./materials.html" aria-label="자료실로 돌아가기">×</a>
+            <a class="editor-icon-button" href="./materials.html#spaces" aria-label="자료실 공간으로 돌아가기">×</a>
           </div>
         </header>
 
-        <div class="map-editor-layout">
-          <aside class="map-tool-panel" aria-label="맵 도구">
-            <div class="map-tool-group">
-              <strong>도구</strong>
-              <div class="map-tool-grid" role="toolbar" aria-label="맵 제작 도구">
-                <button type="button" data-map-tool="brush" aria-pressed="true">칠하기</button>
-                <button type="button" data-map-tool="erase">지우개</button>
-                <button type="button" data-map-tool="marker">표식</button>
-                <button type="button" data-map-tool="label">글자</button>
-              </div>
-            </div>
-
-            <div class="map-tool-group">
-              <strong>타일</strong>
-              <div class="map-palette" data-map-palette aria-label="타일 색상"></div>
-            </div>
-
-            <div class="map-tool-group">
-              <strong>크기</strong>
-              <label>
-                <span>가로</span>
-                <input type="number" min="8" max="80" step="1" data-map-width>
-              </label>
-              <label>
-                <span>세로</span>
-                <input type="number" min="8" max="60" step="1" data-map-height>
-              </label>
-              <button type="button" data-map-resize>적용</button>
-            </div>
-
-            <div class="map-tool-group">
-              <strong>보기</strong>
-              <label>
-                <span>확대</span>
-                <input type="range" min="0.6" max="1.8" step="0.1" value="1" data-map-zoom>
-              </label>
-            </div>
-          </aside>
-
-          <section class="map-workspace" aria-label="맵 작업 영역">
-            <div class="map-canvas-wrap">
-              <canvas data-map-canvas width="1024" height="640" aria-label="맵 캔버스"></canvas>
+        <div class="map-paint-ribbon" aria-label="그림판 도구막대">
+          <section class="map-ribbon-group" aria-label="도구">
+            <strong>도구</strong>
+            <div class="map-tool-grid map-tool-grid--paint" role="toolbar" aria-label="맵 제작 도구">
+              <button type="button" data-map-tool="brush" aria-pressed="true">칠하기</button>
+              <button type="button" data-map-tool="erase">지우개</button>
+              <button type="button" data-map-tool="marker">표식</button>
+              <button type="button" data-map-tool="label">글자</button>
             </div>
           </section>
 
-          <aside class="map-info-panel" aria-label="맵 정보">
-            <div class="map-tool-group">
-              <strong>설명</strong>
-              <textarea rows="8" data-map-note placeholder="공간 설명"></textarea>
+          <section class="map-ribbon-group map-ribbon-group--colors" aria-label="색상">
+            <strong>색상</strong>
+            <div class="map-palette" data-map-palette aria-label="타일 색상"></div>
+          </section>
+
+          <section class="map-ribbon-group map-ribbon-group--size" aria-label="제작 영역 크기">
+            <strong>제작 영역</strong>
+            <div class="map-size-controls">
+              <label>
+                <span>가로</span>
+                <input type="number" min="8" max="220" step="1" data-map-width>
+              </label>
+              <label>
+                <span>세로</span>
+                <input type="number" min="8" max="160" step="1" data-map-height>
+              </label>
+              <button type="button" data-map-resize>적용</button>
             </div>
-            <div class="map-tool-group">
+            <div class="map-grow-controls" aria-label="제작 영역 빠른 확장">
+              <button type="button" data-map-grow="wide">가로 +</button>
+              <button type="button" data-map-grow="tall">세로 +</button>
+              <button type="button" data-map-grow="both">전체 +</button>
+            </div>
+          </section>
+
+          <section class="map-ribbon-group map-ribbon-group--view" aria-label="보기">
+            <strong>보기</strong>
+            <label class="map-zoom-control">
+              <span>확대</span>
+              <input type="range" min="0.35" max="2.5" step="0.05" value="1" data-map-zoom>
+            </label>
+            <div class="map-view-controls">
+              <button type="button" data-map-fit>맞춤</button>
+              <button type="button" data-map-workspace-toggle aria-pressed="false">넓게</button>
+            </div>
+          </section>
+
+          <section class="map-ribbon-group map-ribbon-group--note" aria-label="공간 설명">
+            <strong>설명</strong>
+            <textarea rows="3" data-map-note placeholder="공간 설명"></textarea>
+          </section>
+        </div>
+
+        <div class="map-paint-body">
+          <section class="map-workspace" aria-label="맵 작업 영역">
+            <div class="map-canvas-wrap" data-map-canvas-wrap>
+              <div class="map-canvas-stage">
+                <canvas data-map-canvas width="1024" height="640" aria-label="맵 캔버스"></canvas>
+              </div>
+            </div>
+          </section>
+
+          <aside class="map-marker-dock" aria-label="맵 표식">
+            <header>
               <strong>표식</strong>
-              <div class="map-marker-list" data-map-marker-list></div>
-            </div>
+              <span>클릭하면 삭제</span>
+            </header>
+            <div class="map-marker-list" data-map-marker-list></div>
           </aside>
         </div>
+
+        <footer class="map-statusbar" aria-label="맵 상태">
+          <span data-map-status>32 × 20</span>
+          <span>드래그해서 칠하고, 영역이 부족하면 제작 영역을 확장하세요.</span>
+        </footer>
       </section>
     </main>
 
