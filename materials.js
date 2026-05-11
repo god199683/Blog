@@ -24,7 +24,7 @@ const state = {
   materials: [],
   materialTree: [],
   materialError: "",
-  activeSection: "materials",
+  activeSection: readActiveSectionFromUrl(),
   activeMaterialNodeId: MATERIAL_ALL_NODE_ID,
   collapsedMaterialNodeIds: new Set(),
   activeFilter: "all",
@@ -72,6 +72,18 @@ const els = {
   scrollTop: document.querySelector("[data-scroll-top]"),
   scrollBottom: document.querySelector("[data-scroll-bottom]"),
 };
+
+function readActiveSectionFromUrl() {
+  return window.location.hash.replace("#", "") === "spaces" ? "spaces" : "materials";
+}
+
+function setActiveSection(section, shouldSyncUrl = true) {
+  state.activeSection = section === "spaces" ? "spaces" : "materials";
+  if (!shouldSyncUrl) return;
+  const hash = state.activeSection === "spaces" ? "#spaces" : "#materials";
+  if (window.location.hash === hash) return;
+  history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
+}
 
 async function requestRest(path, token, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -752,7 +764,7 @@ async function addMaterialCategory() {
 
   const node = createMaterialTreeNode("category", label);
   state.materialTree.push(node);
-  state.activeSection = "materials";
+  setActiveSection("materials");
   state.activeMaterialNodeId = node.id;
   await saveMaterialTree();
   renderDashboard();
@@ -769,7 +781,7 @@ async function addMaterialFolder(parentId) {
   const folder = createMaterialTreeNode("folder", label);
   found.node.children.push(folder);
   state.collapsedMaterialNodeIds.delete(found.node.id);
-  state.activeSection = "materials";
+  setActiveSection("materials");
   state.activeMaterialNodeId = folder.id;
   await saveMaterialTree();
   renderDashboard();
@@ -874,7 +886,7 @@ async function importMaterialFiles(files = []) {
   if (imported.length > 0) {
     state.materials = [...imported, ...state.materials];
     state.selectedMaterialId = imported[0].id;
-    state.activeSection = imported[0].material_type === "space" ? "spaces" : "materials";
+    setActiveSection(imported[0].material_type === "space" ? "spaces" : "materials");
     state.activeFilter = "all";
     state.searchQuery = "";
     state.materialError = "";
@@ -1025,7 +1037,7 @@ async function promptCreateMaterial() {
     });
     state.materials = [material, ...state.materials];
     state.selectedMaterialId = material.id;
-    state.activeSection = material.material_type === "space" ? "spaces" : "materials";
+    setActiveSection(material.material_type === "space" ? "spaces" : "materials");
     state.activeFilter = "all";
     state.searchQuery = "";
     state.materialError = "";
@@ -1287,7 +1299,7 @@ els.importInput?.addEventListener("change", async (event) => {
 });
 
 els.treeAll?.addEventListener("click", () => {
-  state.activeSection = "materials";
+  setActiveSection("materials");
   state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
   state.searchQuery = "";
   state.selectedMaterialId = "";
@@ -1324,7 +1336,7 @@ els.tree?.addEventListener("click", async (event) => {
 
   const select = event.target.closest("[data-material-tree-select]");
   if (select) {
-    state.activeSection = "materials";
+    setActiveSection("materials");
     state.activeMaterialNodeId = select.dataset.materialTreeSelect;
     state.searchQuery = "";
     state.selectedMaterialId = "";
@@ -1336,7 +1348,7 @@ els.tree?.addEventListener("click", async (event) => {
 
 els.sectionButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    state.activeSection = button.dataset.materialSection || "materials";
+    setActiveSection(button.dataset.materialSection || "materials");
     if (state.activeSection === "materials" && !findMaterialNode(state.materialTree, state.activeMaterialNodeId)) {
       state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
     }
