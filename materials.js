@@ -329,7 +329,20 @@ function isWebLink(url = "") {
 }
 
 function getMaterialPreview(material = {}) {
+  if (material.material_type === "space") {
+    try {
+      const parsed = JSON.parse(material.content || "");
+      if (parsed?.kind === "blog-map") {
+        return String(parsed.note || `${parsed.width || 0} x ${parsed.height || 0} 맵`).replace(/\s+/g, " ").trim();
+      }
+    } catch {}
+  }
   return String(material.content || material.url || "자료 설명이 없습니다.").replace(/\s+/g, " ").trim();
+}
+
+function openSpaceEditor(spaceId) {
+  if (!spaceId) return;
+  window.location.href = `./map-editor.html?space=${encodeURIComponent(spaceId)}`;
 }
 
 function getTitleSortLabel() {
@@ -1168,14 +1181,14 @@ els.spaceGrid?.addEventListener("click", async (event) => {
   const card = event.target.closest("[data-space-card]");
   if (!card) return;
   event.preventDefault();
-  selectMaterial(card.dataset.spaceCard);
+  openSpaceEditor(card.dataset.spaceCard);
 });
 
 els.spaceGrid?.addEventListener("keydown", (event) => {
   const card = event.target.closest("[data-space-card]");
   if (!card || (event.key !== "Enter" && event.key !== " ")) return;
   event.preventDefault();
-  selectMaterial(card.dataset.spaceCard);
+  openSpaceEditor(card.dataset.spaceCard);
 });
 
 els.spaceGrid?.addEventListener("change", (event) => {
