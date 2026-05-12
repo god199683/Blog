@@ -314,6 +314,64 @@ button {
   text-align: right;
 }
 
+.feed-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7rem;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 3.15rem;
+  padding: 0.55rem 0.95rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.62);
+  color: #5f7386;
+}
+
+.feed-row:last-child {
+  border-bottom: 0;
+}
+
+.feed-row:hover,
+.feed-row:focus-visible {
+  background: rgba(240, 249, 255, 0.72);
+  color: var(--sky-dark);
+}
+
+.feed-row > span {
+  min-width: 0;
+}
+
+.feed-row strong,
+.feed-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-row strong {
+  color: #20364a;
+  font-size: 0.84rem;
+  font-weight: 760;
+}
+
+.feed-row:hover strong,
+.feed-row:focus-visible strong {
+  color: var(--sky-dark);
+}
+
+.feed-row small {
+  margin-top: 0.08rem;
+  color: #8aa0b2;
+  font-size: 0.72rem;
+}
+
+.feed-row time {
+  color: #7f95a8;
+  font-size: 0.76rem;
+  font-weight: 650;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .feed-empty {
   position: relative;
   display: flex;

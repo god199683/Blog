@@ -64,6 +64,7 @@ let fontSizeStepPointerActive = false;
 let editorHistoryStack = [];
 let editorHistoryIndex = -1;
 let editorHistoryRestoring = false;
+let activeEditorLineHeight = "";
 
 const BUILTIN_EDITOR_FONTS = ["Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
 const EDITOR_INLINE_STYLE_PROPERTIES = {
@@ -1408,22 +1409,44 @@ function applyBlockStyle(property, value) {
   saveCurrentSelection();
 }
 
-function applyLineHeight(value) {
-  const blocks = getSelectedEditorBlocks();
+function getLineHeightTargets() {
+  return [els.content, ...els.content.querySelectorAll(EDITOR_BLOCK_SELECTOR)];
+}
 
-  blocks.forEach((block) => {
-    block.style.lineHeight = value;
-    if (block === els.content) {
-      els.content.querySelectorAll(EDITOR_BLOCK_SELECTOR).forEach((child) => {
-        child.style.lineHeight = value;
-      });
+function syncActiveLineHeightBlocks() {
+  if (!activeEditorLineHeight) return;
+  getLineHeightTargets().forEach((block) => {
+    if (!block.style.lineHeight) {
+      block.style.lineHeight = activeEditorLineHeight;
     }
+  });
+}
+
+function syncActiveLineHeightFromContent() {
+  const styledBlock = [els.content, ...els.content.querySelectorAll(EDITOR_BLOCK_SELECTOR)].find(
+    (block) => block.style.lineHeight
+  );
+  activeEditorLineHeight = styledBlock?.style.lineHeight || "";
+  syncActiveLineHeightBlocks();
+}
+
+function applyLineHeight(value) {
+  activeEditorLineHeight = normalizeLineHeightValue(value);
+  if (!activeEditorLineHeight) return;
+
+  getLineHeightTargets().forEach((block) => {
+    block.style.lineHeight = activeEditorLineHeight;
   });
 
   pushEditorHistorySnapshot();
   syncEditorStats();
   markEditorDirty();
   saveCurrentSelection();
+}
+
+function handleEditorContentInput() {
+  syncActiveLineHeightBlocks();
+  pushEditorHistorySnapshot();
 }
 
 function executeEditorCommand(command, value = null) {
@@ -1933,6 +1956,7 @@ async function initEditor() {
   renderEditorFolderOptions(source?.folder_id || defaults.folderId);
   els.folder.value = source?.folder_id || defaults.folderId;
   els.content.innerHTML = source?.body || "";
+  syncActiveLineHeightFromContent();
   resetEditorHistory();
   els.published.checked = source?.published ?? true;
   els.submit.textContent = state.editingPost ? "수정" : "게시";
@@ -1959,7 +1983,7 @@ els.form.addEventListener("input", () => {
   saveCurrentSelection();
 });
 
-els.content.addEventListener("input", pushEditorHistorySnapshot);
+els.content.addEventListener("input", handleEditorContentInput);
 els.content.addEventListener("keydown", handleEditorHistoryShortcut);
 els.content.addEventListener("mouseup", saveCurrentSelection);
 els.content.addEventListener("keyup", saveCurrentSelection);
@@ -2039,6 +2063,10 @@ document.addEventListener("pointerup", () => {
 });
 
 els.toolbar.addEventListener("mousedown", (event) => {
+  if (event.target.closest("[data-line-height-custom]")) {
+    saveCurrentSelection();
+  }
+
   if (event.target.closest("button")) {
     event.preventDefault();
   }
