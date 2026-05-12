@@ -92,7 +92,18 @@
         <section class="blog-board is-list-collapsed" id="blog-posts" aria-labelledby="personal-feed-title" data-blog-board>
           <div class="blog-board-head">
             <h2 id="personal-feed-title"><span data-board-title>전체보기</span> <span data-blog-count>0개의 글</span></h2>
-            <button class="blog-board-toggle" type="button" data-list-toggle aria-expanded="false">목록열기</button>
+            <div class="blog-board-actions" aria-label="글 목록 관리">
+              <button class="blog-board-icon-button" type="button" data-post-select-mode aria-pressed="false" title="선택 모드" aria-label="선택 모드">
+                <span class="board-action-icon board-action-select" aria-hidden="true"></span>
+              </button>
+              <button class="blog-board-icon-button" type="button" data-post-select-all disabled title="현재 페이지 전체 선택" aria-label="현재 페이지 전체 선택">
+                <span class="board-action-icon board-action-check-all" aria-hidden="true"></span>
+              </button>
+              <button class="blog-board-icon-button" type="button" data-post-visibility-toggle disabled title="공개/비공개 변경" aria-label="공개/비공개 변경">
+                <span class="board-action-icon board-action-visibility" aria-hidden="true"></span>
+              </button>
+              <button class="blog-board-toggle" type="button" data-list-toggle aria-expanded="false">목록열기</button>
+            </div>
           </div>
 
           <div class="blog-table" aria-label="내 블로그 글 목록">

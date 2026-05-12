@@ -3,6 +3,7 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
 const ALL_NODE_ID = "all";
+const BLOG_LIST_PAGE_SIZE = 10;
 
 const state = {
   session: null,
@@ -18,6 +19,11 @@ const state = {
   featurePostId: "",
   currentScopePosts: [],
   currentScopeTitle: "전체보기",
+  listPage: 1,
+  miniPage: 1,
+  postSelectionMode: false,
+  selectedPostIds: new Set(),
+  postBulkBusy: false,
   importLocationOptions: [],
   pendingImportLocationKey: "",
 };
@@ -46,6 +52,9 @@ const els = {
   scrollTop: document.querySelector("[data-scroll-top]"),
   scrollBottom: document.querySelector("[data-scroll-bottom]"),
   titleSort: document.querySelector("[data-title-sort]"),
+  postSelectMode: document.querySelector("[data-post-select-mode]"),
+  postSelectAll: document.querySelector("[data-post-select-all]"),
+  postVisibilityToggle: document.querySelector("[data-post-visibility-toggle]"),
   importLocationDialog: document.querySelector("[data-import-location-dialog]"),
   importLocationOptions: document.querySelector("[data-import-location-options]"),
   importLocationConfirm: document.querySelector("[data-import-location-confirm]"),
@@ -222,6 +231,44 @@ function getTitleSortedPosts(posts = []) {
       return titleDiff ? titleDiff * direction : a.index - b.index;
     })
     .map((item) => item.post);
+}
+
+function clampPage(page, totalItems) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / BLOG_LIST_PAGE_SIZE));
+  return Math.min(Math.max(Number(page) || 1, 1), totalPages);
+}
+
+function getPagedPosts(posts = [], page) {
+  const currentPage = clampPage(page, posts.length);
+  const start = (currentPage - 1) * BLOG_LIST_PAGE_SIZE;
+  return {
+    page: currentPage,
+    totalPages: Math.max(1, Math.ceil(posts.length / BLOG_LIST_PAGE_SIZE)),
+    posts: posts.slice(start, start + BLOG_LIST_PAGE_SIZE),
+  };
+}
+
+function resetPostPages() {
+  state.listPage = 1;
+  state.miniPage = 1;
+}
+
+function getCurrentSortedScopePosts() {
+  return getTitleSortedPosts(state.currentScopePosts);
+}
+
+function syncPagesToPost(postId) {
+  const targetId = String(postId || "");
+  if (!targetId) return;
+  const index = getCurrentSortedScopePosts().findIndex((post) => getPostId(post) === targetId);
+  if (index < 0) return;
+  const page = Math.floor(index / BLOG_LIST_PAGE_SIZE) + 1;
+  state.listPage = page;
+  state.miniPage = page;
+}
+
+function getCurrentPagePosts() {
+  return getPagedPosts(getCurrentSortedScopePosts(), state.listPage).posts;
 }
 
 function getTitleSortLabel() {
@@ -473,6 +520,106 @@ async function movePostToTrash(postId) {
   }
 }
 
+function clearPostSelection() {
+  state.selectedPostIds.clear();
+  syncPostBulkButtons();
+}
+
+function syncPostBulkButtons() {
+  if (els.postSelectMode) {
+    els.postSelectMode.classList.toggle("is-active", state.postSelectionMode);
+    els.postSelectMode.setAttribute("aria-pressed", String(state.postSelectionMode));
+  }
+
+  const hasPostsOnPage = getCurrentPagePosts().length > 0;
+  const hasSelectedPosts = state.selectedPostIds.size > 0;
+
+  if (els.postSelectAll) {
+    els.postSelectAll.disabled = !state.postSelectionMode || !hasPostsOnPage || state.postBulkBusy;
+    const pageIds = getCurrentPagePosts().map(getPostId).filter(Boolean);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => state.selectedPostIds.has(id));
+    const label = allSelected ? "현재 페이지 선택 해제" : "현재 페이지 전체 선택";
+    els.postSelectAll.title = label;
+    els.postSelectAll.setAttribute("aria-label", label);
+  }
+  if (els.postVisibilityToggle) {
+    els.postVisibilityToggle.disabled = !state.postSelectionMode || !hasSelectedPosts || state.postBulkBusy;
+    const selectedPosts = state.posts.filter((post) => state.selectedPostIds.has(getPostId(post)));
+    const label = selectedPosts.some((post) => post.published === false) ? "선택 글 공개로 변경" : "선택 글 비공개로 변경";
+    els.postVisibilityToggle.title = label;
+    els.postVisibilityToggle.setAttribute("aria-label", label);
+  }
+}
+
+function togglePostSelection(postId, forceValue = null) {
+  const key = String(postId || "");
+  if (!key) return;
+
+  const shouldSelect = forceValue === null ? !state.selectedPostIds.has(key) : Boolean(forceValue);
+  if (shouldSelect) {
+    state.selectedPostIds.add(key);
+  } else {
+    state.selectedPostIds.delete(key);
+  }
+  renderPosts(state.currentScopePosts);
+}
+
+function toggleCurrentPagePostSelection() {
+  if (!state.postSelectionMode) return;
+  const pageIds = getCurrentPagePosts().map(getPostId).filter(Boolean);
+  if (pageIds.length === 0) return;
+
+  const shouldSelectAll = pageIds.some((id) => !state.selectedPostIds.has(id));
+  pageIds.forEach((id) => {
+    if (shouldSelectAll) {
+      state.selectedPostIds.add(id);
+    } else {
+      state.selectedPostIds.delete(id);
+    }
+  });
+  renderPosts(state.currentScopePosts);
+}
+
+async function updatePostVisibility(postId, published) {
+  return requestRest(`posts?id=eq.${encodeURIComponent(postId)}`, state.session.access_token, {
+    method: "PATCH",
+    headers: {
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({ published }),
+  });
+}
+
+async function toggleSelectedPostsVisibility() {
+  if (!state.postSelectionMode || state.selectedPostIds.size === 0) return;
+  if (!state.session?.access_token) {
+    window.alert("로그인이 필요합니다.");
+    return;
+  }
+
+  const selectedIds = [...state.selectedPostIds];
+  const selectedPosts = state.posts.filter((post) => selectedIds.includes(getPostId(post)));
+  if (selectedPosts.length === 0) return;
+
+  const nextPublished = selectedPosts.some((post) => post.published === false);
+  state.postBulkBusy = true;
+  syncPostBulkButtons();
+
+  try {
+    await Promise.all(selectedPosts.map((post) => updatePostVisibility(getPostId(post), nextPublished)));
+    state.posts = state.posts.map((post) =>
+      selectedIds.includes(getPostId(post)) ? { ...post, published: nextPublished } : post
+    );
+    clearPostSelection();
+    renderActivePosts();
+  } catch (error) {
+    window.alert(error.message || "공개 상태를 변경하지 못했습니다.");
+  } finally {
+    state.postBulkBusy = false;
+    syncPostBulkButtons();
+  }
+}
+
 function syncTreeSelectionState() {
   if (els.all) {
     if (state.activeNodeId === ALL_NODE_ID) {
@@ -608,6 +755,8 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
 
   const title = scopeTitle === "전체보기" ? "전체 카테고리" : scopeTitle;
   const sortLabel = getTitleSortLabel();
+  const pageMeta = getPagedPosts(posts, state.miniPage);
+  state.miniPage = pageMeta.page;
   els.miniList.hidden = false;
   els.miniList.innerHTML = `
     <div class="blog-mini-list-head">
@@ -617,8 +766,7 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
       </button>
     </div>
     <div class="blog-mini-rows">
-      ${posts
-        .slice(0, 5)
+      ${pageMeta.posts
         .map(
           (post) => {
             const postId = getPostId(post);
@@ -634,14 +782,17 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
         .join("")}
     </div>
     <div class="blog-mini-footer">
-      <span>이전</span>
-      <span>다음</span>
+      <button type="button" data-mini-page="prev" ${pageMeta.page <= 1 ? "disabled" : ""}>이전</button>
+      <span>${pageMeta.page} / ${pageMeta.totalPages}</span>
+      <button type="button" data-mini-page="next" ${pageMeta.page >= pageMeta.totalPages ? "disabled" : ""}>다음</button>
       <a href="#top">TOP</a>
     </div>
   `;
 }
 
 function renderActivePosts() {
+  resetPostPages();
+  clearPostSelection();
   const meta = getActiveTreeMeta();
   if (els.boardTitle) els.boardTitle.textContent = meta.title;
   renderFeatureArea(meta.posts, meta.title);
@@ -660,6 +811,8 @@ function applyBlogSearch(keyword = "") {
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(query))
   );
+  resetPostPages();
+  clearPostSelection();
   if (els.boardTitle) els.boardTitle.textContent = `검색: ${keyword.trim()}`;
   renderFeatureArea(results, `검색 ${keyword.trim()}`);
   renderPosts(results);
@@ -1258,6 +1411,8 @@ function exportActivePosts() {
 
 function renderPosts(posts = []) {
   const visiblePosts = getTitleSortedPosts(posts);
+  const pageMeta = getPagedPosts(visiblePosts, state.listPage);
+  state.listPage = pageMeta.page;
   syncTitleSortButton();
   if (els.count) els.count.textContent = `${posts.length}개의 글`;
   if (els.visitorTotalPosts) els.visitorTotalPosts.textContent = String(state.posts.length);
@@ -1273,17 +1428,25 @@ function renderPosts(posts = []) {
         <span aria-hidden="true"></span>
       </div>
     `;
+    syncPostBulkButtons();
     return;
   }
 
-  els.postList.innerHTML = visiblePosts
+  els.postList.innerHTML =
+    pageMeta.posts
     .map((post) => {
       const visibility = post.published === false ? "비공개" : "공개";
       const postId = getPostId(post);
       const isSelected = postId && postId === state.featurePostId;
+      const isPostSelected = postId && state.selectedPostIds.has(postId);
       return `
-        <div class="blog-post-row ${isSelected ? "is-selected" : ""}" data-post-row="${escapeHtml(postId)}" role="button" tabindex="0" aria-pressed="${isSelected ? "true" : "false"}">
-          <span>
+        <div class="blog-post-row ${isSelected ? "is-selected" : ""} ${isPostSelected ? "is-post-selected" : ""}" data-post-row="${escapeHtml(postId)}" role="button" tabindex="0" aria-pressed="${state.postSelectionMode ? String(isPostSelected) : String(isSelected)}">
+          <span class="blog-post-title-cell">
+            ${
+              state.postSelectionMode
+                ? `<input class="blog-post-check" type="checkbox" data-post-check="${escapeHtml(postId)}" ${isPostSelected ? "checked" : ""} aria-label="${escapeHtml(post.title || "제목 없는 글")} 선택">`
+                : ""
+            }
             <span class="blog-post-title">
               ${escapeHtml(post.title || "제목 없는 글")}
             </span>
@@ -1295,7 +1458,15 @@ function renderPosts(posts = []) {
         </div>
       `;
     })
-    .join("");
+    .join("") +
+    `
+      <div class="blog-list-footer">
+        <button type="button" data-post-page="prev" ${pageMeta.page <= 1 ? "disabled" : ""}>이전</button>
+        <span>${pageMeta.page} / ${pageMeta.totalPages}</span>
+        <button type="button" data-post-page="next" ${pageMeta.page >= pageMeta.totalPages ? "disabled" : ""}>다음</button>
+      </div>
+    `;
+  syncPostBulkButtons();
 }
 
 async function fetchUserPosts(session, id) {
@@ -1328,6 +1499,7 @@ function selectFeaturePost(postId) {
   if (!exists) return;
 
   state.featurePostId = String(postId);
+  syncPagesToPost(postId);
   renderFeatureArea(state.currentScopePosts, state.currentScopeTitle);
   renderPosts(state.currentScopePosts);
 }
@@ -1357,9 +1529,28 @@ els.featureCard?.addEventListener("keydown", (event) => {
 });
 
 els.postList?.addEventListener("click", (event) => {
+  const pageButton = event.target.closest("[data-post-page]");
+  if (pageButton) {
+    event.preventDefault();
+    state.listPage += pageButton.dataset.postPage === "next" ? 1 : -1;
+    renderPosts(state.currentScopePosts);
+    return;
+  }
+
+  const checkbox = event.target.closest("[data-post-check]");
+  if (checkbox) {
+    event.stopPropagation();
+    togglePostSelection(checkbox.dataset.postCheck, checkbox.checked);
+    return;
+  }
+
   const row = event.target.closest("[data-post-row]");
   if (!row) return;
   event.preventDefault();
+  if (state.postSelectionMode) {
+    togglePostSelection(row.dataset.postRow);
+    return;
+  }
   selectFeaturePost(row.dataset.postRow);
 });
 
@@ -1367,10 +1558,22 @@ els.postList?.addEventListener("keydown", (event) => {
   const row = event.target.closest("[data-post-row]");
   if (!row || (event.key !== "Enter" && event.key !== " ")) return;
   event.preventDefault();
+  if (state.postSelectionMode) {
+    togglePostSelection(row.dataset.postRow);
+    return;
+  }
   selectFeaturePost(row.dataset.postRow);
 });
 
 els.miniList?.addEventListener("click", (event) => {
+  const pageButton = event.target.closest("[data-mini-page]");
+  if (pageButton) {
+    event.preventDefault();
+    state.miniPage += pageButton.dataset.miniPage === "next" ? 1 : -1;
+    renderMiniList(getCurrentSortedScopePosts(), state.currentScopeTitle);
+    return;
+  }
+
   const sortButton = event.target.closest("[data-mini-title-sort]");
   if (sortButton) {
     event.preventDefault();
@@ -1402,6 +1605,20 @@ els.scrollBottom?.addEventListener("click", () => {
 
 els.titleSort?.addEventListener("click", () => {
   toggleTitleSort();
+});
+
+els.postSelectMode?.addEventListener("click", () => {
+  state.postSelectionMode = !state.postSelectionMode;
+  clearPostSelection();
+  renderPosts(state.currentScopePosts);
+});
+
+els.postSelectAll?.addEventListener("click", () => {
+  toggleCurrentPagePostSelection();
+});
+
+els.postVisibilityToggle?.addEventListener("click", () => {
+  toggleSelectedPostsVisibility();
 });
 
 els.toolsToggle?.addEventListener("click", () => {
