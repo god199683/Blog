@@ -919,6 +919,13 @@ function cleanEditorHtml(html = "") {
   template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
     node.remove();
   });
+  template.content.querySelectorAll("[data-editor-selection-hold]").forEach((node) => {
+    if (!node.getAttribute("style")) {
+      node.replaceWith(...node.childNodes);
+      return;
+    }
+    node.removeAttribute("data-editor-selection-hold");
+  });
   template.content.querySelectorAll("[data-editor-style-caret]").forEach((node) => {
     if (!node.textContent.replace(/\u200b/g, "").trim() && node.children.length === 0) {
       node.remove();
@@ -1055,31 +1062,139 @@ function saveCurrentSelection() {
   savedEditorRange = selection.getRangeAt(0).cloneRange();
 }
 
-function restoreEditorSelection() {
+function rangeIsInEditor(range) {
+  return Boolean(range && nodeIsInEditor(range.startContainer) && nodeIsInEditor(range.endContainer));
+}
+
+function clearEditorSelectionHold({ unwrap = false } = {}) {
+  els.content.querySelectorAll("[data-editor-selection-hold]").forEach((node) => {
+    if (unwrap && !node.getAttribute("style")) {
+      node.replaceWith(...node.childNodes);
+      return;
+    }
+    node.removeAttribute("data-editor-selection-hold");
+  });
+}
+
+function holdEditorSelection() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return;
+
+  const range = selection.getRangeAt(0);
+  if (range.collapsed || !rangeIsInEditor(range)) return;
+
+  clearEditorSelectionHold({ unwrap: true });
+
+  const hold = document.createElement("span");
+  hold.dataset.editorSelectionHold = "true";
+
+  try {
+    hold.appendChild(range.extractContents());
+    range.insertNode(hold);
+
+    const heldRange = document.createRange();
+    heldRange.selectNodeContents(hold);
+    savedEditorRange = heldRange.cloneRange();
+    selection.removeAllRanges();
+    selection.addRange(heldRange);
+  } catch {
+    saveCurrentSelection();
+  }
+}
+
+function restoreEditorSelection({ selectAllWhenMissing = false } = {}) {
   els.content.focus();
   const selection = window.getSelection();
   selection.removeAllRanges();
 
-  if (savedEditorRange) {
+  if (rangeIsInEditor(savedEditorRange)) {
     selection.addRange(savedEditorRange);
     return;
   }
 
   const range = document.createRange();
   range.selectNodeContents(els.content);
-  range.collapse(false);
+  if (!selectAllWhenMissing || !els.content.textContent.replace(/\u200b/g, "").trim()) {
+    range.collapse(false);
+  }
   selection.addRange(range);
   savedEditorRange = range.cloneRange();
 }
 
-function applyInlineStyle(property, value) {
-  restoreEditorSelection();
+function finishEditorStyleChange() {
+  syncEditorStats();
+  markEditorDirty();
+  saveCurrentSelection();
+}
+
+function getEditorStyleBlocks() {
+  const blocks = [...els.content.querySelectorAll(EDITOR_BLOCK_SELECTOR)].filter((block) =>
+    block.textContent.replace(/\u200b/g, "").trim(),
+  );
+  return blocks.length > 0 ? blocks : [els.content];
+}
+
+function applyStyleToCurrentBlockOrAll(property, value, { applyAllWhenMissing = false } = {}) {
+  const selection = window.getSelection();
+  const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+  const block = range ? getClosestEditorBlock(range.startContainer) : null;
+
+  if (block && block.textContent.replace(/\u200b/g, "").trim()) {
+    block.style.setProperty(property, value);
+    finishEditorStyleChange();
+    return true;
+  }
+
+  if (applyAllWhenMissing && els.content.textContent.replace(/\u200b/g, "").trim()) {
+    getEditorStyleBlocks().forEach((target) => {
+      target.style.setProperty(property, value);
+    });
+    finishEditorStyleChange();
+    return true;
+  }
+
+  return false;
+}
+
+function applyStyleToHeldSelection(property, value) {
+  const heldNodes = [...els.content.querySelectorAll("[data-editor-selection-hold]")];
+  if (heldNodes.length === 0) return false;
+
+  heldNodes.forEach((node) => {
+    node.style.setProperty(property, value);
+    node.removeAttribute("data-editor-selection-hold");
+  });
+
+  const range = document.createRange();
+  range.selectNodeContents(heldNodes.at(-1));
+  savedEditorRange = range.cloneRange();
+  finishEditorStyleChange();
+  return true;
+}
+
+function applyInlineStyle(property, value, options = {}) {
+  const cssProperty = EDITOR_INLINE_STYLE_PROPERTIES[property] || property;
+  if (options.useSelectionHold && applyStyleToHeldSelection(cssProperty, value)) {
+    return;
+  }
+
+  const hadSavedRange = rangeIsInEditor(savedEditorRange);
+  restoreEditorSelection({ selectAllWhenMissing: options.selectAllWhenMissing });
   const selection = window.getSelection();
   if (!selection?.rangeCount) return;
 
   const range = selection.getRangeAt(0);
+
+  if (
+    range.collapsed &&
+    options.applyCollapsedBlock &&
+    applyStyleToCurrentBlockOrAll(cssProperty, value, { applyAllWhenMissing: options.applyAllWhenMissing || !hadSavedRange })
+  ) {
+    return;
+  }
+
   const span = document.createElement("span");
-  span.style.setProperty(EDITOR_INLINE_STYLE_PROPERTIES[property] || property, value);
+  span.style.setProperty(cssProperty, value);
 
   if (range.collapsed) {
     span.dataset.editorStyleCaret = "true";
@@ -1096,9 +1211,7 @@ function applyInlineStyle(property, value) {
 
   selection.removeAllRanges();
   selection.addRange(range);
-  syncEditorStats();
-  markEditorDirty();
-  saveCurrentSelection();
+  finishEditorStyleChange();
 }
 
 function normalizeFontSize(value) {
@@ -1119,7 +1232,12 @@ function applyFontSizeFromInput({ keepToolbarFocus = false } = {}) {
   if (!size) return;
   const shouldRefocusInput = keepToolbarFocus && document.activeElement === els.fontSize;
   els.fontSize.value = size.replace("px", "");
-  applyInlineStyle("fontSize", size);
+  applyInlineStyle("fontSize", size, {
+    applyCollapsedBlock: true,
+    applyAllWhenMissing: Boolean(state.editingPost),
+    selectAllWhenMissing: Boolean(state.editingPost),
+    useSelectionHold: true,
+  });
   if (shouldRefocusInput) {
     window.requestAnimationFrame(() => {
       els.fontSize.focus({ preventScroll: true });
@@ -1754,6 +1872,7 @@ els.removeFont?.addEventListener("click", removeEditorFont);
 
 els.fontSize.addEventListener("pointerdown", (event) => {
   saveCurrentSelection();
+  holdEditorSelection();
   const rect = els.fontSize.getBoundingClientRect();
   fontSizeStepPointerActive = event.clientX >= rect.right - 24;
 });
@@ -1780,6 +1899,10 @@ els.fontSize.addEventListener("keydown", (event) => {
       applyFontSizeFromInput({ keepToolbarFocus: true });
     }, 0);
   }
+});
+
+els.content.addEventListener("pointerdown", () => {
+  clearEditorSelectionHold({ unwrap: true });
 });
 
 document.addEventListener("pointerup", () => {

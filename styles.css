@@ -2439,6 +2439,13 @@ body.is-away-locked {
   content: attr(data-placeholder);
 }
 
+.editor-surface [data-editor-selection-hold] {
+  border-radius: 3px;
+  background: rgba(14, 165, 233, 0.2);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .editor-surface p {
   margin: 0 0 0.72rem;
 }
