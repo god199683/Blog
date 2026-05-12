@@ -918,6 +918,13 @@ function cleanEditorHtml(html = "") {
   template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
     node.remove();
   });
+  template.content.querySelectorAll("[data-editor-style-caret]").forEach((node) => {
+    if (!node.textContent.replace(/\u200b/g, "").trim() && node.children.length === 0) {
+      node.remove();
+    } else {
+      node.removeAttribute("data-editor-style-caret");
+    }
+  });
   template.content.querySelectorAll("*").forEach((node) => {
     const safeStyles = [];
 
@@ -942,7 +949,7 @@ function cleanEditorHtml(html = "") {
       node.setAttribute("style", safeStyles.join("; "));
     }
   });
-  return template.innerHTML.trim();
+  return template.innerHTML.replace(/\u200b/g, "").trim();
 }
 
 function getReadingTimeLabel(text = "") {
@@ -1074,9 +1081,11 @@ function applyInlineStyle(property, value) {
   span.style.setProperty(EDITOR_INLINE_STYLE_PROPERTIES[property] || property, value);
 
   if (range.collapsed) {
-    span.appendChild(document.createTextNode("\u200b"));
+    span.dataset.editorStyleCaret = "true";
+    const marker = document.createTextNode("\u200b");
+    span.appendChild(marker);
     range.insertNode(span);
-    range.setStart(span.firstChild, span.firstChild.length);
+    range.setStart(marker, 0);
     range.collapse(true);
   } else {
     span.appendChild(range.extractContents());
