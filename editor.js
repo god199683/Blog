@@ -7,6 +7,7 @@ const DEFAULT_CATEGORY = "전체";
 const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 const EDITOR_FONT_PREFIX = "blog.editorFonts.";
+const EDITOR_HISTORY_LIMIT = 120;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th";
 
@@ -60,6 +61,9 @@ let colorDialogValue = "#000000";
 let colorDialogPointerActive = false;
 let locationDialogResolver = null;
 let fontSizeStepPointerActive = false;
+let editorHistoryStack = [];
+let editorHistoryIndex = -1;
+let editorHistoryRestoring = false;
 
 const BUILTIN_EDITOR_FONTS = ["Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
 const EDITOR_INLINE_STYLE_PROPERTIES = {
@@ -1062,6 +1066,72 @@ function saveCurrentSelection() {
   savedEditorRange = selection.getRangeAt(0).cloneRange();
 }
 
+function placeEditorCaretAtEnd() {
+  els.content.focus();
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(els.content);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  savedEditorRange = range.cloneRange();
+}
+
+function resetEditorHistory() {
+  editorHistoryStack = [els.content.innerHTML];
+  editorHistoryIndex = 0;
+}
+
+function pushEditorHistorySnapshot() {
+  if (editorHistoryRestoring || !els.content) return;
+  const snapshot = els.content.innerHTML;
+  if (editorHistoryStack[editorHistoryIndex] === snapshot) return;
+
+  editorHistoryStack = editorHistoryStack.slice(0, editorHistoryIndex + 1);
+  editorHistoryStack.push(snapshot);
+  if (editorHistoryStack.length > EDITOR_HISTORY_LIMIT) {
+    editorHistoryStack.shift();
+  }
+  editorHistoryIndex = editorHistoryStack.length - 1;
+}
+
+function restoreEditorHistory(step) {
+  const nextIndex = editorHistoryIndex + step;
+  if (nextIndex < 0 || nextIndex >= editorHistoryStack.length) return false;
+
+  editorHistoryRestoring = true;
+  clearEditorSelectionHold({ unwrap: true });
+  els.content.innerHTML = editorHistoryStack[nextIndex];
+  editorHistoryIndex = nextIndex;
+  editorHistoryRestoring = false;
+
+  syncEditorStats();
+  markEditorDirty();
+  placeEditorCaretAtEnd();
+  return true;
+}
+
+function isEditorHistoryShortcut(event) {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) return "";
+  const key = event.key.toLowerCase();
+  if (key === "z" && event.shiftKey) return "redo";
+  if (key === "z") return "undo";
+  if (key === "y") return "redo";
+  return "";
+}
+
+function handleEditorHistoryShortcut(event) {
+  const action = isEditorHistoryShortcut(event);
+  if (!action) return;
+
+  const selection = window.getSelection();
+  const selectionInEditor = selection?.rangeCount && nodeIsInEditor(selection.anchorNode);
+  if (!nodeIsInEditor(event.target) && !selectionInEditor) return;
+
+  event.preventDefault();
+  restoreEditorHistory(action === "undo" ? -1 : 1);
+}
+
 function rangeIsInEditor(range) {
   return Boolean(range && nodeIsInEditor(range.startContainer) && nodeIsInEditor(range.endContainer));
 }
@@ -1136,9 +1206,22 @@ function restoreEditorSelection({ selectAllWhenMissing = false } = {}) {
 }
 
 function finishEditorStyleChange() {
+  pushEditorHistorySnapshot();
   syncEditorStats();
   markEditorDirty();
   saveCurrentSelection();
+}
+
+function shouldApplyStyleDeep(property) {
+  return property === "font-size";
+}
+
+function applyCssProperty(target, property, value) {
+  target.style.setProperty(property, value);
+  if (!shouldApplyStyleDeep(property)) return;
+  target.querySelectorAll?.("*").forEach((node) => {
+    node.style.setProperty(property, value);
+  });
 }
 
 function getEditorStyleBlocks() {
@@ -1154,14 +1237,14 @@ function applyStyleToCurrentBlockOrAll(property, value, { applyAllWhenMissing = 
   const block = range ? getClosestEditorBlock(range.startContainer) : null;
 
   if (block && block.textContent.replace(/\u200b/g, "").trim()) {
-    block.style.setProperty(property, value);
+    applyCssProperty(block, property, value);
     finishEditorStyleChange();
     return true;
   }
 
   if (applyAllWhenMissing && els.content.textContent.replace(/\u200b/g, "").trim()) {
     getEditorStyleBlocks().forEach((target) => {
-      target.style.setProperty(property, value);
+      applyCssProperty(target, property, value);
     });
     finishEditorStyleChange();
     return true;
@@ -1175,7 +1258,7 @@ function applyStyleToHeldSelection(property, value) {
   if (heldNodes.length === 0) return false;
 
   heldNodes.forEach((node) => {
-    node.style.setProperty(property, value);
+    applyCssProperty(node, property, value);
     node.removeAttribute("data-editor-selection-hold");
   });
 
@@ -1208,7 +1291,7 @@ function applyInlineStyle(property, value, options = {}) {
   }
 
   const span = document.createElement("span");
-  span.style.setProperty(cssProperty, value);
+  applyCssProperty(span, cssProperty, value);
 
   if (range.collapsed) {
     span.dataset.editorStyleCaret = "true";
@@ -1219,6 +1302,7 @@ function applyInlineStyle(property, value, options = {}) {
     range.collapse(true);
   } else {
     span.appendChild(range.extractContents());
+    applyCssProperty(span, cssProperty, value);
     range.insertNode(span);
     range.selectNodeContents(span);
   }
@@ -1318,6 +1402,7 @@ function applyBlockStyle(property, value) {
   getSelectedEditorBlocks().forEach((block) => {
     block.style[property] = value;
   });
+  pushEditorHistorySnapshot();
   syncEditorStats();
   markEditorDirty();
   saveCurrentSelection();
@@ -1335,6 +1420,7 @@ function applyLineHeight(value) {
     }
   });
 
+  pushEditorHistorySnapshot();
   syncEditorStats();
   markEditorDirty();
   saveCurrentSelection();
@@ -1343,6 +1429,7 @@ function applyLineHeight(value) {
 function executeEditorCommand(command, value = null) {
   restoreEditorSelection();
   document.execCommand(command, false, value);
+  pushEditorHistorySnapshot();
   syncEditorStats();
   markEditorDirty();
   saveCurrentSelection();
@@ -1397,6 +1484,7 @@ function addTableRow() {
     item.innerHTML = "<br>";
   });
   row.after(newRow);
+  pushEditorHistorySnapshot();
   syncEditorStats();
   markEditorDirty();
 }
@@ -1423,6 +1511,7 @@ function addTableColumn() {
       tableRow.appendChild(newCell);
     }
   });
+  pushEditorHistorySnapshot();
   syncEditorStats();
   markEditorDirty();
 }
@@ -1844,6 +1933,7 @@ async function initEditor() {
   renderEditorFolderOptions(source?.folder_id || defaults.folderId);
   els.folder.value = source?.folder_id || defaults.folderId;
   els.content.innerHTML = source?.body || "";
+  resetEditorHistory();
   els.published.checked = source?.published ?? true;
   els.submit.textContent = state.editingPost ? "수정" : "게시";
   setEditorSaveState(state.editingPost ? "수정 준비" : draft ? "임시 저장 불러옴" : "임시 저장 준비");
@@ -1869,6 +1959,8 @@ els.form.addEventListener("input", () => {
   saveCurrentSelection();
 });
 
+els.content.addEventListener("input", pushEditorHistorySnapshot);
+els.content.addEventListener("keydown", handleEditorHistoryShortcut);
 els.content.addEventListener("mouseup", saveCurrentSelection);
 els.content.addEventListener("keyup", saveCurrentSelection);
 document.addEventListener("selectionchange", saveCurrentSelection);
