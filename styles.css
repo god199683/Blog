@@ -3144,12 +3144,6 @@ body.is-book-mode .viewer-body {
   line-height: 1.9;
 }
 
-body[data-reader-font="sans"].is-book-mode .viewer-body {
-  font-family:
-    Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
-    "Segoe UI", system-ui, sans-serif;
-}
-
 body.is-book-mode .viewer-page-content {
   max-width: none;
   transition: transform 0s;

@@ -6,7 +6,6 @@ const params = new URLSearchParams(window.location.search);
 const postId = params.get("id") || "";
 let bookMode = params.get("book") === "1";
 let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize") || "18", 10);
-let readerFont = localStorage.getItem("blog.readerFont") || "serif";
 let readerTheme = localStorage.getItem("blog.readerTheme") || "sky";
 let readerWidth = localStorage.getItem("blog.readerWidth") || "standard";
 let readerLineHeight = localStorage.getItem("blog.readerLineHeight") || "normal";
@@ -31,7 +30,6 @@ const els = {
   edit: document.querySelector("[data-viewer-edit]"),
   bookToggle: document.querySelector("[data-viewer-book-toggle]"),
   readerControls: document.querySelector("[data-viewer-reader-controls]"),
-  fontSelect: document.querySelector("[data-viewer-font]"),
   themeSelect: document.querySelector("[data-viewer-theme]"),
   widthSelect: document.querySelector("[data-viewer-width]"),
   lineHeightSelect: document.querySelector("[data-viewer-line-height]"),
@@ -177,7 +175,6 @@ function pickReaderOption(value, options, fallback) {
 
 function syncReaderControls() {
   readerFontSize = clampReaderFontSize(readerFontSize);
-  readerFont = pickReaderOption(readerFont, ["serif", "sans"], "serif");
   readerTheme = pickReaderOption(readerTheme, ["sky"], "sky");
   readerWidth = pickReaderOption(readerWidth, ["narrow", "standard", "wide"], "standard");
   readerLineHeight = pickReaderOption(readerLineHeight, ["compact", "normal", "relaxed"], "normal");
@@ -199,17 +196,14 @@ function syncReaderControls() {
       relaxed: "2.08",
     }[readerLineHeight]
   );
-  document.body.dataset.readerFont = readerFont;
   document.body.dataset.readerTheme = readerTheme;
   document.body.dataset.readerWidth = readerWidth;
   document.body.dataset.readerLineHeight = readerLineHeight;
   els.fontSize.textContent = `${readerFontSize}px`;
-  els.fontSelect.value = readerFont;
   els.themeSelect.value = readerTheme;
   els.widthSelect.value = readerWidth;
   if (els.lineHeightSelect) els.lineHeightSelect.value = readerLineHeight;
   localStorage.setItem("blog.readerFontSize", String(readerFontSize));
-  localStorage.setItem("blog.readerFont", readerFont);
   localStorage.setItem("blog.readerTheme", readerTheme);
   localStorage.setItem("blog.readerWidth", readerWidth);
   localStorage.setItem("blog.readerLineHeight", readerLineHeight);
@@ -304,17 +298,24 @@ function measureBookPages() {
     return;
   }
 
+  const contentStyle = window.getComputedStyle(content);
+  const horizontalPadding =
+    Number.parseFloat(contentStyle.paddingLeft) + Number.parseFloat(contentStyle.paddingRight);
+  const verticalPadding =
+    Number.parseFloat(contentStyle.paddingTop) + Number.parseFloat(contentStyle.paddingBottom);
   const pageWidth = Math.max(260, Math.floor(els.body.clientWidth));
   const pageHeight = Math.max(260, Math.floor(els.body.clientHeight));
-  const pageGap = Math.round(Math.min(80, Math.max(28, pageWidth * 0.06)));
+  const columnWidth = Math.max(220, Math.floor(pageWidth - horizontalPadding));
+  const pageGap = Math.round(Math.max(horizontalPadding + 12, Math.min(96, pageWidth * 0.12)));
 
   content.style.width = `${pageWidth}px`;
   content.style.height = `${pageHeight}px`;
-  content.style.columnWidth = `${pageWidth}px`;
+  content.style.columnWidth = `${columnWidth}px`;
   content.style.columnGap = `${pageGap}px`;
-  bookPageStep = pageWidth + pageGap;
+  content.style.columnFill = "auto";
+  bookPageStep = columnWidth + pageGap;
 
-  bookPageCount = Math.max(1, Math.ceil((content.scrollWidth + pageGap) / bookPageStep));
+  bookPageCount = Math.max(1, Math.ceil(Math.max(content.scrollWidth - horizontalPadding, columnWidth) / bookPageStep));
   applyPendingBookPage();
   bookPageIndex = Math.min(Math.max(bookPageIndex, 0), bookPageCount - 1);
   applyBookPageOffset();
@@ -568,12 +569,6 @@ els.bookToggle.addEventListener("click", () => {
 
 els.bookClose.addEventListener("click", () => {
   closeBookMode();
-});
-
-els.fontSelect.addEventListener("change", (event) => {
-  readerFont = event.target.value === "sans" ? "sans" : "serif";
-  syncReaderControls();
-  scheduleBookPagination();
 });
 
 els.themeSelect.addEventListener("change", (event) => {
