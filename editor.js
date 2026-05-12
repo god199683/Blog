@@ -59,6 +59,7 @@ let colorDialogTarget = "foreground";
 let colorDialogValue = "#000000";
 let colorDialogPointerActive = false;
 let locationDialogResolver = null;
+let fontSizeStepPointerActive = false;
 
 const BUILTIN_EDITOR_FONTS = ["Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
 const EDITOR_INLINE_STYLE_PROPERTIES = {
@@ -1085,7 +1086,7 @@ function applyInlineStyle(property, value) {
     const marker = document.createTextNode("\u200b");
     span.appendChild(marker);
     range.insertNode(span);
-    range.setStart(marker, 0);
+    range.setStart(marker, marker.length);
     range.collapse(true);
   } else {
     span.appendChild(range.extractContents());
@@ -1113,11 +1114,17 @@ function normalizeLineHeightValue(value) {
   return String(Number(clamped.toFixed(2)));
 }
 
-function applyFontSizeFromInput() {
+function applyFontSizeFromInput({ keepToolbarFocus = false } = {}) {
   const size = normalizeFontSize(els.fontSize.value);
   if (!size) return;
+  const shouldRefocusInput = keepToolbarFocus && document.activeElement === els.fontSize;
   els.fontSize.value = size.replace("px", "");
   applyInlineStyle("fontSize", size);
+  if (shouldRefocusInput) {
+    window.requestAnimationFrame(() => {
+      els.fontSize.focus({ preventScroll: true });
+    });
+  }
 }
 
 function applyCustomLineHeightFromInput(input) {
@@ -1745,12 +1752,38 @@ els.fontFamily.addEventListener("change", (event) => {
 els.addFont.addEventListener("click", addEditorFont);
 els.removeFont?.addEventListener("click", removeEditorFont);
 
-els.fontSize.addEventListener("change", applyFontSizeFromInput);
+els.fontSize.addEventListener("pointerdown", (event) => {
+  saveCurrentSelection();
+  const rect = els.fontSize.getBoundingClientRect();
+  fontSizeStepPointerActive = event.clientX >= rect.right - 24;
+});
+
+els.fontSize.addEventListener("input", () => {
+  if (!fontSizeStepPointerActive) return;
+  applyFontSizeFromInput({ keepToolbarFocus: true });
+});
+
+els.fontSize.addEventListener("change", () => {
+  applyFontSizeFromInput({ keepToolbarFocus: document.activeElement === els.fontSize });
+});
 
 els.fontSize.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter") return;
-  event.preventDefault();
-  applyFontSizeFromInput();
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyFontSizeFromInput();
+    return;
+  }
+
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    saveCurrentSelection();
+    window.setTimeout(() => {
+      applyFontSizeFromInput({ keepToolbarFocus: true });
+    }, 0);
+  }
+});
+
+document.addEventListener("pointerup", () => {
+  fontSizeStepPointerActive = false;
 });
 
 els.toolbar.addEventListener("mousedown", (event) => {
