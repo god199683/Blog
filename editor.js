@@ -10,6 +10,8 @@ const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 const EDITOR_HISTORY_LIMIT = 120;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th";
+const EDITOR_MIDDLE_ELLIPSIS = "⋯";
+const EDITOR_ELLIPSIS_BACKSPACE_TEXT = "....";
 
 const state = {
   id: "",
@@ -65,6 +67,7 @@ let editorHistoryStack = [];
 let editorHistoryIndex = -1;
 let editorHistoryRestoring = false;
 let activeEditorLineHeight = "";
+let lastEditorEllipsisReplacement = null;
 
 const BUILTIN_EDITOR_FONTS = ["Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
 const EDITOR_INLINE_STYLE_PROPERTIES = {
@@ -157,6 +160,9 @@ const ALLOWED_EDITOR_STYLES = new Set([
   "font-style",
   "font-weight",
   "line-height",
+  "margin",
+  "margin-bottom",
+  "margin-top",
   "text-align",
   "text-decoration",
 ]);
@@ -1067,6 +1073,17 @@ function saveCurrentSelection() {
   savedEditorRange = selection.getRangeAt(0).cloneRange();
 }
 
+function setEditorCaret(node, offset) {
+  const range = document.createRange();
+  range.setStart(node, offset);
+  range.collapse(true);
+
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  savedEditorRange = range.cloneRange();
+}
+
 function placeEditorCaretAtEnd() {
   els.content.focus();
   const selection = window.getSelection();
@@ -1131,6 +1148,100 @@ function handleEditorHistoryShortcut(event) {
 
   event.preventDefault();
   restoreEditorHistory(action === "undo" ? -1 : 1);
+}
+
+function getLastTextNode(node) {
+  if (!node) return null;
+  if (node.nodeType === Node.TEXT_NODE) return node;
+
+  for (let index = node.childNodes.length - 1; index >= 0; index -= 1) {
+    const textNode = getLastTextNode(node.childNodes[index]);
+    if (textNode) return textNode;
+  }
+
+  return null;
+}
+
+function getCollapsedEditorTextPosition() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return null;
+
+  const range = selection.getRangeAt(0);
+  if (!range.collapsed || !rangeIsInEditor(range)) return null;
+
+  if (range.startContainer.nodeType === Node.TEXT_NODE) {
+    return {
+      node: range.startContainer,
+      offset: range.startOffset,
+    };
+  }
+
+  if (range.startContainer.nodeType === Node.ELEMENT_NODE && range.startOffset > 0) {
+    const textNode = getLastTextNode(range.startContainer.childNodes[range.startOffset - 1]);
+    if (textNode) {
+      return {
+        node: textNode,
+        offset: textNode.data.length,
+      };
+    }
+  }
+
+  return null;
+}
+
+function replaceTrailingEditorEllipsis(event) {
+  if (event?.isComposing) return false;
+
+  const position = getCollapsedEditorTextPosition();
+  if (!position || position.offset < 3) return false;
+
+  const before = position.node.data.slice(0, position.offset);
+  if (!before.endsWith("...")) return false;
+
+  const after = position.node.data.slice(position.offset);
+  const nextOffset = position.offset - 2;
+  position.node.data = `${before.slice(0, -3)}${EDITOR_MIDDLE_ELLIPSIS}${after}`;
+  setEditorCaret(position.node, nextOffset);
+  lastEditorEllipsisReplacement = {
+    node: position.node,
+    offset: nextOffset,
+  };
+  return true;
+}
+
+function handleEditorEllipsisBackspace(event) {
+  if (event.key !== "Backspace" || event.ctrlKey || event.metaKey || event.altKey) return false;
+
+  const position = getCollapsedEditorTextPosition();
+  if (
+    !position ||
+    !lastEditorEllipsisReplacement ||
+    lastEditorEllipsisReplacement.node !== position.node ||
+    lastEditorEllipsisReplacement.offset !== position.offset ||
+    position.offset < 1 ||
+    position.node.data.charAt(position.offset - 1) !== EDITOR_MIDDLE_ELLIPSIS
+  ) {
+    return false;
+  }
+
+  event.preventDefault();
+  position.node.data =
+    position.node.data.slice(0, position.offset - 1) +
+    EDITOR_ELLIPSIS_BACKSPACE_TEXT +
+    position.node.data.slice(position.offset);
+  setEditorCaret(position.node, position.offset - 1 + EDITOR_ELLIPSIS_BACKSPACE_TEXT.length);
+  lastEditorEllipsisReplacement = null;
+  syncActiveLineHeightBlocks();
+  pushEditorHistorySnapshot();
+  syncEditorStats();
+  markEditorDirty();
+  saveCurrentSelection();
+  return true;
+}
+
+function handleEditorKeydown(event) {
+  if (handleEditorEllipsisBackspace(event)) return;
+  handleEditorHistoryShortcut(event);
 }
 
 function rangeIsInEditor(range) {
@@ -1214,7 +1325,7 @@ function finishEditorStyleChange() {
 }
 
 function shouldApplyStyleDeep(property) {
-  return property === "font-size";
+  return property === "font-size" || property === "line-height";
 }
 
 function applyCssProperty(target, property, value) {
@@ -1413,12 +1524,18 @@ function getLineHeightTargets() {
   return [els.content, ...els.content.querySelectorAll(EDITOR_BLOCK_SELECTOR)];
 }
 
+function applyEditorLineHeight(target, value) {
+  applyCssProperty(target, "line-height", value);
+  if (target !== els.content && target.matches?.(EDITOR_BLOCK_SELECTOR)) {
+    target.style.marginTop = "0";
+    target.style.marginBottom = "0";
+  }
+}
+
 function syncActiveLineHeightBlocks() {
   if (!activeEditorLineHeight) return;
   getLineHeightTargets().forEach((block) => {
-    if (!block.style.lineHeight) {
-      block.style.lineHeight = activeEditorLineHeight;
-    }
+    applyEditorLineHeight(block, activeEditorLineHeight);
   });
 }
 
@@ -1434,9 +1551,7 @@ function applyLineHeight(value) {
   activeEditorLineHeight = normalizeLineHeightValue(value);
   if (!activeEditorLineHeight) return;
 
-  getLineHeightTargets().forEach((block) => {
-    block.style.lineHeight = activeEditorLineHeight;
-  });
+  getLineHeightTargets().forEach((block) => applyEditorLineHeight(block, activeEditorLineHeight));
 
   pushEditorHistorySnapshot();
   syncEditorStats();
@@ -1444,7 +1559,8 @@ function applyLineHeight(value) {
   saveCurrentSelection();
 }
 
-function handleEditorContentInput() {
+function handleEditorContentInput(event) {
+  replaceTrailingEditorEllipsis(event);
   syncActiveLineHeightBlocks();
   pushEditorHistorySnapshot();
 }
@@ -1984,7 +2100,7 @@ els.form.addEventListener("input", () => {
 });
 
 els.content.addEventListener("input", handleEditorContentInput);
-els.content.addEventListener("keydown", handleEditorHistoryShortcut);
+els.content.addEventListener("keydown", handleEditorKeydown);
 els.content.addEventListener("mouseup", saveCurrentSelection);
 els.content.addEventListener("keyup", saveCurrentSelection);
 document.addEventListener("selectionchange", saveCurrentSelection);
