@@ -1077,11 +1077,23 @@ function clearEditorSelectionHold({ unwrap = false } = {}) {
 }
 
 function holdEditorSelection() {
-  const selection = window.getSelection();
-  if (!selection?.rangeCount) return;
+  if (els.content.querySelector("[data-editor-selection-hold]")) return true;
 
-  const range = selection.getRangeAt(0);
-  if (range.collapsed || !rangeIsInEditor(range)) return;
+  const selection = window.getSelection();
+  let range = null;
+
+  if (selection?.rangeCount) {
+    const currentRange = selection.getRangeAt(0);
+    if (!currentRange.collapsed && rangeIsInEditor(currentRange)) {
+      range = currentRange.cloneRange();
+    }
+  }
+
+  if (!range && rangeIsInEditor(savedEditorRange) && !savedEditorRange.collapsed) {
+    range = savedEditorRange.cloneRange();
+  }
+
+  if (!range) return false;
 
   clearEditorSelectionHold({ unwrap: true });
 
@@ -1097,8 +1109,10 @@ function holdEditorSelection() {
     savedEditorRange = heldRange.cloneRange();
     selection.removeAllRanges();
     selection.addRange(heldRange);
+    return true;
   } catch {
     saveCurrentSelection();
+    return false;
   }
 }
 
@@ -1243,6 +1257,18 @@ function applyFontSizeFromInput({ keepToolbarFocus = false } = {}) {
       els.fontSize.focus({ preventScroll: true });
     });
   }
+}
+
+function isFontSizeStepPointer(event) {
+  const rect = els.fontSize.getBoundingClientRect();
+  return event.clientX >= rect.right - 24;
+}
+
+function focusFontSizeInputForTyping() {
+  window.requestAnimationFrame(() => {
+    els.fontSize.focus({ preventScroll: true });
+    els.fontSize.select?.();
+  });
 }
 
 function applyCustomLineHeightFromInput(input) {
@@ -1873,8 +1899,19 @@ els.removeFont?.addEventListener("click", removeEditorFont);
 els.fontSize.addEventListener("pointerdown", (event) => {
   saveCurrentSelection();
   holdEditorSelection();
-  const rect = els.fontSize.getBoundingClientRect();
-  fontSizeStepPointerActive = event.clientX >= rect.right - 24;
+  fontSizeStepPointerActive = isFontSizeStepPointer(event);
+});
+
+els.fontSize.addEventListener("mousedown", (event) => {
+  const isStepPointer = isFontSizeStepPointer(event);
+  saveCurrentSelection();
+  holdEditorSelection();
+  fontSizeStepPointerActive = isStepPointer;
+
+  if (isStepPointer) return;
+
+  event.preventDefault();
+  focusFontSizeInputForTyping();
 });
 
 els.fontSize.addEventListener("input", () => {
