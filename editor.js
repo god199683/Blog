@@ -1841,12 +1841,6 @@ els.toolbar.addEventListener("click", (event) => {
   }
 });
 
-els.toolbar.addEventListener("change", (event) => {
-  const lineHeightInput = event.target.closest("[data-line-height-custom]");
-  if (!lineHeightInput) return;
-  applyCustomLineHeightFromInput(lineHeightInput);
-});
-
 els.toolbar.addEventListener("keydown", (event) => {
   const lineHeightInput = event.target.closest("[data-line-height-custom]");
   if (!lineHeightInput || event.key !== "Enter") return;
