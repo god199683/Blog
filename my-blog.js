@@ -18,6 +18,8 @@ const state = {
   featurePostId: "",
   currentScopePosts: [],
   currentScopeTitle: "전체보기",
+  importLocationOptions: [],
+  pendingImportLocationKey: "",
 };
 
 const els = {
@@ -44,7 +46,14 @@ const els = {
   scrollTop: document.querySelector("[data-scroll-top]"),
   scrollBottom: document.querySelector("[data-scroll-bottom]"),
   titleSort: document.querySelector("[data-title-sort]"),
+  importLocationDialog: document.querySelector("[data-import-location-dialog]"),
+  importLocationOptions: document.querySelector("[data-import-location-options]"),
+  importLocationConfirm: document.querySelector("[data-import-location-confirm]"),
+  importLocationCancel: document.querySelector("[data-import-location-cancel]"),
+  importLocationClose: document.querySelector("[data-import-location-close]"),
 };
+
+let importLocationResolver = null;
 
 async function requestRest(path, token, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -861,6 +870,213 @@ function getActiveLocationMeta() {
   };
 }
 
+function collectImportLocationOptions() {
+  const options = [
+    {
+      key: "all",
+      type: "all",
+      typeLabel: "전체",
+      label: "전체",
+      path: "전체",
+      category: "전체",
+      folder: null,
+    },
+  ];
+
+  function walk(nodes = [], path = [], category = "") {
+    nodes.forEach((node) => {
+      if (node.id === ALL_NODE_ID) {
+        walk(node.children || [], path, category);
+        return;
+      }
+
+      const isCategory = node.type === "category";
+      const nextCategory = isCategory ? node.filterCategory || node.label || "전체" : category;
+      const nextPath = [...path, node.label || (isCategory ? "카테고리" : "폴더")];
+
+      if (isCategory) {
+        options.push({
+          key: `category:${node.id}`,
+          type: "category",
+          typeLabel: "카테고리",
+          label: node.label || "카테고리",
+          path: nextPath.join(" / "),
+          category: nextCategory,
+          folder: null,
+        });
+      } else if (node.type === "folder") {
+        options.push({
+          key: `folder:${node.id}`,
+          type: "folder",
+          typeLabel: "폴더",
+          label: node.label || "폴더",
+          path: nextPath.join(" / "),
+          category: nextCategory || "전체",
+          folder: {
+            id: node.id,
+            label: node.label || "폴더",
+            path: nextPath.join(" / "),
+          },
+        });
+      }
+
+      walk(node.children || [], nextPath, nextCategory);
+    });
+  }
+
+  walk(state.tree);
+  return options;
+}
+
+function getImportLocationKeyFromActiveNode() {
+  if (state.activeNodeId === ALL_NODE_ID) return "all";
+  const found = findNode(state.tree, state.activeNodeId);
+  if (!found) return "all";
+  return `${found.node.type === "category" ? "category" : "folder"}:${found.node.id}`;
+}
+
+function getImportLocationCategoryKey(option, options = state.importLocationOptions) {
+  if (!option || option.type === "all") return "all";
+  if (option.type === "category") return option.key;
+  const categoryOption = options.find(
+    (item) => item.type === "category" && item.category === option.category
+  );
+  return categoryOption?.key || "all";
+}
+
+function getActiveImportLocationCategoryKey(options = state.importLocationOptions) {
+  const pending = options.find((option) => option.key === state.pendingImportLocationKey);
+  return getImportLocationCategoryKey(pending, options);
+}
+
+function renderImportLocationOptions(selectedKey = "all") {
+  if (!els.importLocationOptions) return;
+
+  state.importLocationOptions = collectImportLocationOptions();
+  state.pendingImportLocationKey = state.importLocationOptions.some((option) => option.key === selectedKey)
+    ? selectedKey
+    : "all";
+
+  const activeCategoryKey = getActiveImportLocationCategoryKey();
+  const categories = state.importLocationOptions.filter((option) => option.type === "all" || option.type === "category");
+  const selectedCategory = state.importLocationOptions.find((option) => option.key === activeCategoryKey);
+  const folders = state.importLocationOptions.filter(
+    (option) =>
+      option.type === "folder" &&
+      activeCategoryKey !== "all" &&
+      getImportLocationCategoryKey(option) === activeCategoryKey
+  );
+
+  const categorySaveOption =
+    selectedCategory?.type === "category"
+      ? `
+        <button
+          class="editor-location-option editor-location-folder-save${
+            selectedCategory.key === state.pendingImportLocationKey ? " is-selected" : ""
+          }"
+          type="button"
+          data-import-location-key="${escapeHtml(selectedCategory.key)}"
+          aria-pressed="${selectedCategory.key === state.pendingImportLocationKey}"
+        >
+          <span>폴더 없음</span>
+          <strong>${escapeHtml(selectedCategory.label)}</strong>
+          <small>선택한 카테고리에 바로 저장</small>
+        </button>
+      `
+      : "";
+
+  const folderOptions = folders
+    .map(
+      (option) => `
+        <button
+          class="editor-location-option${option.key === state.pendingImportLocationKey ? " is-selected" : ""}"
+          type="button"
+          data-import-location-key="${escapeHtml(option.key)}"
+          aria-pressed="${option.key === state.pendingImportLocationKey}"
+        >
+          <span>${escapeHtml(option.typeLabel)}</span>
+          <strong>${escapeHtml(option.label)}</strong>
+          <small>${escapeHtml(option.path)}</small>
+        </button>
+      `
+    )
+    .join("");
+
+  els.importLocationOptions.innerHTML = `
+    <section class="editor-location-column" aria-label="카테고리">
+      <h3>카테고리</h3>
+      <div class="editor-location-column-list">
+        ${categories
+          .map(
+            (option) => `
+              <button
+                class="editor-location-option editor-location-category${
+                  option.key === activeCategoryKey ? " is-active-category" : ""
+                }${option.key === state.pendingImportLocationKey ? " is-selected" : ""}"
+                type="button"
+                data-import-location-key="${escapeHtml(option.key)}"
+                aria-pressed="${option.key === state.pendingImportLocationKey}"
+              >
+                <span>${escapeHtml(option.typeLabel)}</span>
+                <strong>${escapeHtml(option.label)}</strong>
+                <small>${escapeHtml(option.path)}</small>
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    </section>
+    <section class="editor-location-column" aria-label="폴더">
+      <h3>폴더</h3>
+      <div class="editor-location-column-list">
+        ${
+          [categorySaveOption, folderOptions].join("") ||
+          `<p class="editor-location-empty">${
+            activeCategoryKey === "all" ? "카테고리를 선택하면 폴더가 보입니다." : "폴더가 없습니다."
+          }</p>`
+        }
+      </div>
+    </section>
+  `;
+
+  if (els.importLocationConfirm) {
+    els.importLocationConfirm.disabled = !state.pendingImportLocationKey;
+  }
+}
+
+function getPendingImportLocation() {
+  const option = state.importLocationOptions.find((item) => item.key === state.pendingImportLocationKey);
+  if (!option || option.type === "all") return { category: "전체", folder: null };
+  return {
+    category: option.category || "전체",
+    folder: option.folder || null,
+  };
+}
+
+function closeImportLocationDialog(result = null) {
+  if (els.importLocationDialog) els.importLocationDialog.hidden = true;
+  if (importLocationResolver) {
+    importLocationResolver(result);
+    importLocationResolver = null;
+  }
+}
+
+function openImportLocationDialog() {
+  if (!els.importLocationDialog || !els.importLocationOptions) {
+    return Promise.resolve(getActiveLocationMeta());
+  }
+
+  renderImportLocationOptions(getImportLocationKeyFromActiveNode());
+  els.importLocationDialog.hidden = false;
+
+  return new Promise((resolve) => {
+    importLocationResolver = resolve;
+    window.setTimeout(() => {
+      els.importLocationOptions.querySelector(".is-selected")?.focus();
+    }, 0);
+  });
+}
+
 async function readFileAsHtml(file) {
   const extension = getFileExtension(file.name);
 
@@ -921,7 +1137,8 @@ async function importFiles(files = []) {
     return;
   }
 
-  const location = getActiveLocationMeta();
+  const location = await openImportLocationDialog();
+  if (!location) return;
   const errors = [];
   let importedCount = 0;
 
@@ -1232,6 +1449,28 @@ els.importInput?.addEventListener("change", async (event) => {
   await importFiles(files);
 });
 
+els.importLocationOptions?.addEventListener("click", (event) => {
+  const optionButton = event.target.closest("[data-import-location-key]");
+  if (!optionButton) return;
+
+  state.pendingImportLocationKey = optionButton.dataset.importLocationKey;
+  renderImportLocationOptions(state.pendingImportLocationKey);
+  if (els.importLocationConfirm) els.importLocationConfirm.disabled = false;
+});
+
+els.importLocationConfirm?.addEventListener("click", () => {
+  closeImportLocationDialog(getPendingImportLocation());
+});
+
+els.importLocationCancel?.addEventListener("click", () => closeImportLocationDialog(null));
+els.importLocationClose?.addEventListener("click", () => closeImportLocationDialog(null));
+
+els.importLocationDialog?.addEventListener("click", (event) => {
+  if (event.target === els.importLocationDialog) {
+    closeImportLocationDialog(null);
+  }
+});
+
 els.all?.addEventListener("click", () => {
   state.activeNodeId = ALL_NODE_ID;
   if (els.searchInput) els.searchInput.value = "";
@@ -1286,6 +1525,12 @@ els.tree?.addEventListener("click", async (event) => {
     if (els.searchInput) els.searchInput.value = "";
     renderActivePosts();
     syncTreeSelectionState();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && els.importLocationDialog && !els.importLocationDialog.hidden) {
+    closeImportLocationDialog(null);
   }
 });
 
