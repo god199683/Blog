@@ -35,6 +35,7 @@ const els = {
   toolbar: document.querySelector("[data-editor-toolbar]"),
   fontFamily: document.querySelector("[data-editor-font-family]"),
   addFont: document.querySelector("[data-editor-add-font]"),
+  removeFont: document.querySelector("[data-editor-remove-font]"),
   fontSize: document.querySelector("[data-editor-font-size]"),
   draft: document.querySelector("[data-editor-draft]"),
   saveState: document.querySelector("[data-editor-save-state]"),
@@ -60,6 +61,10 @@ let colorDialogPointerActive = false;
 let locationDialogResolver = null;
 
 const BUILTIN_EDITOR_FONTS = ["Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
+const EDITOR_INLINE_STYLE_PROPERTIES = {
+  fontFamily: "font-family",
+  fontSize: "font-size",
+};
 
 const THEME_COLOR_COLUMNS = [
   ["#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#808080", "#595959"],
@@ -619,6 +624,20 @@ function addEditorFont() {
   applyInlineStyle("fontFamily", name);
 }
 
+function removeEditorFont() {
+  const name = normalizeFontName(els.fontFamily.value);
+  if (!name) return;
+  if (BUILTIN_EDITOR_FONTS.includes(name)) {
+    window.alert("기본 글씨체는 삭제할 수 없습니다.");
+    return;
+  }
+
+  const nextFonts = getStoredEditorFonts().filter((font) => font !== name);
+  saveStoredEditorFonts(nextFonts);
+  renderEditorFontOptions(BUILTIN_EDITOR_FONTS[0]);
+  applyInlineStyle("fontFamily", BUILTIN_EDITOR_FONTS[0]);
+}
+
 function getCategoryOptions() {
   return state.tree
     .filter((node) => node.type === "category")
@@ -1052,12 +1071,12 @@ function applyInlineStyle(property, value) {
 
   const range = selection.getRangeAt(0);
   const span = document.createElement("span");
-  span.style[property] = value;
+  span.style.setProperty(EDITOR_INLINE_STYLE_PROPERTIES[property] || property, value);
 
   if (range.collapsed) {
     span.appendChild(document.createTextNode("\u200b"));
     range.insertNode(span);
-    range.setStart(span.firstChild, 1);
+    range.setStart(span.firstChild, span.firstChild.length);
     range.collapse(true);
   } else {
     span.appendChild(range.extractContents());
@@ -1078,11 +1097,25 @@ function normalizeFontSize(value) {
   return `${Math.min(96, Math.max(8, size))}px`;
 }
 
+function normalizeLineHeightValue(value) {
+  const number = Number.parseFloat(value);
+  if (!Number.isFinite(number)) return "";
+  const clamped = Math.min(4, Math.max(0.8, number));
+  return String(Number(clamped.toFixed(2)));
+}
+
 function applyFontSizeFromInput() {
   const size = normalizeFontSize(els.fontSize.value);
   if (!size) return;
   els.fontSize.value = size.replace("px", "");
   applyInlineStyle("fontSize", size);
+}
+
+function applyCustomLineHeightFromInput(input) {
+  const value = normalizeLineHeightValue(input?.value);
+  if (!value) return;
+  input.value = value;
+  applyLineHeight(value);
 }
 
 function getClosestEditorBlock(node) {
@@ -1701,6 +1734,7 @@ els.fontFamily.addEventListener("change", (event) => {
 });
 
 els.addFont.addEventListener("click", addEditorFont);
+els.removeFont?.addEventListener("click", removeEditorFont);
 
 els.fontSize.addEventListener("change", applyFontSizeFromInput);
 
@@ -1796,6 +1830,20 @@ els.toolbar.addEventListener("click", (event) => {
   if (commandButton) {
     executeEditorCommand(commandButton.dataset.editorCommand, commandButton.dataset.value || null);
   }
+});
+
+els.toolbar.addEventListener("change", (event) => {
+  const lineHeightInput = event.target.closest("[data-line-height-custom]");
+  if (!lineHeightInput) return;
+  applyCustomLineHeightFromInput(lineHeightInput);
+});
+
+els.toolbar.addEventListener("keydown", (event) => {
+  const lineHeightInput = event.target.closest("[data-line-height-custom]");
+  if (!lineHeightInput || event.key !== "Enter") return;
+  event.preventDefault();
+  applyCustomLineHeightFromInput(lineHeightInput);
+  closeEditorMiniMenus();
 });
 
 document.addEventListener("click", (event) => {

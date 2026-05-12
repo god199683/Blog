@@ -91,11 +91,13 @@ const ACCESS_ROLE_ALIASES = {
   pet: "family",
 };
 
-const ACCESS_ROLE_PERIOD_DAYS = {
+const DEFAULT_ACCESS_PERMISSION_YEARS = 1;
+
+const ACCESS_ROLE_YEAR_MULTIPLIER = {
   owner: null,
   family: null,
-  friend: 30,
-  guest: 7,
+  friend: 1,
+  guest: 0.5,
 };
 
 const DASHBOARD_COLLECTION_LABELS = {
@@ -204,19 +206,33 @@ function getAccessRole(role = "guest") {
   return ACCESS_ROLES.find((item) => item.value === value) || ACCESS_ROLES[ACCESS_ROLES.length - 1];
 }
 
-function createAccessExpiry(role = "guest", baseDate = new Date().toISOString()) {
-  const days = ACCESS_ROLE_PERIOD_DAYS[normalizeAccessRole(role)];
-  if (!days) return "";
+function normalizePermissionYears(value = DEFAULT_ACCESS_PERMISSION_YEARS) {
+  const years = Number.parseFloat(value);
+  if (!Number.isFinite(years)) return DEFAULT_ACCESS_PERMISSION_YEARS;
+  return Math.min(20, Math.max(0.25, years));
+}
+
+function createAccessExpiry(role = "guest", baseDate = new Date().toISOString(), years = DEFAULT_ACCESS_PERMISSION_YEARS) {
+  const multiplier = ACCESS_ROLE_YEAR_MULTIPLIER[normalizeAccessRole(role)];
+  if (!multiplier) return "";
   const date = new Date(baseDate);
   if (Number.isNaN(date.getTime())) date.setTime(Date.now());
-  date.setDate(date.getDate() + days);
+  const months = Math.max(1, Math.round(normalizePermissionYears(years) * multiplier * 12));
+  date.setMonth(date.getMonth() + months);
   return date.toISOString();
 }
 
-function formatAccessPeriod(itemOrRole = "guest") {
+function formatAccessPeriod(itemOrRole = "guest", years = DEFAULT_ACCESS_PERMISSION_YEARS) {
   const role = typeof itemOrRole === "string" ? normalizeAccessRole(itemOrRole) : normalizeAccessRole(itemOrRole.role);
-  if (!ACCESS_ROLE_PERIOD_DAYS[role]) return "영구";
-  const expiresAt = typeof itemOrRole === "string" ? createAccessExpiry(role) : itemOrRole.expiresAt || createAccessExpiry(role, itemOrRole.createdAt);
+  if (!ACCESS_ROLE_YEAR_MULTIPLIER[role]) return "영구";
+  const permissionYears =
+    typeof itemOrRole === "string"
+      ? normalizePermissionYears(years)
+      : normalizePermissionYears(itemOrRole.permissionYears ?? itemOrRole.permission_years ?? years);
+  const expiresAt =
+    typeof itemOrRole === "string"
+      ? createAccessExpiry(role, new Date().toISOString(), permissionYears)
+      : itemOrRole.expiresAt || createAccessExpiry(role, itemOrRole.createdAt, permissionYears);
   return `${formatDate(expiresAt)}까지`;
 }
 
@@ -324,12 +340,14 @@ function normalizeByproduct(item = {}) {
 function normalizeAccessKey(item = {}) {
   const role = normalizeAccessRole(item.role);
   const createdAt = item.createdAt || item.created_at || new Date().toISOString();
+  const permissionYears = normalizePermissionYears(item.permissionYears ?? item.permission_years ?? DEFAULT_ACCESS_PERMISSION_YEARS);
   return {
     id: item.id || createId(),
     name: String(item.name || "출입자").slice(0, 80),
     role,
-    expiresAt: item.expiresAt || item.expires_at || item.permissionExpiresAt || item.permission_expires_at || createAccessExpiry(role, createdAt),
-    memo: String(item.memo || "").slice(0, 400),
+    permissionYears,
+    expiresAt:
+      item.expiresAt || item.expires_at || item.permissionExpiresAt || item.permission_expires_at || createAccessExpiry(role, createdAt, permissionYears),
     active: toBool(item.active, true),
     createdAt,
   };
@@ -529,9 +547,12 @@ function renderCard(title, body, actions = "") {
   `;
 }
 
-function renderStatCard(icon, label, value, description = "") {
+function renderStatCard(icon, label, value, description = "", page = "") {
+  const action = page
+    ? `data-action="go-page" data-page="${escapeHtml(page)}" role="button" tabindex="0" aria-label="${escapeHtml(label)} 관리로 이동"`
+    : "";
   return `
-    <article class="garden-stat-card">
+    <article class="garden-stat-card ${page ? "is-clickable" : ""}" ${action}>
       <span>${icon} ${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
       <p>${escapeHtml(description)}</p>
@@ -558,17 +579,15 @@ function renderDashboard() {
   const plants = creatures.filter(isPlantCreature).length;
   const living = creatures.filter((item) => !isPlantCreature(item)).length;
   const byproducts = state.map.byproducts;
-  const recentCreatures = [...creatures]
-    .sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""))
-    .slice(0, 6);
+  const accessKeys = state.map.accessKeys;
 
   return `
     ${getPageIntro()}
     <section class="garden-stats">
-      ${renderStatCard("🗺️", "구역", String(zones.length), "정원에 등록된 구역")}
-      ${renderStatCard("🌱", "식물", String(plants), "식물형 개체")}
-      ${renderStatCard("🦊", "생물", String(living), "동물과 영체")}
-      ${renderStatCard("💎", "부산물", String(byproducts.length), "채집 가능한 항목")}
+      ${renderStatCard("🗺️", "구역", String(zones.length), "정원에 등록된 구역", "zones")}
+      ${renderStatCard("🌱", "식물", String(plants), "식물형 개체", "creatures")}
+      ${renderStatCard("🦊", "생물", String(living), "동물과 영체", "creatures")}
+      ${renderStatCard("💎", "부산물", String(byproducts.length), "채집 가능한 항목", "byproducts")}
     </section>
 
     <section class="garden-dashboard-layout">
@@ -613,26 +632,31 @@ function renderDashboard() {
     </section>
 
     ${renderCard(
-      "최근 동식물",
-      recentCreatures.length
+      "출입 관리",
+      accessKeys.length
         ? `<div class="garden-table">
-            <div class="garden-table-head garden-creature-row">
-              <span>이름</span><span>유형</span><span>구역</span>
+            <div class="garden-table-head garden-access-row">
+              <span>이름</span><span>역할</span><span>권한 기간</span><span>상태</span><span>관리</span>
             </div>
-            ${recentCreatures
+            ${accessKeys
+              .slice(0, 6)
               .map((item) => {
-                const type = getCreatureType(item.type);
                 return `
-                  <div class="garden-table-row garden-creature-row">
-                    <strong>${type.icon} ${escapeHtml(item.name)}</strong>
-                    <span>${escapeHtml(type.label)}</span>
-                    <span>${escapeHtml(getZoneName(item.zoneId))}</span>
+                  <div class="garden-table-row garden-access-row">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <span>${escapeHtml(getAccessRole(item.role).label)}</span>
+                    <span>${escapeHtml(formatAccessPeriod(item))}</span>
+                    <span>${item.active ? "활성" : "비활성"}</span>
+                    <span class="garden-inline-actions">
+                      <button type="button" data-action="go-page" data-page="access">열기</button>
+                    </span>
                   </div>
                 `;
               })
               .join("")}
           </div>`
-        : `<p class="garden-empty">등록된 동식물이 없습니다.</p>`
+        : `<p class="garden-empty">등록된 출입 권한이 없습니다. 출입 관리에서 권한을 추가해주세요.</p>`,
+      `<button class="garden-button" type="button" data-action="go-page" data-page="access">출입 관리</button>`
     )}
   `;
 }
@@ -1294,9 +1318,9 @@ function renderAccessForm(item = null) {
         <span>권한 기간</span>
         <input name="permissionPeriod" data-access-period-preview value="${escapeHtml(formatAccessPeriod(entry))}" readonly aria-readonly="true">
       </label>
-      <label class="garden-form-wide">
-        <span>메모</span>
-        <textarea name="memo" rows="3" maxlength="400" placeholder="출입 조건이나 설명">${escapeHtml(entry.memo)}</textarea>
+      <label>
+        <span>기간 기준(년)</span>
+        <input name="permissionYears" type="number" min="0.25" max="20" step="0.25" value="${escapeHtml(entry.permissionYears || DEFAULT_ACCESS_PERMISSION_YEARS)}">
       </label>
       <label class="garden-check">
         <input type="checkbox" name="active" ${entry.active ? "checked" : ""}>
@@ -1553,6 +1577,7 @@ async function handleAction(action, target) {
   if (action === "restore-dashboard-trash") return restoreTrashEntry(target.dataset.id || "");
   if (action === "delete-dashboard-trash") return permanentlyDeleteTrashEntry(target.dataset.id || "");
   if (action === "empty-dashboard-trash") return emptyDashboardTrash();
+  if (action === "go-page") return setActivePage(target.dataset.page || "dashboard");
   if (action === "go-zone") return setActivePage("zones");
   if (action === "select-zone") {
     state.selectedZoneId = target.dataset.id || "";
@@ -1651,15 +1676,17 @@ async function handleAccessSubmit(form) {
   const id = String(formData.get("id") || "");
   const existing = state.map.accessKeys.find((entry) => entry.id === id);
   const role = normalizeAccessRole(String(formData.get("role") || "guest"));
-  const expiresAt = existing && existing.role === role ? existing.expiresAt : createAccessExpiry(role);
+  const permissionYears = normalizePermissionYears(formData.get("permissionYears"));
+  const createdAt = existing?.createdAt || new Date().toISOString();
+  const expiresAt = createAccessExpiry(role, createdAt, permissionYears);
   const item = normalizeAccessKey({
     id: id || createId(),
     name: formData.get("name"),
     role,
+    permissionYears,
     expiresAt,
-    memo: formData.get("memo"),
     active: formData.has("active"),
-    createdAt: existing?.createdAt,
+    createdAt,
   });
   state.map.accessKeys = id
     ? state.map.accessKeys.map((entry) => (entry.id === id ? item : entry))
@@ -1717,11 +1744,35 @@ document.addEventListener("change", (event) => {
   const accessRole = event.target.closest('form[data-form="access"] select[name="role"]');
   if (accessRole) {
     const preview = accessRole.form?.querySelector("[data-access-period-preview]");
-    if (preview) preview.value = formatAccessPeriod(accessRole.value);
+    const years = accessRole.form?.querySelector('input[name="permissionYears"]')?.value;
+    if (preview) preview.value = formatAccessPeriod(accessRole.value, years);
+  }
+
+  const accessYears = event.target.closest('form[data-form="access"] input[name="permissionYears"]');
+  if (accessYears) {
+    const role = accessYears.form?.querySelector('select[name="role"]')?.value || "guest";
+    const preview = accessYears.form?.querySelector("[data-access-period-preview]");
+    accessYears.value = normalizePermissionYears(accessYears.value);
+    if (preview) preview.value = formatAccessPeriod(role, accessYears.value);
   }
 });
 
+document.addEventListener("input", (event) => {
+  const accessYears = event.target.closest('form[data-form="access"] input[name="permissionYears"]');
+  if (!accessYears) return;
+  const role = accessYears.form?.querySelector('select[name="role"]')?.value || "guest";
+  const preview = accessYears.form?.querySelector("[data-access-period-preview]");
+  if (preview) preview.value = formatAccessPeriod(role, accessYears.value);
+});
+
 document.addEventListener("keydown", (event) => {
+  const statCard = event.target.closest(".garden-stat-card[data-action]");
+  if (statCard && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    handleAction(statCard.dataset.action, statCard);
+    return;
+  }
+
   if (event.target.closest("button, input, select, textarea, a")) return;
   const row = event.target.closest('[data-action="select-creature"]');
   if (!row || (event.key !== "Enter" && event.key !== " ")) return;

@@ -207,7 +207,7 @@ function syncReaderControls() {
   els.fontSelect.value = readerFont;
   els.themeSelect.value = readerTheme;
   els.widthSelect.value = readerWidth;
-  els.lineHeightSelect.value = readerLineHeight;
+  if (els.lineHeightSelect) els.lineHeightSelect.value = readerLineHeight;
   localStorage.setItem("blog.readerFontSize", String(readerFontSize));
   localStorage.setItem("blog.readerFont", readerFont);
   localStorage.setItem("blog.readerTheme", readerTheme);
@@ -304,11 +304,8 @@ function measureBookPages() {
     return;
   }
 
-  const bodyStyle = window.getComputedStyle(els.body);
-  const horizontalPadding = Number.parseFloat(bodyStyle.paddingLeft) + Number.parseFloat(bodyStyle.paddingRight);
-  const verticalPadding = Number.parseFloat(bodyStyle.paddingTop) + Number.parseFloat(bodyStyle.paddingBottom);
-  const pageWidth = Math.max(260, Math.floor(els.body.clientWidth - horizontalPadding));
-  const pageHeight = Math.max(260, Math.floor(els.body.clientHeight - verticalPadding));
+  const pageWidth = Math.max(260, Math.floor(els.body.clientWidth));
+  const pageHeight = Math.max(260, Math.floor(els.body.clientHeight));
   const pageGap = Math.round(Math.min(80, Math.max(28, pageWidth * 0.06)));
 
   content.style.width = `${pageWidth}px`;
@@ -590,7 +587,7 @@ els.widthSelect.addEventListener("change", (event) => {
   scheduleBookPagination(true);
 });
 
-els.lineHeightSelect.addEventListener("change", (event) => {
+els.lineHeightSelect?.addEventListener("change", (event) => {
   readerLineHeight = event.target.value;
   syncReaderControls();
   scheduleBookPagination(true);

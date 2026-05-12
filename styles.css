@@ -8674,3 +8674,75 @@ body.is-book-mode :is(button, select):disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* Focused interaction fixes. */
+.editor-remove-font-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 6px;
+  background: #fff;
+  color: #607589;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.editor-remove-font-button:hover,
+.editor-remove-font-button:focus-visible {
+  border-color: rgba(56, 189, 248, 0.46);
+  background: #eaf7ff;
+  color: #263d50;
+}
+
+.editor-line-custom {
+  display: grid;
+  grid-template-columns: auto minmax(3.5rem, 1fr);
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.32rem 0.4rem;
+  color: #607589;
+  font-size: 0.74rem;
+}
+
+.editor-line-custom input {
+  width: 4.1rem;
+  min-height: 1.55rem;
+  border: 1px solid rgba(216, 234, 251, 0.95);
+  border-radius: 5px;
+  color: var(--ink);
+}
+
+body.is-book-mode .viewer-body {
+  padding: 0;
+}
+
+body.is-book-mode .viewer-page-content {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: clamp(1.25rem, 4vw, 3.25rem);
+  overflow: hidden;
+}
+
+body.is-book-mode .viewer-page-content :where(p, li, blockquote, span, div, td, th) {
+  font-size: inherit !important;
+}
+
+body.is-book-mode .viewer-page-content :where(h1, h2, h3) {
+  font-size: 1.12em !important;
+}
+
+.garden-stat-card.is-clickable {
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.garden-stat-card.is-clickable:hover,
+.garden-stat-card.is-clickable:focus-visible {
+  border-color: rgba(56, 189, 248, 0.58);
+  background: linear-gradient(180deg, #ffffff 0%, #edf9ff 100%);
+  outline: none;
+  transform: translateY(-1px);
+}
