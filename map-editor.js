@@ -16,6 +16,8 @@ const DEFAULT_MAP = {
   shapes: [],
   markers: [],
   layers: [],
+  slides: [],
+  activeSlideIndex: 0,
   zones: [],
   creatures: [],
   byproducts: [],
@@ -119,6 +121,7 @@ const state = {
   resizeDrag: null,
   history: [],
   redo: [],
+  activeSlideIndex: 0,
   layerDockOpen: true,
   ribbonCollapsed: localStorage.getItem("mapEditorRibbon") === "collapsed",
 };
@@ -130,6 +133,7 @@ const els = {
   canvasWrap: document.querySelector("[data-map-canvas-wrap]"),
   canvasFrame: document.querySelector("[data-map-canvas-frame]"),
   canvasStage: document.querySelector("[data-map-canvas-stage]"),
+  slidePane: document.querySelector("[data-map-slide-pane]") || document.querySelector(".paint-slide-pane"),
   thumbnail: document.querySelector("[data-map-thumbnail]"),
   slideTitle: document.querySelector("[data-map-slide-title]"),
   palette: document.querySelector("[data-map-palette]"),
@@ -209,6 +213,7 @@ function createId() {
 }
 
 function snapshotMap(map = state.map) {
+  if (map === state.map) syncActiveSlideFromMap();
   return structuredClone(map);
 }
 
@@ -220,6 +225,8 @@ function pushHistory() {
 
 function restoreMap(map) {
   state.map = cloneMap(map);
+  state.activeSlideIndex = normalizeSlideIndex(state.map.activeSlideIndex, state.map.slides);
+  state.map.activeSlideIndex = state.activeSlideIndex;
   state.currentShape = null;
   state.currentStroke = null;
   state.selection = null;
@@ -310,6 +317,25 @@ function normalizeLayer(layer = {}, index = 0) {
   };
 }
 
+function normalizeSlide(slide = {}, index = 0) {
+  return {
+    id: slide.id || createId(),
+    title: String(slide.title || slide.name || `슬라이드 ${index + 1}`).slice(0, 80),
+    background: slide.background || DEFAULT_MAP.background,
+    cells: slide.cells && typeof slide.cells === "object" ? structuredClone(slide.cells) : {},
+    strokes: Array.isArray(slide.strokes) ? slide.strokes.map(normalizeStroke).filter((stroke) => stroke.points.length > 0) : [],
+    shapes: Array.isArray(slide.shapes) ? slide.shapes.map(normalizeShape) : [],
+    markers: Array.isArray(slide.markers) ? slide.markers.map(normalizeMarker) : [],
+    layers: Array.isArray(slide.layers) ? slide.layers.map(normalizeLayer) : [],
+  };
+}
+
+function normalizeSlideIndex(index, slides = []) {
+  const count = Math.max(1, slides.length);
+  const parsed = Number.parseInt(index, 10);
+  return Math.min(count - 1, Math.max(0, Number.isFinite(parsed) ? parsed : 0));
+}
+
 function cloneMap(map = DEFAULT_MAP) {
   const tileSize = Number(map.tileSize) || DEFAULT_MAP.tileSize;
   const legacyWidth = Number(map.width) || DEFAULT_MAP.width;
@@ -317,6 +343,9 @@ function cloneMap(map = DEFAULT_MAP) {
   const hasCanvasSize = Number.isFinite(Number(map.canvasWidth)) && Number.isFinite(Number(map.canvasHeight));
   const canvasWidth = hasCanvasSize ? Number(map.canvasWidth) : legacyWidth * tileSize;
   const canvasHeight = hasCanvasSize ? Number(map.canvasHeight) : legacyHeight * tileSize;
+  const slides = (Array.isArray(map.slides) && map.slides.length ? map.slides : [map]).map(normalizeSlide);
+  const activeSlideIndex = normalizeSlideIndex(map.activeSlideIndex ?? map.currentSlideIndex ?? 0, slides);
+  const activeSlide = slides[activeSlideIndex] || normalizeSlide(map, 0);
 
   return {
     ...structuredClone(DEFAULT_MAP),
@@ -328,12 +357,14 @@ function cloneMap(map = DEFAULT_MAP) {
     canvasHeight: clampCanvasPixels(canvasHeight, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT),
     width: Math.ceil(clampCanvasPixels(canvasWidth, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH) / tileSize),
     height: Math.ceil(clampCanvasPixels(canvasHeight, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT) / tileSize),
-    background: map.background || DEFAULT_MAP.background,
-    cells: map.cells && typeof map.cells === "object" ? map.cells : {},
-    strokes: Array.isArray(map.strokes) ? map.strokes.map(normalizeStroke).filter((stroke) => stroke.points.length > 0) : [],
-    shapes: Array.isArray(map.shapes) ? map.shapes.map(normalizeShape) : [],
-    markers: Array.isArray(map.markers) ? map.markers.map(normalizeMarker) : [],
-    layers: Array.isArray(map.layers) ? map.layers.map(normalizeLayer) : [],
+    background: activeSlide.background,
+    cells: structuredClone(activeSlide.cells),
+    strokes: structuredClone(activeSlide.strokes),
+    shapes: structuredClone(activeSlide.shapes),
+    markers: structuredClone(activeSlide.markers),
+    layers: structuredClone(activeSlide.layers),
+    slides,
+    activeSlideIndex,
     zones: Array.isArray(map.zones) ? map.zones : [],
     creatures: Array.isArray(map.creatures) ? map.creatures : [],
     byproducts: Array.isArray(map.byproducts) ? map.byproducts : [],
@@ -341,6 +372,67 @@ function cloneMap(map = DEFAULT_MAP) {
     settings: map.settings && typeof map.settings === "object" ? map.settings : {},
     note: String(map.note || ""),
   };
+}
+
+function createSlideFromMap(map = state.map, index = 0) {
+  const existing = Array.isArray(map.slides) ? map.slides[index] : null;
+  return normalizeSlide(
+    {
+      id: existing?.id,
+      title: existing?.title || `슬라이드 ${index + 1}`,
+      background: map.background,
+      cells: map.cells,
+      strokes: map.strokes,
+      shapes: map.shapes,
+      markers: map.markers,
+      layers: map.layers,
+    },
+    index
+  );
+}
+
+function createBlankSlide(index = 0) {
+  return normalizeSlide({ title: `슬라이드 ${index + 1}` }, index);
+}
+
+function ensureSlides() {
+  const slides = Array.isArray(state.map.slides) && state.map.slides.length ? state.map.slides : [createSlideFromMap(state.map, 0)];
+  state.map.slides = slides.map(normalizeSlide);
+  state.activeSlideIndex = normalizeSlideIndex(state.map.activeSlideIndex ?? state.activeSlideIndex, state.map.slides);
+  state.map.activeSlideIndex = state.activeSlideIndex;
+}
+
+function syncActiveSlideFromMap() {
+  ensureSlides();
+  state.map.slides[state.activeSlideIndex] = createSlideFromMap(state.map, state.activeSlideIndex);
+  state.map.activeSlideIndex = state.activeSlideIndex;
+}
+
+function applySlideToMap(index) {
+  ensureSlides();
+  state.activeSlideIndex = normalizeSlideIndex(index, state.map.slides);
+  state.map.activeSlideIndex = state.activeSlideIndex;
+  const slide = normalizeSlide(state.map.slides[state.activeSlideIndex], state.activeSlideIndex);
+  state.map.slides[state.activeSlideIndex] = slide;
+  state.map.background = slide.background;
+  state.map.cells = structuredClone(slide.cells);
+  state.map.strokes = structuredClone(slide.strokes);
+  state.map.shapes = structuredClone(slide.shapes);
+  state.map.markers = structuredClone(slide.markers);
+  state.map.layers = structuredClone(slide.layers);
+  state.currentShape = null;
+  state.currentStroke = null;
+  state.selection = null;
+  state.selectionStart = null;
+  state.selectedShapeId = "";
+}
+
+function selectSlide(index) {
+  const nextIndex = normalizeSlideIndex(index, state.map.slides);
+  if (nextIndex === state.activeSlideIndex) return;
+  syncActiveSlideFromMap();
+  applySlideToMap(nextIndex);
+  renderAll();
 }
 
 function parseMapContent(content = "") {
@@ -514,30 +606,48 @@ function renderLayers() {
     .join("");
 }
 
+function renderSlides() {
+  if (!els.slidePane) return;
+  syncActiveSlideFromMap();
+  els.slidePane.innerHTML = state.map.slides
+    .map(
+      (slide, index) => `
+        <button class="paint-slide-thumb ppt-slide-thumb${index === state.activeSlideIndex ? " is-active" : ""}" type="button" data-map-slide-index="${index}" aria-label="${index + 1}번 슬라이드">
+          <b>${index + 1}</b>
+          <canvas data-map-thumbnail width="224" height="126" aria-hidden="true"></canvas>
+          <span>${escapeHtml(slide.title || `슬라이드 ${index + 1}`)}</span>
+        </button>
+      `
+    )
+    .join("");
+  drawSlideThumbnails();
+}
+
 function renderAll() {
   syncControls();
   renderPalette();
   renderLayers();
+  renderSlides();
   drawMap();
 }
 
-function drawLegacyCells(targetCtx) {
-  const tile = state.map.tileSize || DEFAULT_MAP.tileSize;
-  Object.entries(state.map.cells || {}).forEach(([key, cell]) => {
+function drawLegacyCells(targetCtx, map = state.map) {
+  const tile = map.tileSize || DEFAULT_MAP.tileSize;
+  Object.entries(map.cells || {}).forEach(([key, cell]) => {
     const [x, y] = key.split(",").map(Number);
     targetCtx.fillStyle = cell.color || "#dff4ff";
     targetCtx.fillRect(x * tile, y * tile, tile, tile);
   });
 }
 
-function drawStroke(targetCtx, stroke) {
+function drawStroke(targetCtx, stroke, map = state.map) {
   const points = stroke.points || [];
   if (points.length === 0) return;
   targetCtx.save();
   targetCtx.globalAlpha = clampNumber(stroke.opacity ?? 1, 0.1, 1);
   targetCtx.lineJoin = "round";
   targetCtx.lineCap = stroke.brushStyle === "square" ? "butt" : "round";
-  targetCtx.strokeStyle = stroke.tool === "erase" ? state.map.background : stroke.color || "#000000";
+  targetCtx.strokeStyle = stroke.tool === "erase" ? map.background : stroke.color || "#000000";
   targetCtx.fillStyle = targetCtx.strokeStyle;
   targetCtx.lineWidth = stroke.width || state.brushSize;
   if (stroke.brushStyle === "soft" && stroke.tool !== "erase") {
@@ -851,16 +961,16 @@ function drawSelection(targetCtx) {
   targetCtx.restore();
 }
 
-function paintMap(targetCtx, { includeSelection = true } = {}) {
-  const canvasWidth = getCanvasWidth();
-  const canvasHeight = getCanvasHeight();
-  targetCtx.fillStyle = state.map.background || DEFAULT_MAP.background;
+function paintMap(targetCtx, { includeSelection = true, map = state.map } = {}) {
+  const canvasWidth = getCanvasWidth(map);
+  const canvasHeight = getCanvasHeight(map);
+  targetCtx.fillStyle = map.background || DEFAULT_MAP.background;
   targetCtx.fillRect(0, 0, canvasWidth, canvasHeight);
-  drawLegacyCells(targetCtx);
-  state.map.shapes.forEach((shape) => drawShape(targetCtx, shape));
-  state.map.strokes.forEach((stroke) => drawStroke(targetCtx, stroke));
-  state.map.markers.forEach((marker) => drawMarker(targetCtx, marker));
-  if (includeSelection) drawSelection(targetCtx);
+  drawLegacyCells(targetCtx, map);
+  (map.shapes || []).forEach((shape) => drawShape(targetCtx, shape));
+  (map.strokes || []).forEach((stroke) => drawStroke(targetCtx, stroke, map));
+  (map.markers || []).forEach((marker) => drawMarker(targetCtx, marker));
+  if (includeSelection && map === state.map) drawSelection(targetCtx);
 }
 
 function drawMap() {
@@ -884,14 +994,19 @@ function drawMap() {
   drawThumbnail();
 }
 
-function drawThumbnail() {
-  if (!els.thumbnail) return;
-  const thumbCtx = els.thumbnail.getContext("2d");
+function getActiveThumbnailCanvas() {
+  return els.slidePane?.querySelector(`[data-map-slide-index="${state.activeSlideIndex}"] [data-map-thumbnail]`) || els.thumbnail;
+}
+
+function drawThumbnailToCanvas(canvas, slide = state.map) {
+  if (!canvas) return;
+  const thumbCtx = canvas.getContext("2d");
   if (!thumbCtx) return;
-  const thumbWidth = els.thumbnail.width;
-  const thumbHeight = els.thumbnail.height;
-  const mapWidth = getCanvasWidth();
-  const mapHeight = getCanvasHeight();
+  const map = slide === state.map ? state.map : { ...state.map, ...slide };
+  const thumbWidth = canvas.width;
+  const thumbHeight = canvas.height;
+  const mapWidth = getCanvasWidth(map);
+  const mapHeight = getCanvasHeight(map);
   const scale = Math.min((thumbWidth - 16) / mapWidth, (thumbHeight - 16) / mapHeight);
   const offsetX = (thumbWidth - mapWidth * scale) / 2;
   const offsetY = (thumbHeight - mapHeight * scale) / 2;
@@ -903,10 +1018,22 @@ function drawThumbnail() {
   thumbCtx.save();
   thumbCtx.translate(offsetX, offsetY);
   thumbCtx.scale(scale, scale);
-  paintMap(thumbCtx, { includeSelection: false });
+  paintMap(thumbCtx, { includeSelection: false, map });
   thumbCtx.restore();
   thumbCtx.strokeStyle = "#b7d9ee";
   thumbCtx.strokeRect(offsetX, offsetY, mapWidth * scale, mapHeight * scale);
+}
+
+function drawSlideThumbnails() {
+  if (!els.slidePane) return;
+  els.slidePane.querySelectorAll("[data-map-slide-index]").forEach((button) => {
+    const index = normalizeSlideIndex(button.dataset.mapSlideIndex, state.map.slides);
+    drawThumbnailToCanvas(button.querySelector("[data-map-thumbnail]"), state.map.slides[index] || state.map);
+  });
+}
+
+function drawThumbnail() {
+  drawThumbnailToCanvas(getActiveThumbnailCanvas(), state.map);
 }
 
 function normalizeRect(rect = {}) {
@@ -1257,6 +1384,7 @@ async function loadSpace(session) {
 
 async function saveMap() {
   if (!state.spaceId || !state.session?.access_token) return;
+  syncActiveSlideFromMap();
   const title = els.title?.value.trim() || "이름 없는 공간";
   state.map.note = els.note?.value.trim() || "";
   state.map.canvasWidth = getCanvasWidth();
@@ -1398,15 +1526,13 @@ function applyOutlineDash(style = "solid") {
 }
 
 function newSlide() {
-  const hasContent = state.map.shapes.length || state.map.strokes.length || state.map.markers.length || Object.keys(state.map.cells || {}).length;
-  if (hasContent && !window.confirm("현재 슬라이드를 비우고 새 슬라이드를 만들까요?")) return;
+  syncActiveSlideFromMap();
   pushHistory();
-  state.map.cells = {};
-  state.map.shapes = [];
-  state.map.strokes = [];
-  state.map.markers = [];
-  state.map.background = "#ffffff";
-  state.selectedShapeId = "";
+  const insertIndex = normalizeSlideIndex(state.activeSlideIndex, state.map.slides) + 1;
+  const blankSlide = createBlankSlide(insertIndex);
+  state.map.slides.splice(insertIndex, 0, blankSlide);
+  applySlideToMap(insertIndex);
+  setSaveState("새 슬라이드");
   renderAll();
 }
 
@@ -1499,8 +1625,13 @@ function renderLayers() {
     .join("");
 }
 
+function renderSlideList() {
+  renderSlides();
+}
+
 function renderAll() {
   syncControls();
+  renderSlideList();
   renderPalette();
   renderPptPalettes();
   renderLayers();
@@ -1627,6 +1758,12 @@ document.addEventListener("click", async (event) => {
   const shapeButton = event.target.closest("[data-map-shape]");
   if (shapeButton) {
     setShape(shapeButton.dataset.mapShape || "line");
+    return;
+  }
+
+  const slideButton = event.target.closest("[data-map-slide-index]");
+  if (slideButton) {
+    selectSlide(slideButton.dataset.mapSlideIndex);
     return;
   }
 
