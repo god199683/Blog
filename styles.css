@@ -6973,11 +6973,18 @@ body.is-book-mode :is(button, select):disabled {
   font-size: 0.7rem;
 }
 
+.paint-slide-item {
+  position: relative;
+  display: block;
+  margin: 0.72rem;
+}
+
 .paint-slide-thumb {
   display: grid;
   grid-template-columns: 1.3rem minmax(0, 1fr);
   gap: 0.48rem;
-  margin: 0.72rem;
+  width: 100%;
+  margin: 0;
   padding: 0.45rem;
   border: 1px solid #cfe3f3;
   border-radius: 8px;
@@ -7014,6 +7021,48 @@ body.is-book-mode :is(button, select):disabled {
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.paint-slide-delete {
+  position: absolute;
+  top: 0.32rem;
+  right: 0.32rem;
+  display: inline-grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border: 1px solid rgba(125, 190, 229, 0.5);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #607589;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0;
+  box-shadow: 0 6px 14px rgba(34, 113, 158, 0.09);
+  transition:
+    opacity 0.14s ease,
+    background-color 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
+}
+
+.paint-slide-item:hover .paint-slide-delete,
+.paint-slide-item:focus-within .paint-slide-delete,
+.paint-slide-thumb.is-active + .paint-slide-delete {
+  opacity: 1;
+}
+
+.paint-slide-delete:hover,
+.paint-slide-delete:focus-visible {
+  border-color: rgba(239, 68, 68, 0.42);
+  background: #fff1f2;
+  color: #be123c;
+  outline: none;
+}
+
+.paint-slide-delete:disabled {
+  display: none;
 }
 
 .paint-left-sliders {
@@ -7764,10 +7813,13 @@ body.is-book-mode :is(button, select):disabled {
   background: #e9ebf1;
 }
 
+.ppt-slide-pane .paint-slide-item {
+  margin: 1.25rem 1.6rem 0.75rem 0.8rem;
+}
+
 .ppt-slide-thumb {
   grid-template-columns: 1rem minmax(0, 1fr);
   gap: 0.65rem;
-  margin: 1.25rem 1.6rem 0.75rem 0.8rem;
   border: 0;
   background: transparent;
   box-shadow: none;

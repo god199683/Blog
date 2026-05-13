@@ -435,6 +435,29 @@ function selectSlide(index) {
   renderAll();
 }
 
+function deleteSlide(index) {
+  ensureSlides();
+  if (state.map.slides.length <= 1) {
+    window.alert("마지막 슬라이드는 삭제할 수 없습니다.");
+    return;
+  }
+
+  const targetIndex = normalizeSlideIndex(index, state.map.slides);
+  if (!window.confirm(`${targetIndex + 1}번 슬라이드를 삭제할까요?`)) return;
+
+  syncActiveSlideFromMap();
+  pushHistory();
+  state.map.slides.splice(targetIndex, 1);
+
+  let nextIndex = state.activeSlideIndex;
+  if (targetIndex < state.activeSlideIndex) nextIndex = state.activeSlideIndex - 1;
+  if (targetIndex === state.activeSlideIndex) nextIndex = Math.min(targetIndex, state.map.slides.length - 1);
+
+  applySlideToMap(nextIndex);
+  setSaveState("슬라이드 삭제");
+  renderAll();
+}
+
 function parseMapContent(content = "") {
   try {
     const parsed = JSON.parse(content || "");
@@ -609,14 +632,18 @@ function renderLayers() {
 function renderSlides() {
   if (!els.slidePane) return;
   syncActiveSlideFromMap();
+  const canDelete = state.map.slides.length > 1;
   els.slidePane.innerHTML = state.map.slides
     .map(
       (slide, index) => `
-        <button class="paint-slide-thumb ppt-slide-thumb${index === state.activeSlideIndex ? " is-active" : ""}" type="button" data-map-slide-index="${index}" aria-label="${index + 1}번 슬라이드">
-          <b>${index + 1}</b>
-          <canvas data-map-thumbnail width="224" height="126" aria-hidden="true"></canvas>
-          <span>${escapeHtml(slide.title || `슬라이드 ${index + 1}`)}</span>
-        </button>
+        <div class="paint-slide-item">
+          <button class="paint-slide-thumb ppt-slide-thumb${index === state.activeSlideIndex ? " is-active" : ""}" type="button" data-map-slide-index="${index}" aria-label="${index + 1}번 슬라이드">
+            <b>${index + 1}</b>
+            <canvas data-map-thumbnail width="224" height="126" aria-hidden="true"></canvas>
+            <span>${escapeHtml(slide.title || `슬라이드 ${index + 1}`)}</span>
+          </button>
+          <button class="paint-slide-delete" type="button" data-map-delete-slide="${index}" title="슬라이드 삭제" aria-label="${index + 1}번 슬라이드 삭제"${canDelete ? "" : " disabled"}>×</button>
+        </div>
       `
     )
     .join("");
@@ -1758,6 +1785,12 @@ document.addEventListener("click", async (event) => {
   const shapeButton = event.target.closest("[data-map-shape]");
   if (shapeButton) {
     setShape(shapeButton.dataset.mapShape || "line");
+    return;
+  }
+
+  const slideDeleteButton = event.target.closest("[data-map-delete-slide]");
+  if (slideDeleteButton) {
+    deleteSlide(slideDeleteButton.dataset.mapDeleteSlide);
     return;
   }
 
