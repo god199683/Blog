@@ -4922,6 +4922,8 @@ body.is-book-mode .viewer-page-content {
   gap: 0.28rem;
   padding: 0.78rem;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .space-settings-nav a {
@@ -7987,6 +7989,10 @@ body.is-book-mode :is(button, select):disabled {
   font-size: 0.82rem;
 }
 
+.garden-nav {
+  min-height: 0;
+}
+
 .garden-nav a:hover,
 .garden-nav a:focus-visible,
 .garden-nav a.is-active,
@@ -8306,7 +8312,7 @@ body.is-book-mode :is(button, select):disabled {
 }
 
 .garden-creature-list-row {
-  grid-template-columns: minmax(0, 1fr) 7rem minmax(7rem, 0.7fr) minmax(10rem, 1fr) 5.5rem;
+  grid-template-columns: minmax(0, 1fr) 7rem minmax(7rem, 0.7fr) 5.5rem;
 }
 
 .garden-trash-row {

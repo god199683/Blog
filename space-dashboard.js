@@ -26,6 +26,13 @@ const DEFAULT_MAP = {
   markers: [],
   zones: [],
   creatures: [],
+  relations: [],
+  appearances: [],
+  abilities: [],
+  titles: [],
+  creations: [],
+  items: [],
+  manaStones: [],
   byproducts: [],
   accessKeys: [],
   trash: [],
@@ -33,7 +40,131 @@ const DEFAULT_MAP = {
   note: "",
 };
 
-const PAGES = new Set(["dashboard", "map", "zones", "creatures", "byproducts", "settings", "access", "trash"]);
+const CATALOG_CONFIGS = {
+  byproducts: {
+    title: "광물/보석",
+    icon: "💎",
+    statDescription: "광물과 보석 기록",
+    addLabel: "광물/보석 추가",
+    editTitle: "광물/보석 수정",
+    newTitle: "새 광물/보석",
+    listTitle: "광물/보석 목록",
+    empty: "등록된 광물이나 보석이 없습니다.",
+    defaultType: "광물",
+    namePlaceholder: "광물 또는 보석 이름",
+    typeLabel: "종류",
+    typePlaceholder: "예: 광물, 보석, 결정",
+    descriptionPlaceholder: "산출 위치나 특징",
+  },
+  relations: {
+    title: "관계도",
+    icon: "🔗",
+    statDescription: "관계 흐름 기록",
+    addLabel: "관계 추가",
+    editTitle: "관계 수정",
+    newTitle: "새 관계",
+    listTitle: "관계 목록",
+    empty: "등록된 관계가 없습니다.",
+    defaultType: "관계",
+    namePlaceholder: "관계 이름",
+    typeLabel: "관계 유형",
+    typePlaceholder: "예: 동맹, 가족, 경쟁",
+    descriptionPlaceholder: "연결 대상과 흐름",
+  },
+  appearances: {
+    title: "색/모양무늬",
+    icon: "🎨",
+    statDescription: "색과 형태 기록",
+    addLabel: "색/모양무늬 추가",
+    editTitle: "색/모양무늬 수정",
+    newTitle: "새 색/모양무늬",
+    listTitle: "색/모양무늬 목록",
+    empty: "등록된 색/모양무늬가 없습니다.",
+    defaultType: "색",
+    namePlaceholder: "색 또는 무늬 이름",
+    typeLabel: "구분",
+    typePlaceholder: "예: 색, 모양, 무늬",
+    descriptionPlaceholder: "외형 설명",
+  },
+  abilities: {
+    title: "능력",
+    icon: "✨",
+    statDescription: "능력과 효과 기록",
+    addLabel: "능력 추가",
+    editTitle: "능력 수정",
+    newTitle: "새 능력",
+    listTitle: "능력 목록",
+    empty: "등록된 능력이 없습니다.",
+    defaultType: "능력",
+    namePlaceholder: "능력 이름",
+    typeLabel: "능력 유형",
+    typePlaceholder: "예: 전투, 회복, 보조",
+    descriptionPlaceholder: "효과와 조건",
+  },
+  titles: {
+    title: "칭호",
+    icon: "🏷️",
+    statDescription: "칭호와 조건 기록",
+    addLabel: "칭호 추가",
+    editTitle: "칭호 수정",
+    newTitle: "새 칭호",
+    listTitle: "칭호 목록",
+    empty: "등록된 칭호가 없습니다.",
+    defaultType: "칭호",
+    namePlaceholder: "칭호 이름",
+    typeLabel: "칭호 유형",
+    typePlaceholder: "예: 명예, 업적, 직책",
+    descriptionPlaceholder: "획득 조건이나 의미",
+  },
+  creations: {
+    title: "제작품/창조품",
+    icon: "🛠️",
+    statDescription: "제작품과 창조품 기록",
+    addLabel: "제작품/창조품 추가",
+    editTitle: "제작품/창조품 수정",
+    newTitle: "새 제작품/창조품",
+    listTitle: "제작품/창조품 목록",
+    empty: "등록된 제작품이나 창조품이 없습니다.",
+    defaultType: "제작품",
+    namePlaceholder: "제작품 또는 창조품 이름",
+    typeLabel: "종류",
+    typePlaceholder: "예: 제작품, 창조품, 장치",
+    descriptionPlaceholder: "제작 방식이나 용도",
+  },
+  items: {
+    title: "물품",
+    icon: "📦",
+    statDescription: "보관 물품 기록",
+    addLabel: "물품 추가",
+    editTitle: "물품 수정",
+    newTitle: "새 물품",
+    listTitle: "물품 목록",
+    empty: "등록된 물품이 없습니다.",
+    defaultType: "물품",
+    namePlaceholder: "물품 이름",
+    typeLabel: "물품 종류",
+    typePlaceholder: "예: 도구, 소모품, 장비",
+    descriptionPlaceholder: "보관 위치나 용도",
+  },
+  manaStones: {
+    title: "마나석",
+    icon: "🔷",
+    statDescription: "마나석과 속성 기록",
+    addLabel: "마나석 추가",
+    editTitle: "마나석 수정",
+    newTitle: "새 마나석",
+    listTitle: "마나석 목록",
+    empty: "등록된 마나석이 없습니다.",
+    defaultType: "마나석",
+    namePlaceholder: "마나석 이름",
+    typeLabel: "속성",
+    typePlaceholder: "예: 화염, 물, 순수",
+    descriptionPlaceholder: "마나 성질이나 사용처",
+  },
+};
+
+const CATALOG_COLLECTIONS = Object.keys(CATALOG_CONFIGS);
+const PAGES = new Set(["dashboard", "map", "zones", "creatures", ...CATALOG_COLLECTIONS, "settings", "access", "trash"]);
 
 const ZONE_TYPES = [
   { value: "default", label: "기본", icon: "🌳" },
@@ -71,12 +202,23 @@ const GROWTH_MODES = [
 ];
 
 const BYPRODUCT_TYPES = [
-  { value: "byproduct", label: "부산물", icon: "💎" },
-  { value: "collectible", label: "채집품", icon: "🧺" },
-  { value: "material", label: "재료", icon: "🧩" },
-  { value: "seed", label: "씨앗", icon: "🌱" },
+  { value: "mineral", label: "광물", icon: "⛰️" },
+  { value: "gem", label: "보석", icon: "💎" },
+  { value: "crystal", label: "결정", icon: "🔷" },
+  { value: "magic-stone", label: "마력석", icon: "🪨" },
   { value: "other", label: "기타", icon: "•" },
 ];
+
+const LEGACY_BYPRODUCT_TYPES = {
+  byproduct: "광물",
+  collectible: "보석",
+  material: "광물",
+  seed: "결정",
+  부산물: "광물",
+  채집품: "보석",
+  재료: "광물",
+  씨앗: "결정",
+};
 
 const ACCESS_ROLES = [
   { value: "owner", label: "소유주" },
@@ -103,7 +245,14 @@ const ACCESS_ROLE_YEAR_MULTIPLIER = {
 const DASHBOARD_COLLECTION_LABELS = {
   zones: "구역",
   creatures: "동식물",
-  byproducts: "항목",
+  byproducts: "광물/보석",
+  relations: "관계도",
+  appearances: "색/모양무늬",
+  abilities: "능력",
+  titles: "칭호",
+  creations: "제작품/창조품",
+  items: "물품",
+  manaStones: "마나석",
   accessKeys: "출입 권한",
 };
 
@@ -293,8 +442,20 @@ function getCreatureTypeOptions() {
 }
 
 function getByproductType(type = "byproduct") {
-  const known = BYPRODUCT_TYPES.find((item) => item.value === type || item.label === type);
-  return known || { value: String(type || "기타"), label: String(type || "기타"), icon: "•" };
+  const normalized = LEGACY_BYPRODUCT_TYPES[type] || type || "광물";
+  const known = BYPRODUCT_TYPES.find((item) => item.value === normalized || item.value === type || item.label === normalized || item.label === type);
+  return known || { value: String(normalized || "기타"), label: String(normalized || "기타"), icon: "•" };
+}
+
+function getCatalogConfig(collection = "byproducts") {
+  return CATALOG_CONFIGS[collection] || CATALOG_CONFIGS.byproducts;
+}
+
+function getCatalogType(collection = "byproducts", type = "") {
+  if (collection === "byproducts") return getByproductType(type || getCatalogConfig(collection).defaultType);
+  const config = getCatalogConfig(collection);
+  const label = String(type || config.defaultType || "항목").slice(0, 60);
+  return { value: label, label, icon: config.icon || "•" };
 }
 
 function normalizeZone(zone = {}) {
@@ -326,11 +487,24 @@ function normalizeCreature(creature = {}) {
 }
 
 function normalizeByproduct(item = {}) {
-  const knownType = getByproductType(item.type || item.type_label || "부산물");
+  const knownType = getByproductType(item.type || item.type_label || "광물");
   return {
     id: item.id || createId(),
     name: String(item.name || "이름 없는 항목").slice(0, 80),
-    type: String(knownType.label || knownType.value || "부산물").slice(0, 60),
+    type: String(knownType.label || knownType.value || "광물").slice(0, 60),
+    zoneId: item.zoneId || item.zone_id || "",
+    description: String(item.description || "").slice(0, 700),
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
+}
+
+function normalizeCatalogItem(collection, item = {}) {
+  if (collection === "byproducts") return normalizeByproduct(item);
+  const config = getCatalogConfig(collection);
+  return {
+    id: item.id || createId(),
+    name: String(item.name || "이름 없는 항목").slice(0, 80),
+    type: String(item.type || item.type_label || config.defaultType || "항목").slice(0, 60),
     zoneId: item.zoneId || item.zone_id || "",
     description: String(item.description || "").slice(0, 700),
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
@@ -356,7 +530,7 @@ function normalizeAccessKey(item = {}) {
 function normalizeDashboardItem(collection, item = {}) {
   if (collection === "zones") return normalizeZone(item);
   if (collection === "creatures") return normalizeCreature(item);
-  if (collection === "byproducts") return normalizeByproduct(item);
+  if (CATALOG_COLLECTIONS.includes(collection)) return normalizeCatalogItem(collection, item);
   if (collection === "accessKeys") return normalizeAccessKey(item);
   return { ...item, id: item.id || createId(), name: String(item.name || "항목").slice(0, 80) };
 }
@@ -364,7 +538,7 @@ function normalizeDashboardItem(collection, item = {}) {
 function getDashboardItemTitle(collection, item = {}) {
   if (collection === "zones") return item.name || "이름 없는 구역";
   if (collection === "creatures") return item.name || "이름 없는 동식물";
-  if (collection === "byproducts") return item.name || "이름 없는 항목";
+  if (CATALOG_COLLECTIONS.includes(collection)) return item.name || "이름 없는 항목";
   if (collection === "accessKeys") return item.name || "출입자";
   return item.name || "항목";
 }
@@ -378,6 +552,15 @@ function normalizeDashboardTrashEntry(entry = {}) {
     item,
     deletedAt: entry.deletedAt || entry.deleted_at || new Date().toISOString(),
   };
+}
+
+function normalizeCatalogCollections(map = {}) {
+  return Object.fromEntries(
+    CATALOG_COLLECTIONS.map((collection) => [
+      collection,
+      Array.isArray(map[collection]) ? map[collection].map((item) => normalizeCatalogItem(collection, item)) : [],
+    ])
+  );
 }
 
 function cloneMap(map = DEFAULT_MAP) {
@@ -424,7 +607,7 @@ function cloneMap(map = DEFAULT_MAP) {
     markers,
     zones: Array.isArray(map.zones) ? map.zones.map(normalizeZone) : [],
     creatures: Array.isArray(map.creatures) ? map.creatures.map(normalizeCreature) : [],
-    byproducts: Array.isArray(map.byproducts) ? map.byproducts.map(normalizeByproduct) : [],
+    ...normalizeCatalogCollections(map),
     accessKeys: Array.isArray(map.accessKeys || map.access_keys)
       ? (map.accessKeys || map.access_keys).map(normalizeAccessKey)
       : [],
@@ -517,7 +700,14 @@ function getPageIntro() {
     map: ["정원 맵", "정원 맵을 미리 보고 구역 흐름을 관리합니다."],
     zones: ["구역 관리", "정원 내부 구역과 생태계 정보를 관리합니다."],
     creatures: ["동식물 관리", "정원 안의 식물, 동물, 영체를 기록합니다."],
-    byproducts: ["부산물/채집품", "구역에서 얻은 부산물과 채집품을 정리합니다."],
+    byproducts: ["광물/보석", "구역에서 얻은 광물과 보석을 정리합니다."],
+    relations: ["관계도", "인물, 생물, 구역 사이의 관계 흐름을 기록합니다."],
+    appearances: ["색/모양무늬", "색상과 형태, 무늬 정보를 정리합니다."],
+    abilities: ["능력", "능력의 유형과 효과를 정리합니다."],
+    titles: ["칭호", "칭호와 획득 조건을 관리합니다."],
+    creations: ["제작품/창조품", "제작품과 창조품의 용도와 특징을 기록합니다."],
+    items: ["물품", "보관 중인 물품과 사용처를 정리합니다."],
+    manaStones: ["마나석", "마나석의 속성과 사용처를 관리합니다."],
     settings: ["시스템 설정", "정원의 성장, 보호, 자동화 설정을 조정합니다."],
     access: ["출입 관리", "정원에 들어올 수 있는 대상과 권한 기간을 관리합니다."],
     trash: ["휴지통", "삭제한 대시보드 항목을 복원하거나 완전히 비웁니다."],
@@ -569,6 +759,8 @@ function getStatusRows() {
     ["자가 세척", settings.selfCleaning ? "활성" : "비활성"],
     ["출입 권한", `${state.map.accessKeys.length}개`],
     ["동식물", `${state.map.creatures.length}개`],
+    ["광물/보석", `${state.map.byproducts.length}개`],
+    ["관계도", `${state.map.relations.length}개`],
     ["휴지통", `${state.map.trash.length}개`],
   ];
 }
@@ -578,8 +770,11 @@ function renderDashboard() {
   const creatures = state.map.creatures;
   const plants = creatures.filter(isPlantCreature).length;
   const living = creatures.filter((item) => !isPlantCreature(item)).length;
-  const byproducts = state.map.byproducts;
   const accessKeys = state.map.accessKeys;
+  const catalogCards = CATALOG_COLLECTIONS.map((collection) => {
+    const config = getCatalogConfig(collection);
+    return renderStatCard(config.icon, config.title, String(state.map[collection]?.length || 0), config.statDescription, collection);
+  }).join("");
 
   return `
     ${getPageIntro()}
@@ -587,7 +782,8 @@ function renderDashboard() {
       ${renderStatCard("🗺️", "구역", String(zones.length), "정원에 등록된 구역", "zones")}
       ${renderStatCard("🌱", "식물", String(plants), "식물형 개체", "creatures")}
       ${renderStatCard("🦊", "생물", String(living), "동물과 영체", "creatures")}
-      ${renderStatCard("💎", "부산물", String(byproducts.length), "채집 가능한 항목", "byproducts")}
+      ${catalogCards}
+      ${renderStatCard("🔑", "출입", String(accessKeys.length), "출입 권한", "access")}
     </section>
 
     <section class="garden-dashboard-layout">
@@ -1058,7 +1254,7 @@ function renderZonesPage() {
                     <dl>
                       <div><dt>식물</dt><dd>${counts.plants}</dd></div>
                       <div><dt>생물</dt><dd>${counts.creatures}</dd></div>
-                      <div><dt>부산물</dt><dd>${counts.byproducts}</dd></div>
+                      <div><dt>광물/보석</dt><dd>${counts.byproducts}</dd></div>
                     </dl>
                     <div class="garden-card-actions">
                       <button class="garden-button" type="button" data-action="edit-zone" data-id="${escapeHtml(zone.id)}">수정</button>
@@ -1150,7 +1346,7 @@ function renderCreaturesPage() {
       creatures.length
         ? `<div class="garden-table">
             <div class="garden-table-head garden-creature-list-row">
-              <span>이름</span><span>유형</span><span>구역</span><span>설명</span><span>관리</span>
+              <span>이름</span><span>유형</span><span>구역</span><span>관리</span>
             </div>
             ${creatures
               .map((item) => {
@@ -1160,7 +1356,6 @@ function renderCreaturesPage() {
                     <strong>${type.icon} ${escapeHtml(item.name)}</strong>
                     <span>${escapeHtml(type.label)}</span>
                     <span>${escapeHtml(getZoneName(item.zoneId))}</span>
-                    <span>${escapeHtml(item.description || "-")}</span>
                     <span class="garden-inline-actions">
                       <button type="button" data-action="edit-creature" data-id="${escapeHtml(item.id)}">수정</button>
                       <button type="button" data-action="delete-creature" data-id="${escapeHtml(item.id)}">삭제</button>
@@ -1176,18 +1371,19 @@ function renderCreaturesPage() {
   `;
 }
 
-function renderByproductForm(item = null) {
-  const entry = item || normalizeByproduct({ name: "" });
+function renderCatalogForm(collection = "byproducts", item = null) {
+  const config = getCatalogConfig(collection);
+  const entry = item || normalizeCatalogItem(collection, { name: "", type: config.defaultType });
   return `
-    <form class="garden-form" data-form="byproduct">
+    <form class="garden-form" data-form="catalog" data-collection="${escapeHtml(collection)}">
       <input type="hidden" name="id" value="${item ? escapeHtml(item.id) : ""}">
       <label>
         <span>이름</span>
-        <input name="name" required maxlength="80" value="${item ? escapeHtml(entry.name) : ""}" placeholder="항목 이름">
+        <input name="name" required maxlength="80" value="${item ? escapeHtml(entry.name) : ""}" placeholder="${escapeHtml(config.namePlaceholder || "항목 이름")}">
       </label>
       <label>
-        <span>종류</span>
-        <input name="type" required maxlength="60" value="${escapeHtml(entry.type || "")}" placeholder="예: 부산물, 채집품, 재료">
+        <span>${escapeHtml(config.typeLabel || "종류")}</span>
+        <input name="type" required maxlength="60" value="${escapeHtml(entry.type || "")}" placeholder="${escapeHtml(config.typePlaceholder || "예: 종류")}">
       </label>
       <label>
         <span>구역</span>
@@ -1195,32 +1391,33 @@ function renderByproductForm(item = null) {
       </label>
       <label class="garden-form-wide">
         <span>설명</span>
-        <textarea name="description" rows="3" maxlength="700" placeholder="획득 조건이나 용도">${escapeHtml(entry.description)}</textarea>
+        <textarea name="description" rows="3" maxlength="700" placeholder="${escapeHtml(config.descriptionPlaceholder || "설명")}">${escapeHtml(entry.description)}</textarea>
       </label>
       <div class="garden-form-actions">
-        <button class="garden-button is-primary" type="submit">${item ? "항목 수정" : "항목 추가"}</button>
+        <button class="garden-button is-primary" type="submit">${item ? escapeHtml(config.editTitle) : escapeHtml(config.addLabel)}</button>
         <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
       </div>
     </form>
   `;
 }
 
-function renderByproductsPage() {
-  const editingItem =
-    state.editType === "byproduct" ? state.map.byproducts.find((item) => item.id === state.editId) || null : null;
+function renderCatalogPage(collection = "byproducts") {
+  const config = getCatalogConfig(collection);
+  const items = Array.isArray(state.map[collection]) ? state.map[collection] : [];
+  const editingItem = state.editType === collection ? items.find((item) => item.id === state.editId) || null : null;
   return `
     ${getPageIntro()}
     <section class="garden-page-actions">
-      <button class="garden-button is-primary" type="button" data-action="open-byproduct-form">항목 추가</button>
+      <button class="garden-button is-primary" type="button" data-action="open-catalog-form" data-collection="${escapeHtml(collection)}">${escapeHtml(config.addLabel)}</button>
     </section>
-    ${state.editType === "byproduct" ? renderCard(editingItem ? "항목 수정" : "새 항목", renderByproductForm(editingItem)) : ""}
+    ${state.editType === collection ? renderCard(editingItem ? escapeHtml(config.editTitle) : escapeHtml(config.newTitle), renderCatalogForm(collection, editingItem)) : ""}
     ${renderCard(
-      "부산물/채집품 목록",
-      state.map.byproducts.length
+      escapeHtml(config.listTitle),
+      items.length
         ? `<div class="garden-card-grid">
-            ${state.map.byproducts
+            ${items
               .map((item) => {
-                const type = getByproductType(item.type);
+                const type = getCatalogType(collection, item.type);
                 return `
                   <article class="garden-entity-card">
                     <div class="garden-entity-top">
@@ -1232,17 +1429,21 @@ function renderByproductsPage() {
                     </div>
                     <p>${escapeHtml(item.description || "설명이 없습니다.")}</p>
                     <div class="garden-card-actions">
-                      <button class="garden-button" type="button" data-action="edit-byproduct" data-id="${escapeHtml(item.id)}">수정</button>
-                      <button class="garden-button is-danger" type="button" data-action="delete-byproduct" data-id="${escapeHtml(item.id)}">삭제</button>
+                      <button class="garden-button" type="button" data-action="edit-catalog" data-collection="${escapeHtml(collection)}" data-id="${escapeHtml(item.id)}">수정</button>
+                      <button class="garden-button is-danger" type="button" data-action="delete-catalog" data-collection="${escapeHtml(collection)}" data-id="${escapeHtml(item.id)}">삭제</button>
                     </div>
                   </article>
                 `;
               })
               .join("")}
           </div>`
-        : `<p class="garden-empty">등록된 부산물이나 채집품이 없습니다.</p>`
+        : `<p class="garden-empty">${escapeHtml(config.empty)}</p>`
     )}
   `;
+}
+
+function renderByproductsPage() {
+  return renderCatalogPage("byproducts");
 }
 
 function renderToggleRow(key, title, description) {
@@ -1417,6 +1618,13 @@ function render() {
     zones: renderZonesPage,
     creatures: renderCreaturesPage,
     byproducts: renderByproductsPage,
+    relations: () => renderCatalogPage("relations"),
+    appearances: () => renderCatalogPage("appearances"),
+    abilities: () => renderCatalogPage("abilities"),
+    titles: () => renderCatalogPage("titles"),
+    creations: () => renderCatalogPage("creations"),
+    items: () => renderCatalogPage("items"),
+    manaStones: () => renderCatalogPage("manaStones"),
     settings: renderSettingsPage,
     access: renderAccessPage,
     trash: renderTrashPage,
@@ -1486,7 +1694,8 @@ function closeEditor() {
 
 async function deleteEntity(collection, id, message = "삭제할까요?") {
   if (!id || !window.confirm(message)) return;
-  const item = state.map[collection].find((entry) => entry.id === id);
+  const entries = Array.isArray(state.map[collection]) ? state.map[collection] : [];
+  const item = entries.find((entry) => entry.id === id);
   if (!item) return;
   state.map.trash = [
     normalizeDashboardTrashEntry({
@@ -1496,7 +1705,7 @@ async function deleteEntity(collection, id, message = "삭제할까요?") {
     }),
     ...(state.map.trash || []),
   ];
-  state.map[collection] = state.map[collection].filter((entry) => entry.id !== id);
+  state.map[collection] = entries.filter((entry) => entry.id !== id);
   if (collection === "zones") {
     if (state.selectedZoneId === id) state.selectedZoneId = "";
   }
@@ -1515,7 +1724,9 @@ function clearDeletedZoneReferences(zoneIds = []) {
   const deletedIds = new Set(zoneIds.filter(Boolean));
   if (deletedIds.size === 0) return;
   state.map.creatures = state.map.creatures.map((item) => (deletedIds.has(item.zoneId) ? { ...item, zoneId: "" } : item));
-  state.map.byproducts = state.map.byproducts.map((item) => (deletedIds.has(item.zoneId) ? { ...item, zoneId: "" } : item));
+  CATALOG_COLLECTIONS.forEach((collection) => {
+    state.map[collection] = (state.map[collection] || []).map((item) => (deletedIds.has(item.zoneId) ? { ...item, zoneId: "" } : item));
+  });
 }
 
 async function restoreTrashEntry(trashId) {
@@ -1523,10 +1734,11 @@ async function restoreTrashEntry(trashId) {
   if (!entry) return;
   const collection = entry.collection;
   const restored = normalizeDashboardItem(collection, entry.item);
-  if (state.map[collection].some((item) => item.id === restored.id)) {
+  const entries = Array.isArray(state.map[collection]) ? state.map[collection] : [];
+  if (entries.some((item) => item.id === restored.id)) {
     restored.id = createId();
   }
-  state.map[collection] = [...state.map[collection], restored];
+  state.map[collection] = [...entries, restored];
   state.map.trash = state.map.trash.filter((item) => item.id !== trashId);
   await saveSpaceContent();
   render();
@@ -1558,12 +1770,14 @@ async function handleAction(action, target) {
   }
   if (action === "open-zone-form") return openEditor("zone");
   if (action === "open-creature-form") return openEditor("creature");
-  if (action === "open-byproduct-form") return openEditor("byproduct");
+  if (action === "open-byproduct-form") return openEditor("byproducts");
+  if (action === "open-catalog-form") return openEditor(target.dataset.collection || "byproducts");
   if (action === "open-access-form") return openEditor("access");
   if (action === "cancel-edit") return closeEditor();
   if (action === "edit-zone") return openEditor("zone", target.dataset.id || "");
   if (action === "edit-creature") return openEditor("creature", target.dataset.id || "");
-  if (action === "edit-byproduct") return openEditor("byproduct", target.dataset.id || "");
+  if (action === "edit-byproduct") return openEditor("byproducts", target.dataset.id || "");
+  if (action === "edit-catalog") return openEditor(target.dataset.collection || "byproducts", target.dataset.id || "");
   if (action === "edit-access") return openEditor("access", target.dataset.id || "");
   if (action === "select-creature") {
     state.selectedCreatureId = target.dataset.id || "";
@@ -1572,7 +1786,12 @@ async function handleAction(action, target) {
   }
   if (action === "delete-zone") return deleteEntity("zones", target.dataset.id, "구역을 휴지통으로 이동할까요?");
   if (action === "delete-creature") return deleteEntity("creatures", target.dataset.id, "동식물을 휴지통으로 이동할까요?");
-  if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "항목을 휴지통으로 이동할까요?");
+  if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "광물/보석을 휴지통으로 이동할까요?");
+  if (action === "delete-catalog") {
+    const collection = target.dataset.collection || "byproducts";
+    const config = getCatalogConfig(collection);
+    return deleteEntity(collection, target.dataset.id, `${config.title}을 휴지통으로 이동할까요?`);
+  }
   if (action === "delete-access") return deleteEntity("accessKeys", target.dataset.id, "출입 권한을 휴지통으로 이동할까요?");
   if (action === "restore-dashboard-trash") return restoreTrashEntry(target.dataset.id || "");
   if (action === "delete-dashboard-trash") return permanentlyDeleteTrashEntry(target.dataset.id || "");
@@ -1654,19 +1873,25 @@ async function handleCreatureSubmit(form) {
 }
 
 async function handleByproductSubmit(form) {
+  form.dataset.collection = "byproducts";
+  await handleCatalogSubmit(form);
+}
+
+async function handleCatalogSubmit(form) {
   const formData = new FormData(form);
+  const collection = form.dataset.collection || "byproducts";
+  if (!CATALOG_COLLECTIONS.includes(collection)) return;
+  const entries = Array.isArray(state.map[collection]) ? state.map[collection] : [];
   const id = String(formData.get("id") || "");
-  const item = normalizeByproduct({
+  const item = normalizeCatalogItem(collection, {
     id: id || createId(),
     name: formData.get("name"),
     type: formData.get("type"),
     zoneId: formData.get("zoneId"),
     description: formData.get("description"),
-    createdAt: state.map.byproducts.find((entry) => entry.id === id)?.createdAt,
+    createdAt: entries.find((entry) => entry.id === id)?.createdAt,
   });
-  state.map.byproducts = id
-    ? state.map.byproducts.map((entry) => (entry.id === id ? item : entry))
-    : [...state.map.byproducts, item];
+  state.map[collection] = id ? entries.map((entry) => (entry.id === id ? item : entry)) : [...entries, item];
   await saveSpaceContent();
   closeEditor();
 }
@@ -1724,6 +1949,7 @@ document.addEventListener("submit", async (event) => {
     if (form.dataset.form === "zone") await handleZoneSubmit(form);
     if (form.dataset.form === "creature") await handleCreatureSubmit(form);
     if (form.dataset.form === "byproduct") await handleByproductSubmit(form);
+    if (form.dataset.form === "catalog") await handleCatalogSubmit(form);
     if (form.dataset.form === "access") await handleAccessSubmit(form);
   } catch (error) {
     window.alert(error.message || "저장하지 못했습니다.");
