@@ -7524,6 +7524,11 @@ body.is-book-mode :is(button, select):disabled {
   flex-basis: 6.8rem;
 }
 
+.ppt-group-draw {
+  width: 16rem;
+  flex-basis: 16rem;
+}
+
 .ppt-new-slide {
   display: grid !important;
   gap: 0.18rem;
@@ -7559,6 +7564,59 @@ body.is-book-mode :is(button, select):disabled {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+.ppt-draw-tools {
+  flex-wrap: wrap;
+  max-width: 14.8rem;
+}
+
+.ppt-draw-tools button[aria-pressed="true"] {
+  border-color: #7dc8f2 !important;
+  background: #e8f6ff !important;
+  color: #0b6f9f !important;
+}
+
+.ppt-background-fill-button {
+  min-width: 2.7rem !important;
+  padding-inline: 0.42rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+}
+
+.ppt-brush-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.8rem minmax(4.8rem, 6rem);
+  align-items: center;
+  gap: 0.28rem;
+  width: 100%;
+}
+
+.ppt-brush-row label {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+  color: #5b6471;
+  font-size: 0.66rem;
+}
+
+.ppt-brush-row input {
+  width: 100%;
+  accent-color: #0b78b6;
+}
+
+.ppt-brush-row b {
+  color: #36495b;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.ppt-brush-row select {
+  width: 100%;
+  min-width: 0 !important;
+  min-height: 1.55rem !important;
+  padding-inline: 0.28rem !important;
+  font-size: 0.68rem !important;
 }
 
 .ppt-font-row select:first-child {

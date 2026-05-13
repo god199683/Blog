@@ -48,6 +48,33 @@
             </button>
           </section>
 
+          <section class="paint-group ppt-group ppt-group-draw" aria-label="그리기">
+            <div class="ppt-icon-row ppt-draw-tools">
+              <button type="button" data-map-tool="brush" title="브러쉬" aria-label="브러쉬">🖌</button>
+              <button type="button" data-map-tool="pencil" title="연필" aria-label="연필">✎</button>
+              <button type="button" data-map-tool="erase" title="지우개" aria-label="지우개">⌫</button>
+              <button type="button" data-map-tool="fill" title="배경 칠하기 도구" aria-label="배경 칠하기 도구">▣</button>
+              <button class="ppt-background-fill-button" type="button" data-map-fill-background title="현재 색으로 배경 전체 칠하기">배경</button>
+              <label class="ppt-color-chip" title="그리기 색">
+                <input type="color" data-map-draw-color aria-label="그리기 색">
+                <span data-map-draw-color-preview style="background:#000000"></span>
+              </label>
+            </div>
+            <div class="ppt-brush-row">
+              <label>
+                <span>두께</span>
+                <input type="range" min="1" max="64" value="6" data-map-brush-size aria-label="브러쉬 두께">
+              </label>
+              <b data-map-brush-value>6</b>
+              <select data-map-brush-style aria-label="브러쉬 모양">
+                <option value="round">둥근 브러쉬</option>
+                <option value="square">네모 브러쉬</option>
+                <option value="soft">부드러운 브러쉬</option>
+              </select>
+            </div>
+            <strong>그리기</strong>
+          </section>
+
           <section class="paint-group ppt-group ppt-group-font" aria-label="글꼴">
             <div class="ppt-font-row">
               <select data-map-font-family aria-label="글꼴">

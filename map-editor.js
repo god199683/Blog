@@ -155,6 +155,8 @@ const els = {
   primaryPreview: document.querySelector("[data-map-primary-preview]"),
   secondaryPreview: document.querySelector("[data-map-secondary-preview]"),
   customColor: document.querySelector("[data-map-custom-color]"),
+  drawColor: document.querySelector("[data-map-draw-color]"),
+  drawColorPreview: document.querySelector("[data-map-draw-color-preview]"),
   imageInput: document.querySelector("[data-map-image-input]"),
   dashboardLink: document.querySelector("[data-map-dashboard-link]"),
   fontFamily: document.querySelector("[data-map-font-family]"),
@@ -549,6 +551,8 @@ function syncControls() {
   if (els.primaryPreview) els.primaryPreview.style.background = state.primaryColor;
   if (els.secondaryPreview) els.secondaryPreview.style.background = state.secondaryColor;
   if (els.customColor) els.customColor.value = state[state.activeColorRole === "primary" ? "primaryColor" : "secondaryColor"];
+  if (els.drawColor) els.drawColor.value = state.primaryColor === "transparent" ? "#000000" : state.primaryColor;
+  if (els.drawColorPreview) els.drawColorPreview.style.background = state.primaryColor === "transparent" ? "#000000" : state.primaryColor;
   if (els.dashboardLink) els.dashboardLink.href = `./space-dashboard.html?space=${encodeURIComponent(state.spaceId)}#map`;
   if (els.slideTitle) els.slideTitle.textContent = state.space?.title || els.title?.value || "공간";
   document.title = `${state.space?.title || "제목 없음"} - 프레젠테이션 편집`;
@@ -1590,6 +1594,8 @@ function syncControls() {
   if (els.primaryPreview) els.primaryPreview.style.background = state.primaryColor;
   if (els.secondaryPreview) els.secondaryPreview.style.background = state.secondaryColor;
   if (els.customColor) els.customColor.value = state[state.activeColorRole === "primary" ? "primaryColor" : "secondaryColor"];
+  if (els.drawColor) els.drawColor.value = state.primaryColor === "transparent" ? "#000000" : state.primaryColor;
+  if (els.drawColorPreview) els.drawColorPreview.style.background = state.primaryColor === "transparent" ? "#000000" : state.primaryColor;
   if (els.fontFamily) els.fontFamily.value = state.textFontFamily;
   if (els.fontSize) els.fontSize.value = String(state.textFontSize);
   if (els.textColor) els.textColor.value = state.primaryColor === "transparent" ? "#111827" : state.primaryColor;
@@ -1849,6 +1855,11 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-map-fill-background]")) {
+    fillCanvas();
+    return;
+  }
+
   if (event.target.closest("[data-map-new-slide]")) {
     newSlide();
     return;
@@ -2028,6 +2039,12 @@ document.addEventListener("input", (event) => {
     state[state.activeColorRole === "primary" ? "primaryColor" : "secondaryColor"] = els.customColor.value;
     if (state.activeColorRole === "primary") applyOutlineColor(els.customColor.value);
     else applyFillColor(els.customColor.value);
+    return;
+  }
+  if (event.target === els.drawColor) {
+    state.primaryColor = els.drawColor.value || "#000000";
+    state.activeColorRole = "primary";
+    renderAll();
     return;
   }
   if (event.target === els.textColor) {
