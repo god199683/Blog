@@ -26,7 +26,7 @@ const DEFAULT_MAP = {
   markers: [],
   zones: [],
   creatures: [],
-  relations: [],
+  relations: { nodes: [], edges: [] },
   appearances: [],
   abilities: [],
   titles: [],
@@ -55,21 +55,6 @@ const CATALOG_CONFIGS = {
     typeLabel: "종류",
     typePlaceholder: "예: 광물, 보석, 결정",
     descriptionPlaceholder: "산출 위치나 특징",
-  },
-  relations: {
-    title: "관계도",
-    icon: "🔗",
-    statDescription: "관계 흐름 기록",
-    addLabel: "관계 추가",
-    editTitle: "관계 수정",
-    newTitle: "새 관계",
-    listTitle: "관계 목록",
-    empty: "등록된 관계가 없습니다.",
-    defaultType: "관계",
-    namePlaceholder: "관계 이름",
-    typeLabel: "관계 유형",
-    typePlaceholder: "예: 동맹, 가족, 경쟁",
-    descriptionPlaceholder: "연결 대상과 흐름",
   },
   appearances: {
     title: "색/모양무늬",
@@ -164,7 +149,7 @@ const CATALOG_CONFIGS = {
 };
 
 const CATALOG_COLLECTIONS = Object.keys(CATALOG_CONFIGS);
-const PAGES = new Set(["dashboard", "map", "zones", "creatures", ...CATALOG_COLLECTIONS, "settings", "access", "trash"]);
+const PAGES = new Set(["dashboard", "map", "zones", "creatures", "relations", ...CATALOG_COLLECTIONS, "settings", "access", "trash"]);
 
 const ZONE_TYPES = [
   { value: "default", label: "기본", icon: "🌳" },
@@ -245,8 +230,9 @@ const ACCESS_ROLE_YEAR_MULTIPLIER = {
 const DASHBOARD_COLLECTION_LABELS = {
   zones: "구역",
   creatures: "동식물",
+  relationNodes: "관계도 노드",
+  relationEdges: "관계도 엣지",
   byproducts: "광물/보석",
-  relations: "관계도",
   appearances: "색/모양무늬",
   abilities: "능력",
   titles: "칭호",
@@ -511,6 +497,47 @@ function normalizeCatalogItem(collection, item = {}) {
   };
 }
 
+function normalizeRelationNode(item = {}) {
+  return {
+    id: item.id || createId(),
+    name: String(item.name || item.label || "이름 없는 노드").slice(0, 80),
+    type: String(item.type || "관계 대상").slice(0, 60),
+    color: /^#[0-9a-f]{6}$/i.test(item.color || "") ? item.color : "#4aa8d8",
+    description: String(item.description || "").slice(0, 700),
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
+}
+
+function normalizeRelationEdge(item = {}) {
+  return {
+    id: item.id || createId(),
+    sourceId: item.sourceId || item.source_id || "",
+    targetId: item.targetId || item.target_id || "",
+    label: String(item.label || item.name || "관계").slice(0, 80),
+    description: String(item.description || "").slice(0, 700),
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
+}
+
+function normalizeRelations(relations = {}) {
+  if (Array.isArray(relations)) {
+    return {
+      nodes: relations.map((item) => normalizeRelationNode(item)),
+      edges: [],
+    };
+  }
+
+  const nodes = Array.isArray(relations?.nodes) ? relations.nodes.map(normalizeRelationNode) : [];
+  const validNodeIds = new Set(nodes.map((node) => node.id));
+  const edges = Array.isArray(relations?.edges)
+    ? relations.edges
+        .map(normalizeRelationEdge)
+        .filter((edge) => !edge.sourceId || !edge.targetId || (validNodeIds.has(edge.sourceId) && validNodeIds.has(edge.targetId)))
+    : [];
+
+  return { nodes, edges };
+}
+
 function normalizeAccessKey(item = {}) {
   const role = normalizeAccessRole(item.role);
   const createdAt = item.createdAt || item.created_at || new Date().toISOString();
@@ -530,6 +557,8 @@ function normalizeAccessKey(item = {}) {
 function normalizeDashboardItem(collection, item = {}) {
   if (collection === "zones") return normalizeZone(item);
   if (collection === "creatures") return normalizeCreature(item);
+  if (collection === "relationNodes") return normalizeRelationNode(item);
+  if (collection === "relationEdges") return normalizeRelationEdge(item);
   if (CATALOG_COLLECTIONS.includes(collection)) return normalizeCatalogItem(collection, item);
   if (collection === "accessKeys") return normalizeAccessKey(item);
   return { ...item, id: item.id || createId(), name: String(item.name || "항목").slice(0, 80) };
@@ -538,6 +567,8 @@ function normalizeDashboardItem(collection, item = {}) {
 function getDashboardItemTitle(collection, item = {}) {
   if (collection === "zones") return item.name || "이름 없는 구역";
   if (collection === "creatures") return item.name || "이름 없는 동식물";
+  if (collection === "relationNodes") return item.name || "이름 없는 노드";
+  if (collection === "relationEdges") return item.label || "관계";
   if (CATALOG_COLLECTIONS.includes(collection)) return item.name || "이름 없는 항목";
   if (collection === "accessKeys") return item.name || "출입자";
   return item.name || "항목";
@@ -607,6 +638,7 @@ function cloneMap(map = DEFAULT_MAP) {
     markers,
     zones: Array.isArray(map.zones) ? map.zones.map(normalizeZone) : [],
     creatures: Array.isArray(map.creatures) ? map.creatures.map(normalizeCreature) : [],
+    relations: normalizeRelations(map.relations),
     ...normalizeCatalogCollections(map),
     accessKeys: Array.isArray(map.accessKeys || map.access_keys)
       ? (map.accessKeys || map.access_keys).map(normalizeAccessKey)
@@ -760,7 +792,7 @@ function getStatusRows() {
     ["출입 권한", `${state.map.accessKeys.length}개`],
     ["동식물", `${state.map.creatures.length}개`],
     ["광물/보석", `${state.map.byproducts.length}개`],
-    ["관계도", `${state.map.relations.length}개`],
+    ["관계도", `${state.map.relations.nodes.length}개 노드 / ${state.map.relations.edges.length}개 엣지`],
     ["휴지통", `${state.map.trash.length}개`],
   ];
 }
@@ -782,6 +814,7 @@ function renderDashboard() {
       ${renderStatCard("🗺️", "구역", String(zones.length), "정원에 등록된 구역", "zones")}
       ${renderStatCard("🌱", "식물", String(plants), "식물형 개체", "creatures")}
       ${renderStatCard("🦊", "생물", String(living), "동물과 영체", "creatures")}
+      ${renderStatCard("🔗", "관계도", `${state.map.relations.nodes.length}/${state.map.relations.edges.length}`, "노드와 엣지", "relations")}
       ${catalogCards}
       ${renderStatCard("🔑", "출입", String(accessKeys.length), "출입 권한", "access")}
     </section>
@@ -1371,6 +1404,181 @@ function renderCreaturesPage() {
   `;
 }
 
+function getRelationNodeName(nodeId = "") {
+  return state.map.relations.nodes.find((node) => node.id === nodeId)?.name || "알 수 없는 노드";
+}
+
+function renderRelationNodeOptions(selectedValue = "") {
+  return state.map.relations.nodes
+    .map((node) => `<option value="${escapeHtml(node.id)}" ${node.id === selectedValue ? "selected" : ""}>${escapeHtml(node.name)}</option>`)
+    .join("");
+}
+
+function renderRelationNodeForm(node = null) {
+  const item = node || normalizeRelationNode({ name: "" });
+  return `
+    <form class="garden-form" data-form="relation-node">
+      <input type="hidden" name="id" value="${node ? escapeHtml(node.id) : ""}">
+      <label>
+        <span>노드 이름</span>
+        <input name="name" required maxlength="80" value="${node ? escapeHtml(item.name) : ""}" placeholder="인물, 생물, 구역 이름">
+      </label>
+      <label>
+        <span>노드 유형</span>
+        <input name="type" required maxlength="60" value="${escapeHtml(item.type || "")}" placeholder="예: 인물, 생물, 구역">
+      </label>
+      <label>
+        <span>색상</span>
+        <input name="color" type="color" value="${escapeHtml(item.color)}">
+      </label>
+      <label class="garden-form-wide">
+        <span>설명</span>
+        <textarea name="description" rows="3" maxlength="700" placeholder="노드 설명">${escapeHtml(item.description)}</textarea>
+      </label>
+      <div class="garden-form-actions">
+        <button class="garden-button is-primary" type="submit">${node ? "노드 수정" : "노드 추가"}</button>
+        <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderRelationEdgeForm(edge = null) {
+  const item = edge || normalizeRelationEdge({});
+  return `
+    <form class="garden-form" data-form="relation-edge">
+      <input type="hidden" name="id" value="${edge ? escapeHtml(edge.id) : ""}">
+      <label>
+        <span>시작 노드</span>
+        <select name="sourceId" required>${renderRelationNodeOptions(item.sourceId)}</select>
+      </label>
+      <label>
+        <span>대상 노드</span>
+        <select name="targetId" required>${renderRelationNodeOptions(item.targetId)}</select>
+      </label>
+      <label class="garden-form-wide">
+        <span>관계 이름</span>
+        <input name="label" required maxlength="80" value="${edge ? escapeHtml(item.label) : ""}" placeholder="예: 가족, 동맹, 경쟁">
+      </label>
+      <label class="garden-form-wide">
+        <span>설명</span>
+        <textarea name="description" rows="3" maxlength="700" placeholder="관계 설명">${escapeHtml(item.description)}</textarea>
+      </label>
+      <div class="garden-form-actions">
+        <button class="garden-button is-primary" type="submit">${edge ? "엣지 수정" : "엣지 추가"}</button>
+        <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderRelationsPage() {
+  const relations = state.map.relations;
+  const editingNode =
+    state.editType === "relation-node" ? relations.nodes.find((node) => node.id === state.editId) || null : null;
+  const editingEdge =
+    state.editType === "relation-edge" ? relations.edges.find((edge) => edge.id === state.editId) || null : null;
+
+  return `
+    ${getPageIntro()}
+    <section class="garden-page-actions">
+      <button class="garden-button is-primary" type="button" data-action="open-relation-node-form">노드 추가</button>
+      <button class="garden-button" type="button" data-action="open-relation-edge-form" ${relations.nodes.length < 2 ? "disabled" : ""}>엣지 추가</button>
+    </section>
+    ${state.editType === "relation-node" ? renderCard(editingNode ? "노드 수정" : "새 노드", renderRelationNodeForm(editingNode)) : ""}
+    ${state.editType === "relation-edge" ? renderCard(editingEdge ? "엣지 수정" : "새 엣지", renderRelationEdgeForm(editingEdge)) : ""}
+    ${renderCard(
+      "관계도 보기",
+      relations.nodes.length
+        ? `<div class="garden-relation-board">
+            <div class="garden-relation-nodes">
+              ${relations.nodes
+                .map(
+                  (node) => `
+                    <span class="garden-relation-node" style="--node-color:${escapeHtml(node.color)}">
+                      <b>${escapeHtml(node.name.slice(0, 1))}</b>
+                      <strong>${escapeHtml(node.name)}</strong>
+                      <small>${escapeHtml(node.type)}</small>
+                    </span>
+                  `
+                )
+                .join("")}
+            </div>
+            <div class="garden-relation-edges">
+              ${
+                relations.edges.length
+                  ? relations.edges
+                      .map(
+                        (edge) => `
+                          <span>
+                            <strong>${escapeHtml(getRelationNodeName(edge.sourceId))}</strong>
+                            <i>${escapeHtml(edge.label)}</i>
+                            <strong>${escapeHtml(getRelationNodeName(edge.targetId))}</strong>
+                          </span>
+                        `
+                      )
+                      .join("")
+                  : `<p class="garden-empty">엣지를 추가하면 노드 사이의 관계가 표시됩니다.</p>`
+              }
+            </div>
+          </div>`
+        : `<p class="garden-empty">노드를 추가하면 관계도를 만들 수 있습니다.</p>`
+    )}
+    ${renderCard(
+      "노드 목록",
+      relations.nodes.length
+        ? `<div class="garden-card-grid">
+            ${relations.nodes
+              .map(
+                (node) => `
+                  <article class="garden-entity-card">
+                    <div class="garden-entity-top">
+                      <i style="--zone-color:${escapeHtml(node.color)}">${escapeHtml(node.name.slice(0, 1))}</i>
+                      <span>
+                        <strong>${escapeHtml(node.name)}</strong>
+                        <small>${escapeHtml(node.type)}</small>
+                      </span>
+                    </div>
+                    <p>${escapeHtml(node.description || "설명이 없습니다.")}</p>
+                    <div class="garden-card-actions">
+                      <button class="garden-button" type="button" data-action="edit-relation-node" data-id="${escapeHtml(node.id)}">수정</button>
+                      <button class="garden-button is-danger" type="button" data-action="delete-relation-node" data-id="${escapeHtml(node.id)}">삭제</button>
+                    </div>
+                  </article>
+                `
+              )
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">등록된 노드가 없습니다.</p>`
+    )}
+    ${renderCard(
+      "엣지 목록",
+      relations.edges.length
+        ? `<div class="garden-table">
+            <div class="garden-table-head garden-relation-edge-row">
+              <span>관계</span><span>시작</span><span>대상</span><span>관리</span>
+            </div>
+            ${relations.edges
+              .map(
+                (edge) => `
+                  <div class="garden-table-row garden-relation-edge-row">
+                    <strong>${escapeHtml(edge.label)}</strong>
+                    <span>${escapeHtml(getRelationNodeName(edge.sourceId))}</span>
+                    <span>${escapeHtml(getRelationNodeName(edge.targetId))}</span>
+                    <span class="garden-inline-actions">
+                      <button type="button" data-action="edit-relation-edge" data-id="${escapeHtml(edge.id)}">수정</button>
+                      <button type="button" data-action="delete-relation-edge" data-id="${escapeHtml(edge.id)}">삭제</button>
+                    </span>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>`
+        : `<p class="garden-empty">등록된 엣지가 없습니다.</p>`
+    )}
+  `;
+}
+
 function renderCatalogForm(collection = "byproducts", item = null) {
   const config = getCatalogConfig(collection);
   const entry = item || normalizeCatalogItem(collection, { name: "", type: config.defaultType });
@@ -1618,7 +1826,7 @@ function render() {
     zones: renderZonesPage,
     creatures: renderCreaturesPage,
     byproducts: renderByproductsPage,
-    relations: () => renderCatalogPage("relations"),
+    relations: renderRelationsPage,
     appearances: () => renderCatalogPage("appearances"),
     abilities: () => renderCatalogPage("abilities"),
     titles: () => renderCatalogPage("titles"),
@@ -1720,6 +1928,51 @@ async function deleteEntity(collection, id, message = "삭제할까요?") {
   render();
 }
 
+async function deleteRelationEntity(kind, id, message = "삭제할까요?") {
+  if (!id || !window.confirm(message)) return;
+  const relations = state.map.relations;
+  if (kind === "node") {
+    const node = relations.nodes.find((entry) => entry.id === id);
+    if (!node) return;
+    const connectedEdges = relations.edges.filter((edge) => edge.sourceId === id || edge.targetId === id);
+    state.map.trash = [
+      normalizeDashboardTrashEntry({
+        collection: "relationNodes",
+        item: structuredClone(node),
+        deletedAt: new Date().toISOString(),
+      }),
+      ...connectedEdges.map((edge) =>
+        normalizeDashboardTrashEntry({
+          collection: "relationEdges",
+          item: structuredClone(edge),
+          deletedAt: new Date().toISOString(),
+        })
+      ),
+      ...(state.map.trash || []),
+    ];
+    relations.nodes = relations.nodes.filter((entry) => entry.id !== id);
+    relations.edges = relations.edges.filter((edge) => edge.sourceId !== id && edge.targetId !== id);
+  } else {
+    const edge = relations.edges.find((entry) => entry.id === id);
+    if (!edge) return;
+    state.map.trash = [
+      normalizeDashboardTrashEntry({
+        collection: "relationEdges",
+        item: structuredClone(edge),
+        deletedAt: new Date().toISOString(),
+      }),
+      ...(state.map.trash || []),
+    ];
+    relations.edges = relations.edges.filter((entry) => entry.id !== id);
+  }
+  if (state.editType && state.editId === id) {
+    state.editType = "";
+    state.editId = "";
+  }
+  await saveSpaceContent();
+  render();
+}
+
 function clearDeletedZoneReferences(zoneIds = []) {
   const deletedIds = new Set(zoneIds.filter(Boolean));
   if (deletedIds.size === 0) return;
@@ -1734,6 +1987,22 @@ async function restoreTrashEntry(trashId) {
   if (!entry) return;
   const collection = entry.collection;
   const restored = normalizeDashboardItem(collection, entry.item);
+  if (collection === "relationNodes") {
+    if (state.map.relations.nodes.some((item) => item.id === restored.id)) restored.id = createId();
+    state.map.relations.nodes = [...state.map.relations.nodes, restored];
+    state.map.trash = state.map.trash.filter((item) => item.id !== trashId);
+    await saveSpaceContent();
+    render();
+    return;
+  }
+  if (collection === "relationEdges") {
+    if (state.map.relations.edges.some((item) => item.id === restored.id)) restored.id = createId();
+    state.map.relations.edges = [...state.map.relations.edges, restored];
+    state.map.trash = state.map.trash.filter((item) => item.id !== trashId);
+    await saveSpaceContent();
+    render();
+    return;
+  }
   const entries = Array.isArray(state.map[collection]) ? state.map[collection] : [];
   if (entries.some((item) => item.id === restored.id)) {
     restored.id = createId();
@@ -1770,12 +2039,16 @@ async function handleAction(action, target) {
   }
   if (action === "open-zone-form") return openEditor("zone");
   if (action === "open-creature-form") return openEditor("creature");
+  if (action === "open-relation-node-form") return openEditor("relation-node");
+  if (action === "open-relation-edge-form") return openEditor("relation-edge");
   if (action === "open-byproduct-form") return openEditor("byproducts");
   if (action === "open-catalog-form") return openEditor(target.dataset.collection || "byproducts");
   if (action === "open-access-form") return openEditor("access");
   if (action === "cancel-edit") return closeEditor();
   if (action === "edit-zone") return openEditor("zone", target.dataset.id || "");
   if (action === "edit-creature") return openEditor("creature", target.dataset.id || "");
+  if (action === "edit-relation-node") return openEditor("relation-node", target.dataset.id || "");
+  if (action === "edit-relation-edge") return openEditor("relation-edge", target.dataset.id || "");
   if (action === "edit-byproduct") return openEditor("byproducts", target.dataset.id || "");
   if (action === "edit-catalog") return openEditor(target.dataset.collection || "byproducts", target.dataset.id || "");
   if (action === "edit-access") return openEditor("access", target.dataset.id || "");
@@ -1786,6 +2059,8 @@ async function handleAction(action, target) {
   }
   if (action === "delete-zone") return deleteEntity("zones", target.dataset.id, "구역을 휴지통으로 이동할까요?");
   if (action === "delete-creature") return deleteEntity("creatures", target.dataset.id, "동식물을 휴지통으로 이동할까요?");
+  if (action === "delete-relation-node") return deleteRelationEntity("node", target.dataset.id, "노드를 휴지통으로 이동할까요?");
+  if (action === "delete-relation-edge") return deleteRelationEntity("edge", target.dataset.id, "엣지를 휴지통으로 이동할까요?");
   if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "광물/보석을 휴지통으로 이동할까요?");
   if (action === "delete-catalog") {
     const collection = target.dataset.collection || "byproducts";
@@ -1872,6 +2147,46 @@ async function handleCreatureSubmit(form) {
   closeEditor();
 }
 
+async function handleRelationNodeSubmit(form) {
+  const formData = new FormData(form);
+  const id = String(formData.get("id") || "");
+  const item = normalizeRelationNode({
+    id: id || createId(),
+    name: formData.get("name"),
+    type: formData.get("type"),
+    color: formData.get("color"),
+    description: formData.get("description"),
+    createdAt: state.map.relations.nodes.find((node) => node.id === id)?.createdAt,
+  });
+  state.map.relations.nodes = id
+    ? state.map.relations.nodes.map((node) => (node.id === id ? item : node))
+    : [...state.map.relations.nodes, item];
+  await saveSpaceContent();
+  closeEditor();
+}
+
+async function handleRelationEdgeSubmit(form) {
+  const formData = new FormData(form);
+  const id = String(formData.get("id") || "");
+  const sourceId = String(formData.get("sourceId") || "");
+  const targetId = String(formData.get("targetId") || "");
+  if (!sourceId || !targetId) throw new Error("시작 노드와 대상 노드를 선택해주세요.");
+  if (sourceId === targetId) throw new Error("서로 다른 노드를 선택해주세요.");
+  const item = normalizeRelationEdge({
+    id: id || createId(),
+    sourceId,
+    targetId,
+    label: formData.get("label"),
+    description: formData.get("description"),
+    createdAt: state.map.relations.edges.find((edge) => edge.id === id)?.createdAt,
+  });
+  state.map.relations.edges = id
+    ? state.map.relations.edges.map((edge) => (edge.id === id ? item : edge))
+    : [...state.map.relations.edges, item];
+  await saveSpaceContent();
+  closeEditor();
+}
+
 async function handleByproductSubmit(form) {
   form.dataset.collection = "byproducts";
   await handleCatalogSubmit(form);
@@ -1948,6 +2263,8 @@ document.addEventListener("submit", async (event) => {
   try {
     if (form.dataset.form === "zone") await handleZoneSubmit(form);
     if (form.dataset.form === "creature") await handleCreatureSubmit(form);
+    if (form.dataset.form === "relation-node") await handleRelationNodeSubmit(form);
+    if (form.dataset.form === "relation-edge") await handleRelationEdgeSubmit(form);
     if (form.dataset.form === "byproduct") await handleByproductSubmit(form);
     if (form.dataset.form === "catalog") await handleCatalogSubmit(form);
     if (form.dataset.form === "access") await handleAccessSubmit(form);

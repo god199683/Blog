@@ -20,7 +20,7 @@ const DEFAULT_MAP = {
   activeSlideIndex: 0,
   zones: [],
   creatures: [],
-  relations: [],
+  relations: { nodes: [], edges: [] },
   appearances: [],
   abilities: [],
   titles: [],

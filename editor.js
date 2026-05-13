@@ -9,6 +9,7 @@ const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 const EDITOR_HISTORY_LIMIT = 120;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
+const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
 const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th";
 const EDITOR_MIDDLE_ELLIPSIS = "⋯";
 const EDITOR_ELLIPSIS_BACKSPACE_TEXT = "....";
@@ -18,6 +19,7 @@ const state = {
   posts: [],
   tree: [],
   activeNodeId: EDITOR_PARAMS.get("node") || ALL_FILTER,
+  target: EDITOR_TARGET,
   editPostId: EDITOR_PARAMS.get("post") || "",
   forceNewPost: EDITOR_PARAMS.get("mode") === "new",
   editingPost: null,
@@ -312,12 +314,42 @@ async function updatePost(postId, payload) {
   return Array.isArray(data) ? data[0] : data;
 }
 
+async function insertMaterial(payload) {
+  const session = getSession();
+  const token = session?.access_token || SUPABASE_ANON_KEY;
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = data?.message || data?.hint || data?.details || "자료를 저장하지 못했습니다.";
+    throw new Error(message);
+  }
+
+  return Array.isArray(data) ? data[0] : data;
+}
+
 function categoryId(category) {
   return `category-${encodeURIComponent(String(category).toLowerCase())}`;
 }
 
 function treeStorageKey() {
-  return `${TREE_STORAGE_PREFIX}${state.id || "guest"}`;
+  return `${TREE_STORAGE_PREFIX}${state.target}.${state.id || "guest"}`;
+}
+
+function isMaterialEditor() {
+  return state.target === "materials";
 }
 
 function safeParseJson(raw, fallback) {
@@ -377,6 +409,32 @@ async function fetchTreeDataFromSupabase() {
   const session = getSession();
   if (!session?.access_token || !session.user?.id) return null;
 
+  if (isMaterialEditor()) {
+    const endpoint = new URL(`${SUPABASE_URL}/rest/v1/material_trees`);
+    endpoint.searchParams.set("select", "tree,tree_collapsed_ids");
+    endpoint.searchParams.set("user_id", `eq.${session.user.id}`);
+    endpoint.searchParams.set("limit", "1");
+
+    const response = await fetch(endpoint, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const rows = await response.json().catch(() => []);
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row) return null;
+
+    return normalizeTreeData({
+      nodes: row.tree,
+      hiddenCategoryIds: [],
+      treeCollapsedIds: row.tree_collapsed_ids,
+    });
+  }
+
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_trees`);
   endpoint.searchParams.set("select", "tree,hidden_category_ids,tree_collapsed_ids");
   endpoint.searchParams.set("user_id", `eq.${session.user.id}`);
@@ -405,6 +463,7 @@ async function fetchTreeDataFromSupabase() {
 async function saveTreeDataToSupabase(data) {
   const session = getSession();
   if (!session?.access_token || !session.user?.id || !state.id) return;
+  if (isMaterialEditor()) return;
 
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_trees`);
   endpoint.searchParams.set("on_conflict", "user_id");
@@ -487,6 +546,19 @@ function buildTree() {
   state.hiddenCategoryIds = new Set(stored.hiddenCategoryIds);
 
   const roots = [createAllNode(storedById.get(ALL_FILTER))];
+
+  if (isMaterialEditor()) {
+    stored.nodes
+      .map(cloneNode)
+      .filter((node) => node.id !== ALL_FILTER && !state.hiddenCategoryIds.has(node.id))
+      .forEach((node) => roots.push(node));
+    state.tree = roots;
+    if (!findNode(state.tree, state.activeNodeId)) {
+      state.activeNodeId = ALL_FILTER;
+    }
+    return;
+  }
+
   const categoryIds = new Set();
 
   getCategories().forEach((category) => {
@@ -581,7 +653,7 @@ function getEditorDefaults() {
 }
 
 function editorDraftKey() {
-  return `${EDITOR_DRAFT_PREFIX}${state.id || "guest"}`;
+  return `${EDITOR_DRAFT_PREFIX}${state.target}.${state.id || "guest"}`;
 }
 
 function editorFontKey() {
@@ -783,7 +855,7 @@ function renderLocationOptions(selectedKey = "all") {
     ? selectedKey
     : "all";
   if (els.locationConfirm) {
-    els.locationConfirm.textContent = state.editPostId ? "선택 후 수정" : "선택 후 게시";
+    els.locationConfirm.textContent = isMaterialEditor() ? "선택 후 저장" : state.editPostId ? "선택 후 수정" : "선택 후 게시";
   }
 
   const activeCategoryKey = getActiveLocationCategoryKey();
@@ -1004,7 +1076,7 @@ function setEditorMessage(message = "", type = "info") {
 function setEditorBusy(isBusy) {
   state.editorSaving = isBusy;
   els.submit.disabled = isBusy;
-  els.submit.textContent = isBusy ? "저장 중" : state.editPostId ? "수정" : "게시";
+  els.submit.textContent = isBusy ? "저장 중" : isMaterialEditor() ? "저장" : state.editPostId ? "수정" : "게시";
 }
 
 function setEditorSaveState(message) {
@@ -1977,9 +2049,66 @@ async function publishEditorPost() {
   }
 }
 
+async function publishEditorMaterial() {
+  const session = getSession();
+  const values = collectEditorValues();
+
+  if (!session?.access_token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+  if (!values.title) {
+    throw new Error("제목을 입력해주세요.");
+  }
+  if (!values.plainText) {
+    throw new Error("본문을 입력해주세요.");
+  }
+
+  const payload = {
+    title: values.title,
+    content: values.body,
+    material_type: "note",
+    category: values.category,
+    login_id: state.id,
+    user_id: session.user?.id,
+    folder_id: values.folder?.id || null,
+    folder_name: values.folder?.label || null,
+    folder_path: values.folder?.path || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined || payload[key] === "") {
+      delete payload[key];
+    }
+  });
+
+  try {
+    return await insertMaterial(payload);
+  } catch (error) {
+    if (!/column|schema cache|Could not find/i.test(error.message)) {
+      throw error;
+    }
+
+    const fallbackPayload = {
+      title: payload.title,
+      content: payload.content,
+      material_type: payload.material_type,
+      category: payload.category,
+      login_id: payload.login_id,
+      user_id: payload.user_id,
+    };
+    Object.keys(fallbackPayload).forEach((key) => {
+      if (fallbackPayload[key] === undefined || fallbackPayload[key] === "") {
+        delete fallbackPayload[key];
+      }
+    });
+    return insertMaterial(fallbackPayload);
+  }
+}
+
 function returnToBlog() {
   if (state.editorSaving) return;
-  window.location.href = "./my-blog.html";
+  window.location.href = isMaterialEditor() ? "./materials.html" : "./my-blog.html";
 }
 
 async function handleEditorSubmit(event) {
@@ -2002,12 +2131,16 @@ async function handleEditorSubmit(event) {
     applyEditorLocation(location);
 
     setEditorBusy(true);
-    setEditorMessage(state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
-    await publishEditorPost();
+    setEditorMessage(isMaterialEditor() ? "자료를 저장 중입니다..." : state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
+    if (isMaterialEditor()) {
+      await publishEditorMaterial();
+    } else {
+      await publishEditorPost();
+    }
     clearEditorDraft();
-    setEditorMessage(state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
+    setEditorMessage(isMaterialEditor() ? "자료가 저장되었습니다." : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
     window.setTimeout(() => {
-      window.location.href = "./my-blog.html";
+      window.location.href = isMaterialEditor() ? "./materials.html" : "./my-blog.html";
     }, 450);
   } catch (error) {
     setEditorMessage(error.message, "error");
@@ -2028,7 +2161,7 @@ async function initEditor() {
   renderEditorBrand(state.id);
 
   let exactEditingPost = null;
-  if (state.editPostId) {
+  if (!isMaterialEditor() && state.editPostId) {
     try {
       const row = await fetchPostById(state.editPostId);
       if (row && belongsToAccount(row, state.id)) {
@@ -2039,21 +2172,25 @@ async function initEditor() {
     }
   }
 
-  try {
-    const rows = await fetchPosts();
-    state.posts = rows
-      .filter((post) => belongsToAccount(post, state.id))
-      .map(normalizePost)
-      .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
-  } catch {
+  if (isMaterialEditor()) {
     state.posts = [];
+  } else {
+    try {
+      const rows = await fetchPosts();
+      state.posts = rows
+        .filter((post) => belongsToAccount(post, state.id))
+        .map(normalizePost)
+        .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+    } catch {
+      state.posts = [];
+    }
   }
 
   state.storedTreeData = await loadTreeData();
   buildTree();
 
   const defaults = getEditorDefaults();
-  state.editingPost = state.editPostId
+  state.editingPost = !isMaterialEditor() && state.editPostId
     ? exactEditingPost || state.posts.find((post) => String(post.id) === String(state.editPostId)) || null
     : null;
   if (state.editingPost && !state.posts.some((post) => String(post.id) === String(state.editingPost.id))) {
@@ -2075,7 +2212,7 @@ async function initEditor() {
   syncActiveLineHeightFromContent();
   resetEditorHistory();
   els.published.checked = source?.published ?? true;
-  els.submit.textContent = state.editingPost ? "수정" : "게시";
+  els.submit.textContent = isMaterialEditor() ? "저장" : state.editingPost ? "수정" : "게시";
   setEditorSaveState(state.editingPost ? "수정 준비" : draft ? "임시 저장 불러옴" : "임시 저장 준비");
   renderEditorFontOptions();
   renderColorMenus();
