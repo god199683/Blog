@@ -640,25 +640,32 @@ function buildTree() {
   }
 
   const categoryIds = new Set();
+  const categoryValues = new Set();
 
   getCategories().forEach((category) => {
     const id = categoryId(category);
     categoryIds.add(id);
+    categoryValues.add(String(category || "").trim().toLowerCase());
     if (state.hiddenCategoryIds.has(id)) return;
     roots.push(createCategoryNode(category, storedById.get(id)));
   });
 
-  stored.nodes
-    .map(cloneNode)
-    .filter(
-      (node) =>
-        node.type === "category" &&
-        node.id !== ALL_FILTER &&
-        !categoryIds.has(node.id) &&
-        !state.hiddenCategoryIds.has(node.id) &&
-        (node.filterCategory || node.label) !== DEFAULT_CATEGORY
-    )
-    .forEach((node) => roots.push(node));
+  stored.nodes.map(cloneNode).forEach((node) => {
+    const categoryValue = String(node.filterCategory || node.label || "").trim();
+    const categoryKey = categoryValue.toLowerCase();
+    if (
+      node.type !== "category" ||
+      node.id === ALL_FILTER ||
+      categoryIds.has(node.id) ||
+      state.hiddenCategoryIds.has(node.id) ||
+      categoryValue === DEFAULT_CATEGORY ||
+      categoryValues.has(categoryKey)
+    ) {
+      return;
+    }
+    categoryValues.add(categoryKey);
+    roots.push(node);
+  });
 
   state.tree = roots;
 
@@ -803,12 +810,17 @@ function removeEditorFont() {
 }
 
 function getCategoryOptions() {
+  const seen = new Set();
   return state.tree
     .filter((node) => node.type === "category")
-    .map((node) => ({
-      label: node.label,
-      value: node.filterCategory || node.label,
-    }));
+    .flatMap((node) => {
+      const value = String(node.filterCategory || node.label || "").trim();
+      const label = String(node.label || value).trim();
+      const key = value.toLowerCase();
+      if (!value || value === DEFAULT_CATEGORY || seen.has(key)) return [];
+      seen.add(key);
+      return [{ label, value }];
+    });
 }
 
 function renderEditorCategoryOptions(selectedCategory = "") {
@@ -830,9 +842,15 @@ function renderEditorCategoryOptions(selectedCategory = "") {
 
 function renderEditorFolderOptions(selectedFolderId = "") {
   const category = els.category.value;
-  const folders = collectFolderOptions().filter(
-    (folder) => !category || !folder.category || folder.category === category
-  );
+  const seenFolders = new Set();
+  const folders = collectFolderOptions()
+    .filter((folder) => !category || !folder.category || folder.category === category)
+    .filter((folder) => {
+      const key = `${folder.category || ""}::${folder.path || folder.label || folder.id}`.trim().toLowerCase();
+      if (seenFolders.has(key)) return false;
+      seenFolders.add(key);
+      return true;
+    });
 
   els.folder.innerHTML = [
     `<option value="">폴더 없음</option>`,
@@ -2213,10 +2231,6 @@ async function handleEditorSubmit(event) {
     if (!previewValues.plainText) {
       throw new Error("본문을 입력해주세요.");
     }
-
-    const location = await openLocationDialog();
-    if (!location) return;
-    applyEditorLocation(location);
 
     setEditorBusy(true);
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료를 수정 중입니다..." : "자료를 저장 중입니다...") : state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
