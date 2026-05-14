@@ -620,6 +620,29 @@ function createCategoryNode(category, storedNode) {
   };
 }
 
+function getCategoryKey(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function mergeStoredCategoryNodes(nodes = []) {
+  const validNodes = nodes.filter(Boolean);
+  if (validNodes.length === 0) return null;
+
+  const merged = cloneNode(validNodes[0]);
+  const childIds = new Set();
+  merged.children = [];
+
+  validNodes.forEach((node) => {
+    (node.children || []).forEach((child) => {
+      if (!child?.id || childIds.has(child.id)) return;
+      childIds.add(child.id);
+      merged.children.push(cloneNode(child));
+    });
+  });
+
+  return merged;
+}
+
 function buildTree() {
   const stored = state.storedTreeData || getStoredTreeData();
   const storedById = flattenNodes(stored.nodes.map(cloneNode));
@@ -641,18 +664,35 @@ function buildTree() {
 
   const categoryIds = new Set();
   const categoryValues = new Set();
+  const storedCategoryNodes = stored.nodes
+    .map(cloneNode)
+    .filter((node) => node.type === "category" && node.id !== ALL_FILTER);
+  const storedCategoriesByValue = new Map();
+
+  storedCategoryNodes.forEach((node) => {
+    const key = getCategoryKey(node.filterCategory || node.label);
+    if (!key || (node.filterCategory || node.label) === DEFAULT_CATEGORY) return;
+    const nodes = storedCategoriesByValue.get(key) || [];
+    nodes.push(node);
+    storedCategoriesByValue.set(key, nodes);
+  });
 
   getCategories().forEach((category) => {
     const id = categoryId(category);
+    const categoryKey = getCategoryKey(category);
+    const storedNode = mergeStoredCategoryNodes([
+      storedById.get(id),
+      ...(storedCategoriesByValue.get(categoryKey) || []),
+    ]);
     categoryIds.add(id);
-    categoryValues.add(String(category || "").trim().toLowerCase());
+    categoryValues.add(categoryKey);
     if (state.hiddenCategoryIds.has(id)) return;
-    roots.push(createCategoryNode(category, storedById.get(id)));
+    roots.push(createCategoryNode(category, storedNode));
   });
 
   stored.nodes.map(cloneNode).forEach((node) => {
     const categoryValue = String(node.filterCategory || node.label || "").trim();
-    const categoryKey = categoryValue.toLowerCase();
+    const categoryKey = getCategoryKey(categoryValue);
     if (
       node.type !== "category" ||
       node.id === ALL_FILTER ||

@@ -180,6 +180,34 @@ function htmlToPlainText(html = "") {
   return (template.content.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function decodeHtmlEntities(value = "") {
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = String(value);
+  return textarea.value;
+}
+
+function hasHtmlMarkup(value = "") {
+  return /<\/?[a-z][\s\S]*>/i.test(String(value));
+}
+
+function normalizePreviewText(value = "") {
+  let text = String(value || "").trim();
+  for (let index = 0; index < 3; index += 1) {
+    const decoded = decodeHtmlEntities(text);
+    const next = hasHtmlMarkup(decoded) ? htmlToPlainText(decoded) : decoded;
+    const cleaned = next.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    if (cleaned === text) return cleaned;
+    text = cleaned;
+  }
+  return text.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function clampPreviewText(value = "", maxLength = 180) {
+  const text = normalizePreviewText(value);
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).trim()}...`;
+}
+
 function stripRtfToText(text = "") {
   return String(text)
     .replace(/\\par[d]?/gi, "\n")
@@ -415,7 +443,7 @@ function getMaterialPreview(material = {}) {
       }
     } catch {}
   }
-  return String(material.content || material.url || "자료 설명이 없습니다.").replace(/\s+/g, " ").trim();
+  return clampPreviewText(material.content || material.url || "자료 설명이 없습니다.");
 }
 
 function openSpaceDashboard(spaceId) {
