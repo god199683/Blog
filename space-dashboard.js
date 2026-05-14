@@ -230,8 +230,8 @@ const ACCESS_ROLE_YEAR_MULTIPLIER = {
 const DASHBOARD_COLLECTION_LABELS = {
   zones: "구역",
   creatures: "동식물",
-  relationNodes: "관계도 노드",
-  relationEdges: "관계도 엣지",
+  relationNodes: "마인드맵 주제",
+  relationEdges: "마인드맵 연결",
   byproducts: "광물/보석",
   appearances: "색/모양무늬",
   abilities: "능력",
@@ -500,7 +500,7 @@ function normalizeCatalogItem(collection, item = {}) {
 function normalizeRelationNode(item = {}) {
   return {
     id: item.id || createId(),
-    name: String(item.name || item.label || "이름 없는 노드").slice(0, 80),
+    name: String(item.name || item.label || "이름 없는 주제").slice(0, 80),
     type: String(item.type || "관계 대상").slice(0, 60),
     color: /^#[0-9a-f]{6}$/i.test(item.color || "") ? item.color : "#4aa8d8",
     description: String(item.description || "").slice(0, 700),
@@ -567,8 +567,8 @@ function normalizeDashboardItem(collection, item = {}) {
 function getDashboardItemTitle(collection, item = {}) {
   if (collection === "zones") return item.name || "이름 없는 구역";
   if (collection === "creatures") return item.name || "이름 없는 동식물";
-  if (collection === "relationNodes") return item.name || "이름 없는 노드";
-  if (collection === "relationEdges") return item.label || "관계";
+  if (collection === "relationNodes") return item.name || "이름 없는 주제";
+  if (collection === "relationEdges") return item.label || "연결";
   if (CATALOG_COLLECTIONS.includes(collection)) return item.name || "이름 없는 항목";
   if (collection === "accessKeys") return item.name || "출입자";
   return item.name || "항목";
@@ -733,7 +733,7 @@ function getPageIntro() {
     zones: ["구역 관리", "정원 내부 구역과 생태계 정보를 관리합니다."],
     creatures: ["동식물 관리", "정원 안의 식물, 동물, 영체를 기록합니다."],
     byproducts: ["광물/보석", "구역에서 얻은 광물과 보석을 정리합니다."],
-    relations: ["관계도", "인물, 생물, 구역 사이의 관계 흐름을 기록합니다."],
+    relations: ["마인드맵", "인물, 생물, 구역 사이의 생각 흐름과 연결을 펼쳐봅니다."],
     appearances: ["색/모양무늬", "색상과 형태, 무늬 정보를 정리합니다."],
     abilities: ["능력", "능력의 유형과 효과를 정리합니다."],
     titles: ["칭호", "칭호와 획득 조건을 관리합니다."],
@@ -792,7 +792,7 @@ function getStatusRows() {
     ["출입 권한", `${state.map.accessKeys.length}개`],
     ["동식물", `${state.map.creatures.length}개`],
     ["광물/보석", `${state.map.byproducts.length}개`],
-    ["관계도", `${state.map.relations.nodes.length}개 노드 / ${state.map.relations.edges.length}개 엣지`],
+    ["마인드맵", `${state.map.relations.nodes.length}개 주제 / ${state.map.relations.edges.length}개 연결`],
     ["휴지통", `${state.map.trash.length}개`],
   ];
 }
@@ -814,7 +814,7 @@ function renderDashboard() {
       ${renderStatCard("🗺️", "구역", String(zones.length), "정원에 등록된 구역", "zones")}
       ${renderStatCard("🌱", "식물", String(plants), "식물형 개체", "creatures")}
       ${renderStatCard("🦊", "생물", String(living), "동물과 영체", "creatures")}
-      ${renderStatCard("🔗", "관계도", `${state.map.relations.nodes.length}/${state.map.relations.edges.length}`, "노드와 엣지", "relations")}
+      ${renderStatCard("🧠", "마인드맵", `${state.map.relations.nodes.length}/${state.map.relations.edges.length}`, "주제와 연결", "relations")}
       ${catalogCards}
       ${renderStatCard("🔑", "출입", String(accessKeys.length), "출입 권한", "access")}
     </section>
@@ -1405,7 +1405,93 @@ function renderCreaturesPage() {
 }
 
 function getRelationNodeName(nodeId = "") {
-  return state.map.relations.nodes.find((node) => node.id === nodeId)?.name || "알 수 없는 노드";
+  return state.map.relations.nodes.find((node) => node.id === nodeId)?.name || "알 수 없는 주제";
+}
+
+function getRelationEdgesForNode(nodeId = "") {
+  return state.map.relations.edges.filter((edge) => edge.sourceId === nodeId || edge.targetId === nodeId);
+}
+
+function getMindMapRootNode(relations = state.map.relations) {
+  if (!relations.nodes.length) return null;
+  return relations.nodes
+    .map((node, index) => ({
+      node,
+      index,
+      weight: relations.edges.filter((edge) => edge.sourceId === node.id || edge.targetId === node.id).length,
+    }))
+    .sort((a, b) => b.weight - a.weight || a.index - b.index)[0].node;
+}
+
+function getRelationLabelsBetween(leftId = "", rightId = "") {
+  return state.map.relations.edges
+    .filter(
+      (edge) =>
+        (edge.sourceId === leftId && edge.targetId === rightId) ||
+        (edge.sourceId === rightId && edge.targetId === leftId)
+    )
+    .map((edge) => edge.label)
+    .filter(Boolean);
+}
+
+function getMindMapBranchMeta(node, rootNode) {
+  const rootLabels = rootNode ? getRelationLabelsBetween(rootNode.id, node.id) : [];
+  const connections = getRelationEdgesForNode(node.id).filter(
+    (edge) => !rootNode || (edge.sourceId !== rootNode.id && edge.targetId !== rootNode.id)
+  );
+  const connectionText = connections
+    .slice(0, 3)
+    .map((edge) => {
+      const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+      return `${edge.label}: ${getRelationNodeName(otherId)}`;
+    })
+    .join(" · ");
+
+  return {
+    label: rootLabels.join(" · ") || connectionText || "독립 주제",
+    count: getRelationEdgesForNode(node.id).length,
+  };
+}
+
+function renderMindMapBranch(node, rootNode, side = "right") {
+  const meta = getMindMapBranchMeta(node, rootNode);
+  return `
+    <article class="garden-mindmap-branch is-${escapeHtml(side)}" style="--node-color:${escapeHtml(node.color)}">
+      <span class="garden-mindmap-dot" aria-hidden="true">${escapeHtml(node.name.slice(0, 1))}</span>
+      <div>
+        <strong>${escapeHtml(node.name)}</strong>
+        <small>${escapeHtml(node.type)} · ${escapeHtml(meta.label)}</small>
+        ${node.description ? `<p>${escapeHtml(node.description)}</p>` : ""}
+      </div>
+      <em>${escapeHtml(String(meta.count))}</em>
+    </article>
+  `;
+}
+
+function renderMindMap(relations = state.map.relations) {
+  const rootNode = getMindMapRootNode(relations);
+  if (!rootNode) return `<p class="garden-empty">주제를 추가하면 마인드맵을 만들 수 있습니다.</p>`;
+
+  const branches = relations.nodes.filter((node) => node.id !== rootNode.id);
+  const left = branches.filter((_, index) => index % 2 === 0);
+  const right = branches.filter((_, index) => index % 2 === 1);
+
+  return `
+    <div class="garden-mindmap-board">
+      <div class="garden-mindmap-branches is-left">
+        ${left.length ? left.map((node) => renderMindMapBranch(node, rootNode, "left")).join("") : `<span class="garden-mindmap-empty">왼쪽 가지 없음</span>`}
+      </div>
+      <section class="garden-mindmap-root" style="--node-color:${escapeHtml(rootNode.color)}">
+        <span aria-hidden="true">${escapeHtml(rootNode.name.slice(0, 1))}</span>
+        <strong>${escapeHtml(rootNode.name)}</strong>
+        <small>${escapeHtml(rootNode.type)}</small>
+        ${rootNode.description ? `<p>${escapeHtml(rootNode.description)}</p>` : ""}
+      </section>
+      <div class="garden-mindmap-branches is-right">
+        ${right.length ? right.map((node) => renderMindMapBranch(node, rootNode, "right")).join("") : `<span class="garden-mindmap-empty">오른쪽 가지 없음</span>`}
+      </div>
+    </div>
+  `;
 }
 
 function renderRelationNodeOptions(selectedValue = "") {
@@ -1420,11 +1506,11 @@ function renderRelationNodeForm(node = null) {
     <form class="garden-form" data-form="relation-node">
       <input type="hidden" name="id" value="${node ? escapeHtml(node.id) : ""}">
       <label>
-        <span>노드 이름</span>
+        <span>주제 이름</span>
         <input name="name" required maxlength="80" value="${node ? escapeHtml(item.name) : ""}" placeholder="인물, 생물, 구역 이름">
       </label>
       <label>
-        <span>노드 유형</span>
+        <span>주제 유형</span>
         <input name="type" required maxlength="60" value="${escapeHtml(item.type || "")}" placeholder="예: 인물, 생물, 구역">
       </label>
       <label>
@@ -1433,10 +1519,10 @@ function renderRelationNodeForm(node = null) {
       </label>
       <label class="garden-form-wide">
         <span>설명</span>
-        <textarea name="description" rows="3" maxlength="700" placeholder="노드 설명">${escapeHtml(item.description)}</textarea>
+        <textarea name="description" rows="3" maxlength="700" placeholder="주제 설명">${escapeHtml(item.description)}</textarea>
       </label>
       <div class="garden-form-actions">
-        <button class="garden-button is-primary" type="submit">${node ? "노드 수정" : "노드 추가"}</button>
+        <button class="garden-button is-primary" type="submit">${node ? "주제 수정" : "주제 추가"}</button>
         <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
       </div>
     </form>
@@ -1449,23 +1535,23 @@ function renderRelationEdgeForm(edge = null) {
     <form class="garden-form" data-form="relation-edge">
       <input type="hidden" name="id" value="${edge ? escapeHtml(edge.id) : ""}">
       <label>
-        <span>시작 노드</span>
+        <span>시작 주제</span>
         <select name="sourceId" required>${renderRelationNodeOptions(item.sourceId)}</select>
       </label>
       <label>
-        <span>대상 노드</span>
+        <span>대상 주제</span>
         <select name="targetId" required>${renderRelationNodeOptions(item.targetId)}</select>
       </label>
       <label class="garden-form-wide">
-        <span>관계 이름</span>
+        <span>연결 이름</span>
         <input name="label" required maxlength="80" value="${edge ? escapeHtml(item.label) : ""}" placeholder="예: 가족, 동맹, 경쟁">
       </label>
       <label class="garden-form-wide">
         <span>설명</span>
-        <textarea name="description" rows="3" maxlength="700" placeholder="관계 설명">${escapeHtml(item.description)}</textarea>
+        <textarea name="description" rows="3" maxlength="700" placeholder="연결 설명">${escapeHtml(item.description)}</textarea>
       </label>
       <div class="garden-form-actions">
-        <button class="garden-button is-primary" type="submit">${edge ? "엣지 수정" : "엣지 추가"}</button>
+        <button class="garden-button is-primary" type="submit">${edge ? "연결 수정" : "연결 추가"}</button>
         <button class="garden-button" type="button" data-action="cancel-edit">취소</button>
       </div>
     </form>
@@ -1482,50 +1568,17 @@ function renderRelationsPage() {
   return `
     ${getPageIntro()}
     <section class="garden-page-actions">
-      <button class="garden-button is-primary" type="button" data-action="open-relation-node-form">노드 추가</button>
-      <button class="garden-button" type="button" data-action="open-relation-edge-form" ${relations.nodes.length < 2 ? "disabled" : ""}>엣지 추가</button>
+      <button class="garden-button is-primary" type="button" data-action="open-relation-node-form">주제 추가</button>
+      <button class="garden-button" type="button" data-action="open-relation-edge-form" ${relations.nodes.length < 2 ? "disabled" : ""}>연결 추가</button>
     </section>
-    ${state.editType === "relation-node" ? renderCard(editingNode ? "노드 수정" : "새 노드", renderRelationNodeForm(editingNode)) : ""}
-    ${state.editType === "relation-edge" ? renderCard(editingEdge ? "엣지 수정" : "새 엣지", renderRelationEdgeForm(editingEdge)) : ""}
+    ${state.editType === "relation-node" ? renderCard(editingNode ? "주제 수정" : "새 주제", renderRelationNodeForm(editingNode)) : ""}
+    ${state.editType === "relation-edge" ? renderCard(editingEdge ? "연결 수정" : "새 연결", renderRelationEdgeForm(editingEdge)) : ""}
     ${renderCard(
-      "관계도 보기",
-      relations.nodes.length
-        ? `<div class="garden-relation-board">
-            <div class="garden-relation-nodes">
-              ${relations.nodes
-                .map(
-                  (node) => `
-                    <span class="garden-relation-node" style="--node-color:${escapeHtml(node.color)}">
-                      <b>${escapeHtml(node.name.slice(0, 1))}</b>
-                      <strong>${escapeHtml(node.name)}</strong>
-                      <small>${escapeHtml(node.type)}</small>
-                    </span>
-                  `
-                )
-                .join("")}
-            </div>
-            <div class="garden-relation-edges">
-              ${
-                relations.edges.length
-                  ? relations.edges
-                      .map(
-                        (edge) => `
-                          <span>
-                            <strong>${escapeHtml(getRelationNodeName(edge.sourceId))}</strong>
-                            <i>${escapeHtml(edge.label)}</i>
-                            <strong>${escapeHtml(getRelationNodeName(edge.targetId))}</strong>
-                          </span>
-                        `
-                      )
-                      .join("")
-                  : `<p class="garden-empty">엣지를 추가하면 노드 사이의 관계가 표시됩니다.</p>`
-              }
-            </div>
-          </div>`
-        : `<p class="garden-empty">노드를 추가하면 관계도를 만들 수 있습니다.</p>`
+      "마인드맵 보기",
+      renderMindMap(relations)
     )}
     ${renderCard(
-      "노드 목록",
+      "주제 목록",
       relations.nodes.length
         ? `<div class="garden-card-grid">
             ${relations.nodes
@@ -1549,14 +1602,14 @@ function renderRelationsPage() {
               )
               .join("")}
           </div>`
-        : `<p class="garden-empty">등록된 노드가 없습니다.</p>`
+        : `<p class="garden-empty">등록된 주제가 없습니다.</p>`
     )}
     ${renderCard(
-      "엣지 목록",
+      "연결 목록",
       relations.edges.length
         ? `<div class="garden-table">
             <div class="garden-table-head garden-relation-edge-row">
-              <span>관계</span><span>시작</span><span>대상</span><span>관리</span>
+              <span>연결</span><span>시작</span><span>대상</span><span>관리</span>
             </div>
             ${relations.edges
               .map(
@@ -1574,7 +1627,7 @@ function renderRelationsPage() {
               )
               .join("")}
           </div>`
-        : `<p class="garden-empty">등록된 엣지가 없습니다.</p>`
+        : `<p class="garden-empty">등록된 연결이 없습니다.</p>`
     )}
   `;
 }
@@ -2059,8 +2112,8 @@ async function handleAction(action, target) {
   }
   if (action === "delete-zone") return deleteEntity("zones", target.dataset.id, "구역을 휴지통으로 이동할까요?");
   if (action === "delete-creature") return deleteEntity("creatures", target.dataset.id, "동식물을 휴지통으로 이동할까요?");
-  if (action === "delete-relation-node") return deleteRelationEntity("node", target.dataset.id, "노드를 휴지통으로 이동할까요?");
-  if (action === "delete-relation-edge") return deleteRelationEntity("edge", target.dataset.id, "엣지를 휴지통으로 이동할까요?");
+  if (action === "delete-relation-node") return deleteRelationEntity("node", target.dataset.id, "주제를 휴지통으로 이동할까요?");
+  if (action === "delete-relation-edge") return deleteRelationEntity("edge", target.dataset.id, "연결을 휴지통으로 이동할까요?");
   if (action === "delete-byproduct") return deleteEntity("byproducts", target.dataset.id, "광물/보석을 휴지통으로 이동할까요?");
   if (action === "delete-catalog") {
     const collection = target.dataset.collection || "byproducts";
@@ -2170,8 +2223,8 @@ async function handleRelationEdgeSubmit(form) {
   const id = String(formData.get("id") || "");
   const sourceId = String(formData.get("sourceId") || "");
   const targetId = String(formData.get("targetId") || "");
-  if (!sourceId || !targetId) throw new Error("시작 노드와 대상 노드를 선택해주세요.");
-  if (sourceId === targetId) throw new Error("서로 다른 노드를 선택해주세요.");
+  if (!sourceId || !targetId) throw new Error("시작 주제와 대상 주제를 선택해주세요.");
+  if (sourceId === targetId) throw new Error("서로 다른 주제를 선택해주세요.");
   const item = normalizeRelationEdge({
     id: id || createId(),
     sourceId,

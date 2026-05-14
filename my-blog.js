@@ -777,9 +777,14 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
   els.miniList.innerHTML = `
     <div class="blog-mini-list-head">
       <strong>이 블로그 ${escapeHtml(title)} 글</strong>
-      <button class="blog-title-sort blog-mini-title-sort" type="button" data-mini-title-sort data-sort-direction="${escapeHtml(state.titleSortDirection || "none")}" aria-label="${escapeHtml(sortLabel)}" title="${escapeHtml(sortLabel)}">
-        <span class="blog-title-sort-icon" aria-hidden="true"></span>
-      </button>
+      <span class="blog-mini-sort-actions">
+        <button class="blog-title-sort blog-mini-title-sort blog-latest-sort ${state.titleSortDirection ? "" : "is-active"}" type="button" data-mini-latest-sort aria-label="최신글 정렬" title="최신글 정렬">
+          <span class="board-action-icon board-action-latest" aria-hidden="true"></span>
+        </button>
+        <button class="blog-title-sort blog-mini-title-sort" type="button" data-mini-title-sort data-sort-direction="${escapeHtml(state.titleSortDirection || "none")}" aria-label="${escapeHtml(sortLabel)}" title="${escapeHtml(sortLabel)}">
+          <span class="blog-title-sort-icon" aria-hidden="true"></span>
+        </button>
+      </span>
     </div>
     <div class="blog-mini-rows">
       ${pageMeta.posts
@@ -1594,6 +1599,13 @@ els.miniList?.addEventListener("click", (event) => {
   if (sortButton) {
     event.preventDefault();
     toggleTitleSort();
+    return;
+  }
+
+  const latestButton = event.target.closest("[data-mini-latest-sort]");
+  if (latestButton) {
+    event.preventDefault();
+    setLatestSort();
     return;
   }
 

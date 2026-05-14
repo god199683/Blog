@@ -31,6 +31,7 @@ const state = {
   searchQuery: "",
   selectedMaterialId: "",
   selectedMaterialIds: new Set(),
+  selectedNodeIds: new Set(),
   selectionMode: false,
   titleSortDirection: "none",
   editingSpaceId: "",
@@ -284,6 +285,46 @@ function getDescendantMaterialNodeIds(node = {}) {
   ].filter(Boolean);
 }
 
+function collectSelectedMaterialNodeIds() {
+  return new Set(
+    [...document.querySelectorAll("[data-material-tree-check]:checked")].map((input) => input.dataset.materialTreeCheck)
+  );
+}
+
+function removeSelectedMaterialNodes(nodes = [], selectedIds = new Set()) {
+  return nodes
+    .filter((node) => !selectedIds.has(node.id))
+    .map((node) => ({
+      ...node,
+      children: removeSelectedMaterialNodes(node.children || [], selectedIds),
+    }));
+}
+
+function getTopLevelSelectedMaterialNodes(nodes = [], selectedIds = new Set(), ancestorSelected = false) {
+  return nodes.flatMap((node) => {
+    const isSelected = selectedIds.has(node.id);
+    const children = getTopLevelSelectedMaterialNodes(node.children || [], selectedIds, ancestorSelected || isSelected);
+    return isSelected && !ancestorSelected ? [node] : children;
+  });
+}
+
+function collectMaterialFolderIds(node = {}, ids = new Set()) {
+  if (node.type === "folder") ids.add(node.id);
+  (node.children || []).forEach((child) => collectMaterialFolderIds(child, ids));
+  return ids;
+}
+
+function getMaterialsForMaterialNode(node = {}) {
+  const folderIds = collectMaterialFolderIds(node);
+  return state.materials.filter((material) => {
+    if (material.deleted_at || material.material_type === "space") return false;
+    if (folderIds.has(material.folder_id)) return true;
+    if (node.type !== "category") return false;
+    const category = node.filterCategory || node.label || "전체";
+    return (material.category || "전체") === category;
+  });
+}
+
 function findParentMaterialCategory(path = []) {
   return [...path].reverse().find((node) => node.type === "category") || null;
 }
@@ -464,11 +505,17 @@ function renderSections() {
 function renderMaterialTreeNode(node, depth = 0) {
   const hasChildren = (node.children || []).length > 0;
   const isCollapsed = state.collapsedMaterialNodeIds.has(node.id);
+  const isChecked = state.selectedNodeIds.has(node.id);
   const children = hasChildren && !isCollapsed ? node.children.map((child) => renderMaterialTreeNode(child, depth + 1)).join("") : "";
 
   return `
     <li>
       <div class="blog-tree-row ${node.id === state.activeMaterialNodeId ? "is-active" : ""}" data-material-tree-node="${escapeHtml(node.id)}" style="--tree-depth:${depth}">
+        ${
+          state.selectionMode
+            ? `<input class="blog-tree-check" type="checkbox" data-material-tree-check="${escapeHtml(node.id)}" ${isChecked ? "checked" : ""} aria-label="${escapeHtml(node.label)} 선택">`
+            : ""
+        }
         <button class="blog-tree-expander" type="button" data-material-tree-toggle="${escapeHtml(node.id)}" ${hasChildren ? "" : "disabled"} aria-label="${escapeHtml(node.label)} 접기 펼치기">
           <span aria-hidden="true">${hasChildren ? (isCollapsed ? "+" : "-") : ""}</span>
         </button>
@@ -713,9 +760,14 @@ function renderMiniList(materials = []) {
   els.miniList.innerHTML = `
     <div class="blog-mini-list-head">
       <strong>이 자료실 ${escapeHtml(title)}</strong>
-      <button class="blog-title-sort blog-mini-title-sort" type="button" data-mini-material-title-sort data-sort-direction="${escapeHtml(state.titleSortDirection)}" aria-label="${escapeHtml(sortLabel)}" title="${escapeHtml(sortLabel)}">
-        <span class="blog-title-sort-icon" aria-hidden="true"></span>
-      </button>
+      <span class="blog-mini-sort-actions">
+        <button class="blog-title-sort blog-mini-title-sort blog-latest-sort ${state.titleSortDirection === "none" ? "is-active" : ""}" type="button" data-mini-material-latest-sort aria-label="최신글 정렬" title="최신글 정렬">
+          <span class="board-action-icon board-action-latest" aria-hidden="true"></span>
+        </button>
+        <button class="blog-title-sort blog-mini-title-sort" type="button" data-mini-material-title-sort data-sort-direction="${escapeHtml(state.titleSortDirection)}" aria-label="${escapeHtml(sortLabel)}" title="${escapeHtml(sortLabel)}">
+          <span class="blog-title-sort-icon" aria-hidden="true"></span>
+        </button>
+      </span>
     </div>
     <div class="blog-mini-rows">
       ${materials
@@ -949,6 +1001,7 @@ async function addSpaceMaterial() {
     state.materials = [material, ...state.materials];
     state.selectedMaterialId = material.id;
     state.selectedMaterialIds.clear();
+    state.selectedNodeIds.clear();
     setActiveSection("spaces");
     state.searchQuery = "";
     state.materialError = "";
@@ -1289,6 +1342,45 @@ async function deleteSelectedMaterials() {
   }
 }
 
+async function deleteSelectedMaterialNodes() {
+  state.selectedNodeIds = collectSelectedMaterialNodeIds();
+  if (state.selectedNodeIds.size === 0) {
+    state.selectionMode = true;
+    renderDashboard();
+    window.alert("삭제할 카테고리나 폴더를 선택해주세요.");
+    return false;
+  }
+
+  if (!window.confirm("선택한 카테고리와 폴더를 휴지통으로 이동할까요?")) return false;
+
+  try {
+    const selectedNodes = getTopLevelSelectedMaterialNodes(state.materialTree, state.selectedNodeIds);
+    const materialIds = new Set(
+      selectedNodes
+        .flatMap((node) => getMaterialsForMaterialNode(node))
+        .map((material) => material.id)
+        .filter(Boolean)
+    );
+
+    await Promise.all([...materialIds].map((materialId) => moveMaterialToTrash(materialId)));
+    state.materialTree = removeSelectedMaterialNodes(state.materialTree, state.selectedNodeIds);
+    state.materials = state.materials.filter((material) => !materialIds.has(material.id));
+    if (state.activeMaterialNodeId !== MATERIAL_ALL_NODE_ID && !findMaterialNode(state.materialTree, state.activeMaterialNodeId)) {
+      state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
+    }
+    state.selectedNodeIds.clear();
+    state.selectedMaterialIds.clear();
+    state.selectedMaterialId = "";
+    state.selectionMode = false;
+    await saveMaterialTree();
+    renderDashboard();
+    return true;
+  } catch (error) {
+    window.alert(error.message || "카테고리나 폴더를 삭제하지 못했습니다.");
+    return false;
+  }
+}
+
 function toggleVisibleMaterialSelection() {
   const ids = getCurrentMaterials().map((material) => material.id).filter(Boolean);
   if (ids.length === 0) return;
@@ -1486,6 +1578,13 @@ els.miniList?.addEventListener("click", (event) => {
     return;
   }
 
+  const latestButton = event.target.closest("[data-mini-material-latest-sort]");
+  if (latestButton) {
+    event.preventDefault();
+    setLatestSort();
+    return;
+  }
+
   const row = event.target.closest("[data-mini-material]");
   if (!row) return;
   event.preventDefault();
@@ -1498,6 +1597,7 @@ els.latestSort?.addEventListener("click", setLatestSort);
 els.materialSelectMode?.addEventListener("click", () => {
   state.selectionMode = !state.selectionMode;
   state.selectedMaterialIds.clear();
+  state.selectedNodeIds.clear();
   renderDashboard();
 });
 
@@ -1532,12 +1632,18 @@ els.tools?.addEventListener("click", async (event) => {
   if (action === "toggle-selection") {
     state.selectionMode = !state.selectionMode;
     state.selectedMaterialIds.clear();
+    state.selectedNodeIds.clear();
     renderDashboard();
     return;
   }
 
   if (action === "delete-selected") {
-    await deleteSelectedMaterials();
+    const nodeIds = collectSelectedMaterialNodeIds();
+    if (nodeIds.size > 0) {
+      await deleteSelectedMaterialNodes();
+    } else {
+      await deleteSelectedMaterials();
+    }
     return;
   }
 
@@ -1564,11 +1670,14 @@ els.treeAll?.addEventListener("click", () => {
   state.searchQuery = "";
   state.selectedMaterialId = "";
   state.selectedMaterialIds.clear();
+  state.selectedNodeIds.clear();
   if (els.searchInput) els.searchInput.value = "";
   renderDashboard();
 });
 
 els.tree?.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-material-tree-check]")) return;
+
   const toggle = event.target.closest("[data-material-tree-toggle]");
   if (toggle && !toggle.disabled) {
     const id = toggle.dataset.materialTreeToggle;
@@ -1602,8 +1711,19 @@ els.tree?.addEventListener("click", async (event) => {
     state.searchQuery = "";
     state.selectedMaterialId = "";
     state.selectedMaterialIds.clear();
+    state.selectedNodeIds.clear();
     if (els.searchInput) els.searchInput.value = "";
     renderDashboard();
+  }
+});
+
+els.tree?.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-material-tree-check]");
+  if (!checkbox) return;
+  if (checkbox.checked) {
+    state.selectedNodeIds.add(checkbox.dataset.materialTreeCheck);
+  } else {
+    state.selectedNodeIds.delete(checkbox.dataset.materialTreeCheck);
   }
 });
 
@@ -1618,6 +1738,7 @@ els.sectionButtons.forEach((button) => {
     state.searchQuery = "";
     state.selectedMaterialId = "";
     state.selectedMaterialIds.clear();
+    state.selectedNodeIds.clear();
     if (els.searchInput) els.searchInput.value = "";
     renderDashboard();
   });
@@ -1628,6 +1749,7 @@ els.searchForm?.addEventListener("submit", (event) => {
   state.searchQuery = els.searchInput?.value || "";
   state.selectedMaterialId = "";
   state.selectedMaterialIds.clear();
+  state.selectedNodeIds.clear();
   renderDashboard();
 });
 
@@ -1635,6 +1757,7 @@ els.searchInput?.addEventListener("input", () => {
   if (!els.searchInput.value.trim()) {
     state.searchQuery = "";
     state.selectedMaterialIds.clear();
+    state.selectedNodeIds.clear();
     renderDashboard();
   }
 });
