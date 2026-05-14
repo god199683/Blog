@@ -21,8 +21,10 @@ const state = {
   activeNodeId: EDITOR_PARAMS.get("node") || ALL_FILTER,
   target: EDITOR_TARGET,
   editPostId: EDITOR_PARAMS.get("post") || "",
+  editMaterialId: EDITOR_PARAMS.get("material") || "",
   forceNewPost: EDITOR_PARAMS.get("mode") === "new",
   editingPost: null,
+  editingMaterial: null,
   hiddenCategoryIds: new Set(),
   storedTreeData: null,
   editorSaving: false,
@@ -182,6 +184,10 @@ function getSession() {
   return window.blogSession?.read?.() || null;
 }
 
+async function getFreshSession() {
+  return (await window.blogSession?.refresh?.()) || getSession();
+}
+
 function getSessionId(session) {
   return window.blogSession?.getId?.(session) || "";
 }
@@ -212,6 +218,24 @@ function normalizePost(raw, index) {
   };
 }
 
+function normalizeMaterialForEditor(raw = {}) {
+  return {
+    id: raw.id || "",
+    title: raw.title || "제목 없는 자료",
+    category: raw.category || DEFAULT_CATEGORY,
+    folder: raw.folder_name || "",
+    folder_id: raw.folder_id || "",
+    folder_name: raw.folder_name || "",
+    folder_path: raw.folder_path || "",
+    material_type: raw.material_type || "note",
+    url: raw.url || "",
+    user_id: raw.user_id || "",
+    login_id: raw.login_id || "",
+    body: raw.content || "",
+    published: true,
+  };
+}
+
 function belongsToAccount(raw, id) {
   const normalizedId = id.toLowerCase();
   return [raw.author, raw.author_name, raw.writer, raw.login_id, raw.user_id, raw.owner_id]
@@ -223,7 +247,7 @@ async function fetchPosts() {
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
   endpoint.searchParams.set("select", "*");
   endpoint.searchParams.set("limit", "100");
-  const token = getSession()?.access_token || SUPABASE_ANON_KEY;
+  const token = (await getFreshSession())?.access_token || SUPABASE_ANON_KEY;
 
   const response = await fetch(endpoint, {
     headers: {
@@ -244,7 +268,7 @@ async function fetchPostById(postId) {
   endpoint.searchParams.set("select", "*");
   endpoint.searchParams.set("id", `eq.${postId}`);
   endpoint.searchParams.set("limit", "1");
-  const token = getSession()?.access_token || SUPABASE_ANON_KEY;
+  const token = (await getFreshSession())?.access_token || SUPABASE_ANON_KEY;
 
   const response = await fetch(endpoint, {
     headers: {
@@ -262,7 +286,7 @@ async function fetchPostById(postId) {
 }
 
 async function insertPost(payload) {
-  const session = getSession();
+  const session = await getFreshSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
 
@@ -288,7 +312,7 @@ async function insertPost(payload) {
 }
 
 async function updatePost(postId, payload) {
-  const session = getSession();
+  const session = await getFreshSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
   endpoint.searchParams.set("id", `eq.${postId}`);
@@ -315,7 +339,7 @@ async function updatePost(postId, payload) {
 }
 
 async function insertMaterial(payload) {
-  const session = getSession();
+  const session = await getFreshSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
 
@@ -338,6 +362,62 @@ async function insertMaterial(payload) {
   }
 
   return Array.isArray(data) ? data[0] : data;
+}
+
+async function updateMaterial(materialId, payload) {
+  const session = await getFreshSession();
+  const token = session?.access_token || SUPABASE_ANON_KEY;
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
+  endpoint.searchParams.set("id", `eq.${materialId}`);
+  if (session?.user?.id) {
+    endpoint.searchParams.set("user_id", `eq.${session.user.id}`);
+  }
+
+  const response = await fetch(endpoint, {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = data?.message || data?.hint || data?.details || "자료를 수정하지 못했습니다.";
+    throw new Error(message);
+  }
+
+  return Array.isArray(data) ? data[0] : data;
+}
+
+async function fetchMaterialById(materialId) {
+  const session = await getFreshSession();
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
+  endpoint.searchParams.set("select", "*");
+  endpoint.searchParams.set("id", `eq.${materialId}`);
+  if (session?.user?.id) {
+    endpoint.searchParams.set("user_id", `eq.${session.user.id}`);
+  }
+  endpoint.searchParams.set("limit", "1");
+  const token = session?.access_token || SUPABASE_ANON_KEY;
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("자료를 불러오지 못했습니다.");
+  }
+
+  const rows = await response.json().catch(() => []);
+  return Array.isArray(rows) ? rows[0] || null : null;
 }
 
 function categoryId(category) {
@@ -406,7 +486,7 @@ function saveTreeDataToLocal(data) {
 }
 
 async function fetchTreeDataFromSupabase() {
-  const session = getSession();
+  const session = await getFreshSession();
   if (!session?.access_token || !session.user?.id) return null;
 
   if (isMaterialEditor()) {
@@ -461,7 +541,7 @@ async function fetchTreeDataFromSupabase() {
 }
 
 async function saveTreeDataToSupabase(data) {
-  const session = getSession();
+  const session = await getFreshSession();
   if (!session?.access_token || !session.user?.id || !state.id) return;
   if (isMaterialEditor()) return;
 
@@ -1076,7 +1156,15 @@ function setEditorMessage(message = "", type = "info") {
 function setEditorBusy(isBusy) {
   state.editorSaving = isBusy;
   els.submit.disabled = isBusy;
-  els.submit.textContent = isBusy ? "저장 중" : isMaterialEditor() ? "저장" : state.editPostId ? "수정" : "게시";
+  els.submit.textContent = isBusy
+    ? "저장 중"
+    : isMaterialEditor()
+      ? state.editMaterialId
+        ? "수정"
+        : "저장"
+      : state.editPostId
+        ? "수정"
+        : "게시";
 }
 
 function setEditorSaveState(message) {
@@ -1989,7 +2077,7 @@ function renderColorMenus() {
 }
 
 async function publishEditorPost() {
-  const session = getSession();
+  const session = await getFreshSession();
   const values = collectEditorValues();
 
   if (!session?.access_token) {
@@ -2050,7 +2138,7 @@ async function publishEditorPost() {
 }
 
 async function publishEditorMaterial() {
-  const session = getSession();
+  const session = await getFreshSession();
   const values = collectEditorValues();
 
   if (!session?.access_token) {
@@ -2066,7 +2154,7 @@ async function publishEditorMaterial() {
   const payload = {
     title: values.title,
     content: values.body,
-    material_type: "note",
+    material_type: state.editingMaterial?.material_type || "note",
     category: values.category,
     login_id: state.id,
     user_id: session.user?.id,
@@ -2083,7 +2171,7 @@ async function publishEditorMaterial() {
   });
 
   try {
-    return await insertMaterial(payload);
+    return state.editMaterialId ? await updateMaterial(state.editMaterialId, payload) : await insertMaterial(payload);
   } catch (error) {
     if (!/column|schema cache|Could not find/i.test(error.message)) {
       throw error;
@@ -2102,7 +2190,7 @@ async function publishEditorMaterial() {
         delete fallbackPayload[key];
       }
     });
-    return insertMaterial(fallbackPayload);
+    return state.editMaterialId ? updateMaterial(state.editMaterialId, fallbackPayload) : insertMaterial(fallbackPayload);
   }
 }
 
@@ -2116,7 +2204,7 @@ async function handleEditorSubmit(event) {
 
   try {
     const previewValues = collectEditorValues();
-    if (!getSession()?.access_token) {
+    if (!(await getFreshSession())?.access_token) {
       throw new Error("로그인이 필요합니다.");
     }
     if (!previewValues.title) {
@@ -2131,14 +2219,14 @@ async function handleEditorSubmit(event) {
     applyEditorLocation(location);
 
     setEditorBusy(true);
-    setEditorMessage(isMaterialEditor() ? "자료를 저장 중입니다..." : state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
+    setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료를 수정 중입니다..." : "자료를 저장 중입니다...") : state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
     if (isMaterialEditor()) {
       await publishEditorMaterial();
     } else {
       await publishEditorPost();
     }
     clearEditorDraft();
-    setEditorMessage(isMaterialEditor() ? "자료가 저장되었습니다." : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
+    setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료 수정이 완료되었습니다." : "자료가 저장되었습니다.") : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
     window.setTimeout(() => {
       window.location.href = isMaterialEditor() ? "./materials.html" : "./my-blog.html";
     }, 450);
@@ -2161,6 +2249,7 @@ async function initEditor() {
   renderEditorBrand(state.id);
 
   let exactEditingPost = null;
+  let exactEditingMaterial = null;
   if (!isMaterialEditor() && state.editPostId) {
     try {
       const row = await fetchPostById(state.editPostId);
@@ -2169,6 +2258,16 @@ async function initEditor() {
       }
     } catch {
       exactEditingPost = null;
+    }
+  }
+  if (isMaterialEditor() && state.editMaterialId) {
+    try {
+      const row = await fetchMaterialById(state.editMaterialId);
+      if (row) {
+        exactEditingMaterial = normalizeMaterialForEditor(row);
+      }
+    } catch {
+      exactEditingMaterial = null;
     }
   }
 
@@ -2193,14 +2292,19 @@ async function initEditor() {
   state.editingPost = !isMaterialEditor() && state.editPostId
     ? exactEditingPost || state.posts.find((post) => String(post.id) === String(state.editPostId)) || null
     : null;
+  state.editingMaterial = isMaterialEditor() && state.editMaterialId ? exactEditingMaterial : null;
   if (state.editingPost && !state.posts.some((post) => String(post.id) === String(state.editingPost.id))) {
     state.posts.unshift(state.editingPost);
   }
-  const draft = state.editingPost || state.forceNewPost ? null : loadEditorDraft();
-  const source = state.editingPost || draft || null;
+  const draft = state.editingPost || state.editingMaterial || state.forceNewPost ? null : loadEditorDraft();
+  const source = state.editingPost || state.editingMaterial || draft || null;
 
   if (state.editPostId && !state.editingPost) {
     setEditorMessage("수정할 글을 찾지 못했습니다.", "error");
+    els.submit.disabled = true;
+  }
+  if (state.editMaterialId && !state.editingMaterial) {
+    setEditorMessage("수정할 자료를 찾지 못했습니다.", "error");
     els.submit.disabled = true;
   }
 
@@ -2212,11 +2316,11 @@ async function initEditor() {
   syncActiveLineHeightFromContent();
   resetEditorHistory();
   els.published.checked = source?.published ?? true;
-  els.submit.textContent = isMaterialEditor() ? "저장" : state.editingPost ? "수정" : "게시";
-  setEditorSaveState(state.editingPost ? "수정 준비" : draft ? "임시 저장 불러옴" : "임시 저장 준비");
+  els.submit.textContent = isMaterialEditor() ? (state.editingMaterial ? "수정" : "저장") : state.editingPost ? "수정" : "게시";
+  setEditorSaveState(state.editingPost || state.editingMaterial ? "수정 준비" : draft ? "임시 저장 불러옴" : "임시 저장 준비");
   renderEditorFontOptions();
   renderColorMenus();
-  if (!state.editPostId || state.editingPost) {
+  if ((!state.editPostId && !state.editMaterialId) || state.editingPost || state.editingMaterial) {
     setEditorMessage("");
   }
   syncEditorStats();

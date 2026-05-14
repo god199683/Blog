@@ -314,6 +314,7 @@
   window.blogSession = {
     ready,
     read: readSession,
+    refresh: getFreshSession,
     clear: clearSession,
     logout,
     lockAway,

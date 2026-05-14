@@ -52,6 +52,7 @@ const els = {
   scrollTop: document.querySelector("[data-scroll-top]"),
   scrollBottom: document.querySelector("[data-scroll-bottom]"),
   titleSort: document.querySelector("[data-title-sort]"),
+  latestSort: document.querySelector("[data-latest-sort]"),
   postSelectMode: document.querySelector("[data-post-select-mode]"),
   postSelectAll: document.querySelector("[data-post-select-all]"),
   postVisibilityToggle: document.querySelector("[data-post-visibility-toggle]"),
@@ -285,10 +286,25 @@ function syncTitleSortButton() {
       button.setAttribute("aria-label", label);
       button.title = label;
     });
+  if (els.latestSort) {
+    const latestLabel = direction === "none" ? "최신글 정렬 적용됨" : "최신글 정렬";
+    els.latestSort.classList.toggle("is-active", direction === "none");
+    els.latestSort.setAttribute("aria-label", latestLabel);
+    els.latestSort.title = latestLabel;
+  }
 }
 
 function toggleTitleSort() {
   state.titleSortDirection = state.titleSortDirection === "asc" ? "desc" : "asc";
+  if (els.searchInput?.value.trim()) {
+    applyBlogSearch(els.searchInput.value);
+  } else {
+    renderActivePosts();
+  }
+}
+
+function setLatestSort() {
+  state.titleSortDirection = "";
   if (els.searchInput?.value.trim()) {
     applyBlogSearch(els.searchInput.value);
   } else {
@@ -1605,6 +1621,10 @@ els.scrollBottom?.addEventListener("click", () => {
 
 els.titleSort?.addEventListener("click", () => {
   toggleTitleSort();
+});
+
+els.latestSort?.addEventListener("click", () => {
+  setLatestSort();
 });
 
 els.postSelectMode?.addEventListener("click", () => {

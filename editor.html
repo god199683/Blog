@@ -45,21 +45,6 @@
               autocomplete="off"
             >
 
-            <div class="editor-fields" hidden aria-hidden="true">
-              <label>
-                <span>카테고리</span>
-                <select data-editor-category>
-                  <option value="">카테고리 선택</option>
-                </select>
-              </label>
-              <label>
-                <span>폴더</span>
-                <select data-editor-folder>
-                  <option value="">폴더 없음</option>
-                </select>
-              </label>
-            </div>
-
             <div class="editor-toolbar" data-editor-toolbar role="toolbar" aria-label="글 편집 도구">
               <div class="editor-toolbar-row">
                 <select class="editor-font-select" data-editor-font-family aria-label="글꼴">
@@ -81,6 +66,20 @@
                   data-editor-font-size
                   aria-label="글자 크기"
                 >
+                <div class="editor-fields" aria-label="저장 위치">
+                  <label>
+                    <span>카테고리</span>
+                    <select data-editor-category>
+                      <option value="">카테고리 선택</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>폴더</span>
+                    <select data-editor-folder>
+                      <option value="">폴더 없음</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div class="editor-toolbar-row">
                 <button class="editor-tool-button" type="button" data-editor-command="bold" title="굵게" aria-label="굵게">

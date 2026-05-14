@@ -55,6 +55,9 @@
             <button class="blog-tool-action" type="button" data-material-action="add-category" title="카테고리 추가" aria-label="카테고리 추가">
               <span class="tree-action-icon tree-action-plus" aria-hidden="true"></span>
             </button>
+            <button class="blog-tool-action" type="button" data-material-action="add-space" title="공간 추가" aria-label="공간 추가">
+              <span class="tree-action-icon tree-action-space" aria-hidden="true"></span>
+            </button>
             <button class="blog-tool-action" type="button" data-material-action="toggle-selection" title="선택 모드" aria-label="선택 모드">
               <span class="tree-action-icon tree-action-check" aria-hidden="true"></span>
             </button>
@@ -99,7 +102,18 @@
         <section class="blog-board is-list-collapsed" aria-labelledby="materials-board-title" data-material-board>
           <div class="blog-board-head">
             <h2 id="materials-board-title"><span data-material-board-title>전체 자료</span> <span data-material-count>0개의 자료</span></h2>
-            <button class="blog-board-toggle" type="button" data-material-list-toggle aria-expanded="false">목록열기</button>
+            <div class="blog-board-actions" aria-label="자료 목록 관리">
+              <button class="blog-board-icon-button" type="button" data-material-select-mode aria-pressed="false" title="선택 모드" aria-label="선택 모드">
+                <span class="board-action-icon board-action-select" aria-hidden="true"></span>
+              </button>
+              <button class="blog-board-icon-button" type="button" data-material-select-all disabled title="현재 목록 전체 선택" aria-label="현재 목록 전체 선택">
+                <span class="board-action-icon board-action-check-all" aria-hidden="true"></span>
+              </button>
+              <button class="blog-board-icon-button" type="button" data-material-delete-selected disabled title="선택항목 삭제" aria-label="선택항목 삭제">
+                <span class="tree-action-icon tree-action-trash" aria-hidden="true"></span>
+              </button>
+              <button class="blog-board-toggle" type="button" data-material-list-toggle aria-expanded="false">목록열기</button>
+            </div>
           </div>
 
           <div class="blog-table" aria-label="자료 목록" data-material-table>
@@ -107,9 +121,14 @@
               <span data-material-title-heading>자료 제목</span>
               <span data-material-type-heading>종류</span>
               <span>등록일</span>
-              <button class="blog-title-sort" type="button" data-material-title-sort aria-label="제목 오름차순 정렬" title="제목 오름차순 정렬">
-                <span class="blog-title-sort-icon" aria-hidden="true"></span>
-              </button>
+              <span class="blog-table-sort-actions">
+                <button class="blog-title-sort blog-latest-sort" type="button" data-material-latest-sort aria-label="최신글 정렬" title="최신글 정렬">
+                  <span class="board-action-icon board-action-latest" aria-hidden="true"></span>
+                </button>
+                <button class="blog-title-sort" type="button" data-material-title-sort aria-label="제목 오름차순 정렬" title="제목 오름차순 정렬">
+                  <span class="blog-title-sort-icon" aria-hidden="true"></span>
+                </button>
+              </span>
             </div>
             <div data-material-list>
               <div class="blog-empty-row">

@@ -56,6 +56,10 @@ const els = {
   featureCard: document.querySelector("[data-material-feature-card]"),
   miniList: document.querySelector("[data-material-mini-list]"),
   titleSort: document.querySelector("[data-material-title-sort]"),
+  latestSort: document.querySelector("[data-material-latest-sort]"),
+  materialSelectMode: document.querySelector("[data-material-select-mode]"),
+  materialSelectAll: document.querySelector("[data-material-select-all]"),
+  materialDeleteSelected: document.querySelector("[data-material-delete-selected]"),
   toolsToggle: document.querySelector("[data-material-tools-toggle]"),
   tools: document.querySelector("[data-material-tools]"),
   importInput: document.querySelector("[data-material-file-import]"),
@@ -86,19 +90,37 @@ function setActiveSection(section, shouldSyncUrl = true) {
   history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
 }
 
-async function requestRest(path, token, options = {}) {
+async function getFreshMaterialSession() {
+  const fresh = (await window.blogSession?.refresh?.()) || state.session;
+  if (fresh?.access_token) {
+    state.session = fresh;
+    state.id = window.blogSession?.getId?.(fresh) || state.id;
+  }
+  return fresh;
+}
+
+async function requestRest(path, token, options = {}, retry = true) {
+  const session = await getFreshMaterialSession();
+  const requestToken = session?.access_token || token || SUPABASE_ANON_KEY;
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
       apikey: SUPABASE_ANON_KEY,
-      Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_ANON_KEY}`,
+      Authorization: requestToken ? `Bearer ${requestToken}` : `Bearer ${SUPABASE_ANON_KEY}`,
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
   });
 
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(payload?.message || "자료를 불러오지 못했습니다.");
+  if (!response.ok) {
+    const message = payload?.message || "자료를 불러오지 못했습니다.";
+    if (retry && /jwt expired|invalid jwt|expired/i.test(message)) {
+      await window.blogSession?.refresh?.();
+      return requestRest(path, token, options, false);
+    }
+    throw new Error(message);
+  }
   return payload;
 }
 
@@ -360,8 +382,17 @@ function openSpaceDashboard(spaceId) {
   window.location.href = `./space-dashboard.html?space=${encodeURIComponent(spaceId)}`;
 }
 
+function openMaterialEditor(materialId) {
+  if (!materialId) return;
+  window.location.href = `./editor.html?target=materials&material=${encodeURIComponent(materialId)}`;
+}
+
 function getTitleSortLabel() {
   return state.titleSortDirection === "asc" ? "제목 내림차순 정렬" : "제목 오름차순 정렬";
+}
+
+function getLatestSortLabel() {
+  return state.titleSortDirection === "none" ? "최신글 정렬 적용됨" : "최신글 정렬";
 }
 
 function getCurrentMaterials() {
@@ -482,6 +513,27 @@ function renderToolState() {
     ?.classList.toggle("is-active", state.selectionMode);
 }
 
+function renderMaterialSelectionControls(materials = getCurrentMaterials()) {
+  const visibleIds = materials.map((material) => material.id).filter(Boolean);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => state.selectedMaterialIds.has(id));
+  const hasSelected = state.selectionMode ? state.selectedMaterialIds.size > 0 : Boolean(state.selectedMaterialId);
+
+  if (els.materialSelectMode) {
+    els.materialSelectMode.classList.toggle("is-active", state.selectionMode);
+    els.materialSelectMode.setAttribute("aria-pressed", String(state.selectionMode));
+  }
+
+  if (els.materialSelectAll) {
+    els.materialSelectAll.disabled = !state.selectionMode || visibleIds.length === 0;
+    els.materialSelectAll.title = allSelected ? "현재 목록 선택 해제" : "현재 목록 전체 선택";
+    els.materialSelectAll.setAttribute("aria-label", els.materialSelectAll.title);
+  }
+
+  if (els.materialDeleteSelected) {
+    els.materialDeleteSelected.disabled = !hasSelected;
+  }
+}
+
 function renderBoardHeader(materials = []) {
   const title = state.searchQuery.trim()
     ? `검색: ${state.searchQuery.trim()}`
@@ -529,7 +581,9 @@ function renderMaterialRows(materials = []) {
           </span>
           <span>${escapeHtml(getMaterialTypeLabel(material.material_type))}</span>
           <span>${escapeHtml(formatDate(material.created_at || material.updated_at))}</span>
-          <span aria-hidden="true"></span>
+          <span class="materials-row-actions">
+            <button type="button" data-material-edit="${escapeHtml(material.id)}" title="수정" aria-label="${escapeHtml(material.title)} 수정">수정</button>
+          </span>
         </div>
       `;
     })
@@ -570,6 +624,7 @@ function renderFeatureArea(materials = []) {
       <time datetime="${escapeHtml(material.created_at || material.updated_at || "")}">${escapeHtml(date)}</time>
       <span>${escapeHtml(typeLabel)}</span>
       ${canOpen ? `<a class="blog-feature-light-button" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">열기</a>` : ""}
+      <button class="blog-feature-light-button" type="button" data-feature-edit="${escapeHtml(material.id)}">수정</button>
       <button class="blog-feature-light-button" type="button" data-feature-delete="${escapeHtml(material.id)}">삭제</button>
     </div>
     <div class="blog-feature-media">
@@ -581,6 +636,7 @@ function renderFeatureArea(materials = []) {
     <div class="blog-feature-caption">${escapeHtml(url || preview)}</div>
     <div class="blog-feature-actions" aria-label="자료 기능">
       ${canOpen ? `<a class="blog-feature-text-action" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">열기</a>` : ""}
+      <button class="blog-feature-text-action" type="button" data-feature-edit="${escapeHtml(material.id)}">수정</button>
       <button class="blog-feature-text-action" type="button" data-feature-delete="${escapeHtml(material.id)}">삭제</button>
     </div>
   `;
@@ -690,6 +746,7 @@ function renderDashboard() {
   renderMaterialTree();
   renderToolState();
   renderBoardHeader(materials);
+  renderMaterialSelectionControls(materials);
   if (els.table) els.table.hidden = isSpaceSection;
   if (els.spaceGrid) els.spaceGrid.hidden = !isSpaceSection;
   if (els.listToggle) els.listToggle.hidden = isSpaceSection;
@@ -715,6 +772,12 @@ function renderDashboard() {
     els.titleSort.dataset.sortDirection = state.titleSortDirection;
     els.titleSort.setAttribute("aria-label", sortLabel);
     els.titleSort.setAttribute("title", sortLabel);
+  }
+  const latestLabel = getLatestSortLabel();
+  if (els.latestSort) {
+    els.latestSort.classList.toggle("is-active", state.titleSortDirection === "none");
+    els.latestSort.setAttribute("aria-label", latestLabel);
+    els.latestSort.setAttribute("title", latestLabel);
   }
 }
 
@@ -837,6 +900,63 @@ async function createMaterial(payload) {
     body: JSON.stringify(payload),
   });
   return normalizeMaterial(Array.isArray(rows) ? rows[0] : payload);
+}
+
+function createDefaultSpaceContent(title = "새 공간") {
+  return JSON.stringify({
+    kind: "blog-map",
+    version: 4,
+    title,
+    canvasWidth: 1152,
+    canvasHeight: 648,
+    background: "#ffffff",
+    slides: [{ id: "slide-1", title: "1", objects: [] }],
+    activeSlideId: "slide-1",
+    zones: [],
+    creatures: [],
+    relations: { nodes: [], edges: [] },
+    appearances: [],
+    abilities: [],
+    titles: [],
+    creations: [],
+    items: [],
+    manaStones: [],
+    byproducts: [],
+    accessKeys: [],
+    trash: [],
+    note: "새 공간",
+  });
+}
+
+async function addSpaceMaterial() {
+  const title = promptName("추가할 공간 이름을 입력해주세요.", "새 공간");
+  if (!title) return;
+
+  try {
+    const material = await createMaterial({
+      user_id: state.session.user.id,
+      login_id: state.id,
+      title: title.slice(0, 120),
+      material_type: "space",
+      url: null,
+      content: createDefaultSpaceContent(title),
+      category: "전체",
+      folder_id: null,
+      folder_name: null,
+      folder_path: null,
+      deleted_at: null,
+    });
+    state.materials = [material, ...state.materials];
+    state.selectedMaterialId = material.id;
+    state.selectedMaterialIds.clear();
+    setActiveSection("spaces");
+    state.searchQuery = "";
+    state.materialError = "";
+    if (els.searchInput) els.searchInput.value = "";
+    renderDashboard();
+  } catch (error) {
+    window.alert(error.message || "공간을 추가하지 못했습니다.");
+  }
 }
 
 async function readMaterialFile(file) {
@@ -1144,7 +1264,7 @@ async function saveSpaceTitle(spaceId, rawTitle) {
 
 async function deleteSelectedMaterials() {
   const ids = [...state.selectedMaterialIds];
-  if (ids.length === 0 && state.selectedMaterialId) ids.push(state.selectedMaterialId);
+  if (!state.selectionMode && ids.length === 0 && state.selectedMaterialId) ids.push(state.selectedMaterialId);
 
   if (ids.length === 0) {
     state.selectionMode = true;
@@ -1169,8 +1289,27 @@ async function deleteSelectedMaterials() {
   }
 }
 
+function toggleVisibleMaterialSelection() {
+  const ids = getCurrentMaterials().map((material) => material.id).filter(Boolean);
+  if (ids.length === 0) return;
+
+  const allSelected = ids.every((id) => state.selectedMaterialIds.has(id));
+  if (allSelected) {
+    ids.forEach((id) => state.selectedMaterialIds.delete(id));
+  } else {
+    ids.forEach((id) => state.selectedMaterialIds.add(id));
+  }
+  state.selectionMode = true;
+  renderDashboard();
+}
+
 function toggleTitleSort() {
   state.titleSortDirection = state.titleSortDirection === "asc" ? "desc" : "asc";
+  renderDashboard();
+}
+
+function setLatestSort() {
+  state.titleSortDirection = "none";
   renderDashboard();
 }
 
@@ -1223,6 +1362,14 @@ els.materialForm?.addEventListener("submit", async (event) => {
 });
 
 els.list?.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-material-edit]");
+  if (editButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    openMaterialEditor(editButton.dataset.materialEdit);
+    return;
+  }
+
   if (event.target.closest("[data-material-check]")) return;
   const row = event.target.closest("[data-material-row]");
   if (!row) return;
@@ -1318,6 +1465,13 @@ els.spaceGrid?.addEventListener("change", (event) => {
 });
 
 els.featureCard?.addEventListener("click", async (event) => {
+  const editButton = event.target.closest("[data-feature-edit]");
+  if (editButton) {
+    event.preventDefault();
+    openMaterialEditor(editButton.dataset.featureEdit);
+    return;
+  }
+
   const deleteButton = event.target.closest("[data-feature-delete]");
   if (!deleteButton) return;
   event.preventDefault();
@@ -1339,6 +1493,16 @@ els.miniList?.addEventListener("click", (event) => {
 });
 
 els.titleSort?.addEventListener("click", toggleTitleSort);
+els.latestSort?.addEventListener("click", setLatestSort);
+
+els.materialSelectMode?.addEventListener("click", () => {
+  state.selectionMode = !state.selectionMode;
+  state.selectedMaterialIds.clear();
+  renderDashboard();
+});
+
+els.materialSelectAll?.addEventListener("click", toggleVisibleMaterialSelection);
+els.materialDeleteSelected?.addEventListener("click", deleteSelectedMaterials);
 
 els.toolsToggle?.addEventListener("click", () => {
   const willOpen = els.tools?.hidden;
@@ -1357,6 +1521,11 @@ els.tools?.addEventListener("click", async (event) => {
 
   if (action === "add-category") {
     await addMaterialCategory();
+    return;
+  }
+
+  if (action === "add-space") {
+    await addSpaceMaterial();
     return;
   }
 
