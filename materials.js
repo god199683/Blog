@@ -456,6 +456,11 @@ function openMaterialEditor(materialId) {
   window.location.href = `./editor.html?target=materials&material=${encodeURIComponent(materialId)}`;
 }
 
+function openMaterialViewer(materialId) {
+  if (!materialId) return;
+  window.location.href = `./viewer.html?target=materials&material=${encodeURIComponent(materialId)}`;
+}
+
 function getTitleSortLabel() {
   return state.titleSortDirection === "asc" ? "제목 내림차순 정렬" : "제목 오름차순 정렬";
 }
@@ -1593,9 +1598,21 @@ els.featureCard?.addEventListener("click", async (event) => {
   }
 
   const deleteButton = event.target.closest("[data-feature-delete]");
-  if (!deleteButton) return;
+  if (deleteButton) {
+    event.preventDefault();
+    await deleteMaterial(deleteButton.dataset.featureDelete);
+    return;
+  }
+
+  if (event.target.closest("a, button")) return;
   event.preventDefault();
-  await deleteMaterial(deleteButton.dataset.featureDelete);
+  openMaterialViewer(state.selectedMaterialId);
+});
+
+els.featureCard?.addEventListener("keydown", (event) => {
+  if (event.target.closest("a, button") || (event.key !== "Enter" && event.key !== " ")) return;
+  event.preventDefault();
+  openMaterialViewer(state.selectedMaterialId);
 });
 
 els.miniList?.addEventListener("click", (event) => {

@@ -882,15 +882,24 @@ function renderEditorCategoryOptions(selectedCategory = "") {
 
 function renderEditorFolderOptions(selectedFolderId = "") {
   const category = els.category.value;
+  const categoryKey = getCategoryKey(category);
   const seenFolders = new Set();
-  const folders = collectFolderOptions()
-    .filter((folder) => !category || !folder.category || folder.category === category)
+  const allFolders = collectFolderOptions();
+  let folders = allFolders
+    .filter((folder) => !categoryKey || !folder.category || getCategoryKey(folder.category) === categoryKey)
     .filter((folder) => {
       const key = `${folder.category || ""}::${folder.path || folder.label || folder.id}`.trim().toLowerCase();
       if (seenFolders.has(key)) return false;
       seenFolders.add(key);
       return true;
     });
+  const selectedFolder = allFolders.find((folder) => folder.id === selectedFolderId);
+  if (selectedFolder && !folders.some((folder) => folder.id === selectedFolder.id)) {
+    folders = [selectedFolder, ...folders];
+  }
+  if (categoryKey && folders.length === 0) {
+    folders = allFolders;
+  }
 
   els.folder.innerHTML = [
     `<option value="">폴더 없음</option>`,

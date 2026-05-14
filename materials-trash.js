@@ -23,19 +23,37 @@ const els = {
   initials: document.querySelectorAll("[data-blog-initial]"),
 };
 
-async function requestRest(path, token, options = {}) {
+async function getFreshTrashSession() {
+  const fresh = (await window.blogSession?.refresh?.()) || state.session;
+  if (fresh?.access_token) {
+    state.session = fresh;
+    state.id = window.blogSession?.getId?.(fresh) || state.id;
+  }
+  return fresh;
+}
+
+async function requestRest(path, token, options = {}, retry = true) {
+  const session = await getFreshTrashSession();
+  const requestToken = session?.access_token || token || SUPABASE_ANON_KEY;
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
       apikey: SUPABASE_ANON_KEY,
-      Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_ANON_KEY}`,
+      Authorization: `Bearer ${requestToken}`,
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
   });
 
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(payload?.message || "요청을 처리하지 못했습니다.");
+  if (!response.ok) {
+    const message = payload?.message || payload?.hint || payload?.details || "자료실 휴지통 요청을 처리하지 못했습니다.";
+    if (retry && /jwt expired|invalid jwt|expired/i.test(message)) {
+      await window.blogSession?.refresh?.();
+      return requestRest(path, token, options, false);
+    }
+    throw new Error(message);
+  }
   return payload;
 }
 
@@ -272,15 +290,17 @@ els.list?.addEventListener("click", (event) => {
   }
 
   const item = event.target.closest("[data-materials-trash-item]");
-  if (!item || !state.selectionMode) return;
+  if (!item) return;
+  if (!state.selectionMode) state.selectionMode = true;
   toggleSelection(item.dataset.materialsTrashItem);
 });
 
 els.list?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
   const item = event.target.closest("[data-materials-trash-item]");
-  if (!item || !state.selectionMode) return;
+  if (!item) return;
   event.preventDefault();
+  if (!state.selectionMode) state.selectionMode = true;
   toggleSelection(item.dataset.materialsTrashItem);
 });
 

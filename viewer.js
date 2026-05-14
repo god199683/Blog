@@ -3,7 +3,9 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
 const params = new URLSearchParams(window.location.search);
-const postId = params.get("id") || "";
+const viewerTarget = params.get("target") === "materials" || params.has("material") ? "materials" : "posts";
+const materialId = params.get("material") || (viewerTarget === "materials" ? params.get("id") || "" : "");
+const postId = viewerTarget === "materials" ? materialId : params.get("id") || "";
 let bookMode = params.get("book") === "1";
 let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize") || "18", 10);
 let readerTheme = localStorage.getItem("blog.readerTheme") || "sky";
@@ -82,6 +84,30 @@ function cleanViewerHtml(html = "") {
   return template.innerHTML;
 }
 
+function decodeHtmlEntities(value = "") {
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = String(value);
+  return textarea.value;
+}
+
+function hasHtmlMarkup(value = "") {
+  return /<\/?[a-z][\s\S]*>/i.test(String(value));
+}
+
+function plainTextToViewerHtml(value = "") {
+  return String(value || "")
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("") || "<p></p>";
+}
+
+function normalizeMaterialBody(value = "") {
+  const decoded = decodeHtmlEntities(value);
+  return hasHtmlMarkup(decoded) ? decoded : plainTextToViewerHtml(decoded);
+}
+
 function getPostLocation(post) {
   if (post.folder_path) return post.folder_path;
   return [post.category || "전체", post.folder_name || post.folder || ""].filter(Boolean).join(" / ");
@@ -150,7 +176,12 @@ function getPostOwnerFilter(post) {
 
 function buildViewerUrl(nextPostId, useBookMode = bookMode, pageTarget = "") {
   const nextParams = new URLSearchParams();
-  nextParams.set("id", nextPostId);
+  if (viewerTarget === "materials") {
+    nextParams.set("target", "materials");
+    nextParams.set("material", nextPostId);
+  } else {
+    nextParams.set("id", nextPostId);
+  }
   if (useBookMode) {
     nextParams.set("book", "1");
     if (pageTarget) nextParams.set("page", pageTarget);
@@ -455,6 +486,8 @@ function goToBookPost(targetPostId, pageTarget = "") {
 }
 
 async function fetchPost() {
+  if (viewerTarget === "materials") return fetchMaterial();
+
   if (!postId) {
     throw new Error("글 주소가 올바르지 않습니다.");
   }
@@ -484,7 +517,49 @@ async function fetchPost() {
   return post;
 }
 
+async function fetchMaterial() {
+  if (!materialId) {
+    throw new Error("자료 주소가 올바르지 않습니다.");
+  }
+
+  const session = getSession();
+  const token = session?.access_token || SUPABASE_ANON_KEY;
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
+  endpoint.searchParams.set("select", "*");
+  endpoint.searchParams.set("id", `eq.${materialId}`);
+  endpoint.searchParams.set("deleted_at", "is.null");
+  endpoint.searchParams.set("limit", "1");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = await response.json().catch(() => []);
+
+  if (!response.ok) {
+    const message = data?.message || data?.hint || data?.details || "자료를 불러오지 못했습니다.";
+    throw new Error(message);
+  }
+
+  const material = Array.isArray(data) ? data[0] : null;
+  if (!material) throw new Error("자료를 찾지 못했습니다.");
+
+  return {
+    ...material,
+    body: normalizeMaterialBody(material.content || material.url || ""),
+    excerpt: material.url || "",
+    folder: material.folder_name || "",
+    published_at: material.created_at,
+    author: material.login_id || "",
+    source_type: "materials",
+  };
+}
+
 async function fetchSameFolderPosts(post) {
+  if (viewerTarget === "materials") return [post];
+
   const session = getSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
@@ -548,12 +623,15 @@ async function initViewer() {
 }
 
 els.back.addEventListener("click", () => {
-  window.location.href = "./my-blog.html";
+  window.location.href = viewerTarget === "materials" ? "./materials.html" : "./my-blog.html";
 });
 
 els.edit.addEventListener("click", () => {
   if (!postId) return;
-  window.location.href = `./editor.html?post=${encodeURIComponent(postId)}`;
+  window.location.href =
+    viewerTarget === "materials"
+      ? `./editor.html?target=materials&material=${encodeURIComponent(postId)}`
+      : `./editor.html?post=${encodeURIComponent(postId)}`;
 });
 
 els.bookToggle.addEventListener("click", () => {

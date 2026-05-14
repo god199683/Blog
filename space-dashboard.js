@@ -1150,7 +1150,6 @@ function drawPreview(canvas) {
   (state.map.shapes || []).forEach((shape) => drawDashboardShape(ctx, shape, scale, canvas));
   state.map.strokes.forEach((stroke) => drawStroke(ctx, stroke, scale));
   state.map.markers.forEach((marker) => drawMarker(ctx, marker, scale));
-  drawZoneBadges(ctx, scale);
 }
 
 function renderMapPage() {
@@ -1166,7 +1165,7 @@ function renderMapPage() {
       <button class="garden-button" type="button" data-action="map-zoom-reset">맞춤</button>
     </section>
 
-    <section class="garden-map-layout">
+    <section class="garden-map-layout garden-map-layout--single">
       <div class="garden-card garden-map-preview">
         <div class="garden-card-head">
           <h2>맵 미리보기</h2>
@@ -1177,7 +1176,7 @@ function renderMapPage() {
         </div>
       </div>
 
-      <aside class="garden-card garden-map-detail">
+      <aside class="garden-card garden-map-detail" hidden>
         <div class="garden-card-head">
           <h2>상세 정보</h2>
         </div>

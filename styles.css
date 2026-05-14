@@ -8830,6 +8830,14 @@ body.is-book-mode :is(button, select):disabled {
   gap: 0.8rem;
 }
 
+.garden-map-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.garden-map-layout--single + .garden-card {
+  display: none;
+}
+
 .garden-map-preview {
   min-width: 0;
 }
