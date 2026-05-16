@@ -5,6 +5,7 @@ const SUPABASE_ANON_KEY =
 const els = {
   feedList: document.querySelector(".feed-list"),
   feedEmpty: document.querySelector(".feed-empty"),
+  publicProfiles: document.querySelector("[data-public-profiles]"),
 };
 
 function escapeHtml(value = "") {
@@ -38,12 +39,16 @@ function getPostExcerpt(post = {}) {
 }
 
 function normalizePost(raw = {}) {
+  const loginId = raw.login_id || "";
+  const author = loginId || raw.author || "blog";
   return {
     id: raw.id || "",
     title: raw.title || "제목 없는 글",
     excerpt: getPostExcerpt(raw),
     category: raw.category || "전체",
-    author: raw.login_id || raw.author || "블로그",
+    author,
+    loginId,
+    userId: raw.user_id || "",
     publishedAt: raw.published_at || raw.created_at || "",
   };
 }
@@ -52,7 +57,7 @@ async function fetchPublicPosts() {
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
   endpoint.searchParams.set(
     "select",
-    "id,title,excerpt,body,category,author,login_id,published,published_at,created_at"
+    "id,title,excerpt,body,category,author,login_id,user_id,published,published_at,created_at"
   );
   endpoint.searchParams.set("published", "eq.true");
   endpoint.searchParams.set("order", "published_at.desc.nullslast,created_at.desc.nullslast");
@@ -71,6 +76,57 @@ async function fetchPublicPosts() {
   }
 
   return Array.isArray(data) ? data.map(normalizePost) : [];
+}
+
+function getPublicProfiles(posts = []) {
+  const profiles = new Map();
+  posts.forEach((post) => {
+    const id = String(post.loginId || post.author || "").trim();
+    if (!id) return;
+    const current = profiles.get(id) || {
+      id,
+      title: `${id}'s Blog`,
+      count: 0,
+      latestAt: "",
+    };
+    current.count += 1;
+    if (!current.latestAt || Date.parse(post.publishedAt || "") > Date.parse(current.latestAt || "")) {
+      current.latestAt = post.publishedAt || "";
+    }
+    profiles.set(id, current);
+  });
+
+  return [...profiles.values()].sort((a, b) => {
+    const timeDiff = Date.parse(b.latestAt || "") - Date.parse(a.latestAt || "");
+    if (Number.isFinite(timeDiff) && timeDiff !== 0) return timeDiff;
+    return a.id.localeCompare(b.id, "ko", { numeric: true });
+  });
+}
+
+function renderPublicProfiles(posts = []) {
+  if (!els.publicProfiles) return;
+  const profiles = getPublicProfiles(posts).slice(0, 12);
+  if (profiles.length === 0) {
+    els.publicProfiles.hidden = true;
+    els.publicProfiles.innerHTML = "";
+    return;
+  }
+
+  els.publicProfiles.hidden = false;
+  els.publicProfiles.innerHTML = profiles
+    .map((profile) => {
+      const initial = profile.id.slice(0, 1).toUpperCase();
+      return `
+        <a class="public-profile-card" href="./my-blog.html?user=${encodeURIComponent(profile.id)}">
+          <span class="public-profile-mark" aria-hidden="true">${escapeHtml(initial)}</span>
+          <span>
+            <strong>${escapeHtml(profile.title)}</strong>
+            <small>@${escapeHtml(profile.id)} · 공개 글 ${profile.count}개</small>
+          </span>
+        </a>
+      `;
+    })
+    .join("");
 }
 
 function renderEmpty(message = "공개된 글이 이곳에 표시됩니다.") {
@@ -97,7 +153,7 @@ function renderPublicPosts(posts = []) {
     posts
       .map(
         (post) => `
-          <a class="feed-row" href="./viewer.html?id=${encodeURIComponent(post.id)}">
+          <a class="feed-row" href="./viewer.html?id=${encodeURIComponent(post.id)}&from=home">
             <span>
               <strong>${escapeHtml(post.title)}</strong>
               <small>${escapeHtml(post.category)} · ${escapeHtml(post.author)}${post.excerpt ? ` · ${escapeHtml(post.excerpt)}` : ""}</small>
@@ -114,8 +170,10 @@ async function initPublicHome() {
   try {
     renderEmpty("공개 글을 불러오는 중입니다.");
     const posts = await fetchPublicPosts();
+    renderPublicProfiles(posts);
     renderPublicPosts(posts);
   } catch (error) {
+    renderPublicProfiles([]);
     renderEmpty(error.message || "공개 글을 불러오지 못했습니다.");
   }
 }

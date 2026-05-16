@@ -293,6 +293,79 @@ button {
   letter-spacing: 0.08em;
 }
 
+.public-profile-strip {
+  display: flex;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.8);
+}
+
+.public-profile-card {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+  min-width: 10.5rem;
+  max-width: 14rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(192, 224, 248, 0.92);
+  border-radius: 10px;
+  background: rgba(248, 253, 255, 0.86);
+  color: #4f6780;
+}
+
+.public-profile-card:hover,
+.public-profile-card:focus-visible {
+  background: #fff;
+  color: var(--sky-dark);
+  box-shadow: 0 10px 22px rgba(60, 145, 201, 0.12);
+}
+
+.public-profile-mark {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(130, 202, 246, 0.7);
+  border-radius: 9px;
+  background: rgba(232, 247, 255, 0.9);
+  color: var(--sky-dark);
+  font-size: 0.86rem;
+  font-weight: 850;
+  place-items: center;
+}
+
+.public-profile-card span:last-child {
+  min-width: 0;
+}
+
+.public-profile-card strong,
+.public-profile-card small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-profile-card strong {
+  color: #21384e;
+  font-size: 0.78rem;
+  font-weight: 820;
+}
+
+.public-profile-card small {
+  margin-top: 0.08rem;
+  color: #8aa0b2;
+  font-size: 0.68rem;
+}
+
+body.is-public-blog-view .blog-feature-light-button[href*="editor.html"],
+body.is-public-blog-view .blog-feature-text-action[href*="editor.html"],
+body.is-public-blog-view [data-feature-delete] {
+  display: none;
+}
+
 .feed-list {
   display: grid;
   min-width: 0;

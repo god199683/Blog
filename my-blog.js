@@ -4,10 +4,13 @@ const SUPABASE_ANON_KEY =
 
 const ALL_NODE_ID = "all";
 const BLOG_LIST_PAGE_SIZE = 10;
+const BLOG_PARAMS = new URLSearchParams(window.location.search);
+const PUBLIC_BLOG_ID = String(BLOG_PARAMS.get("user") || "").trim();
 
 const state = {
   session: null,
   id: "",
+  publicMode: Boolean(PUBLIC_BLOG_ID),
   posts: [],
   tree: [],
   trashItems: [],
@@ -27,6 +30,8 @@ const state = {
   importLocationOptions: [],
   pendingImportLocationKey: "",
 };
+
+document.body.classList.toggle("is-public-blog-view", state.publicMode);
 
 const els = {
   title: document.querySelector("[data-blog-title]"),
@@ -87,11 +92,31 @@ function renderBlog(id, profile = null) {
   if (els.brandTitle) els.brandTitle.textContent = title;
   if (els.profileTitle) els.profileTitle.textContent = title;
   if (els.profileId) els.profileId.textContent = `@${id}`;
-  if (els.owner) els.owner.textContent = `${id} 계정의 개인 블로그입니다.`;
+  if (els.owner) {
+    els.owner.textContent = state.publicMode ? `${id} 계정의 공개 블로그입니다.` : `${id} 계정의 개인 블로그입니다.`;
+  }
   els.initials.forEach((initial) => {
     initial.textContent = id.slice(0, 1).toUpperCase();
   });
   document.title = `${title} | 블로그 홈`;
+}
+
+function setOwnerControlsVisible(visible) {
+  const toolsPanel = document.querySelector("[data-tree-tools]");
+  if (!visible && toolsPanel) toolsPanel.hidden = true;
+  [
+    document.querySelector(".blog-write-button"),
+    document.querySelector(".blog-profile-tool"),
+    document.querySelector("[data-file-import]"),
+    document.querySelector(".blog-trash-link"),
+    els.postSelectMode,
+    els.postSelectAll,
+    els.postVisibilityToggle,
+  ]
+    .filter(Boolean)
+    .forEach((item) => {
+      item.hidden = !visible;
+    });
 }
 
 function escapeHtml(value = "") {
@@ -187,7 +212,13 @@ function getPostLocationLabel(post = {}) {
 }
 
 function getPostViewHref(post = {}) {
-  return `./viewer.html?id=${encodeURIComponent(post.id || "")}`;
+  const params = new URLSearchParams();
+  params.set("id", post.id || "");
+  if (state.publicMode && state.id) {
+    params.set("from", "public-blog");
+    params.set("user", state.id);
+  }
+  return `./viewer.html?${params.toString()}`;
 }
 
 function getPostId(post = {}) {
@@ -726,6 +757,18 @@ function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
   const mediaSource = getPostMediaSource(post);
   const excerpt = getPostExcerpt(post, 110);
   const initial = (state.id || "B").slice(0, 1).toUpperCase();
+  const ownerLightActions = state.publicMode
+    ? ""
+    : `
+      <a class="blog-feature-light-button" href="${editHref}">수정</a>
+      <button class="blog-feature-light-button" type="button" data-feature-delete="${escapeHtml(post.id || "")}">삭제</button>
+    `;
+  const ownerTextActions = state.publicMode
+    ? ""
+    : `
+      <a class="blog-feature-text-action" href="${editHref}">수정</a>
+      <button class="blog-feature-text-action" type="button" data-feature-delete="${escapeHtml(post.id || "")}">삭제</button>
+    `;
 
   els.featureCard.hidden = false;
   els.featureCard.dataset.featurePostId = getPostId(post);
@@ -1499,6 +1542,14 @@ async function fetchUserPosts(session, id) {
   return filterPostsOutsideTrash(posts);
 }
 
+async function fetchPublicBlogPosts(id) {
+  const rows = await requestRest(
+    `posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&login_id=eq.${encodeURIComponent(id)}&published=eq.true&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=100`,
+    SUPABASE_ANON_KEY
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
 const listToggle = document.querySelector("[data-list-toggle]");
 const blogBoard = document.querySelector("[data-blog-board]");
 
@@ -1807,12 +1858,29 @@ async function ensureBlogProfile(session, id) {
 }
 
 window.blogSession?.ready.then(async (session) => {
+  if (state.publicMode) {
+    state.session = session || null;
+    state.id = PUBLIC_BLOG_ID;
+    setOwnerControlsVisible(false);
+    renderBlog(state.id);
+    state.tree = [];
+    renderTree();
+    try {
+      state.posts = await fetchPublicBlogPosts(state.id);
+    } catch {
+      state.posts = [];
+    }
+    renderActivePosts();
+    return;
+  }
+
   const id = window.blogSession.getId(session);
   if (!id) {
     window.location.href = "./login.html";
     return;
   }
 
+  setOwnerControlsVisible(true);
   state.session = session;
   state.id = id;
   renderBlog(id);

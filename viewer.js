@@ -6,6 +6,8 @@ const params = new URLSearchParams(window.location.search);
 const viewerTarget = params.get("target") === "materials" || params.has("material") ? "materials" : "posts";
 const materialId = params.get("material") || (viewerTarget === "materials" ? params.get("id") || "" : "");
 const postId = viewerTarget === "materials" ? materialId : params.get("id") || "";
+const viewerSource = params.get("from") || "";
+const viewerUser = params.get("user") || "";
 let bookMode = params.get("book") === "1";
 let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize") || "18", 10);
 let readerTheme = localStorage.getItem("blog.readerTheme") || "sky";
@@ -186,6 +188,8 @@ function buildViewerUrl(nextPostId, useBookMode = bookMode, pageTarget = "") {
     nextParams.set("book", "1");
     if (pageTarget) nextParams.set("page", pageTarget);
   }
+  if (viewerSource) nextParams.set("from", viewerSource);
+  if (viewerUser) nextParams.set("user", viewerUser);
   return `./viewer.html?${nextParams.toString()}`;
 }
 
@@ -485,6 +489,15 @@ function goToBookPost(targetPostId, pageTarget = "") {
   window.location.href = buildViewerUrl(targetPostId, bookMode, pageTarget);
 }
 
+function getViewerBackHref() {
+  if (viewerTarget === "materials") return "./materials.html";
+  if (viewerSource === "home") return "./";
+  if (viewerSource === "public-blog" && viewerUser) {
+    return `./my-blog.html?user=${encodeURIComponent(viewerUser)}`;
+  }
+  return "./my-blog.html";
+}
+
 async function fetchPost() {
   if (viewerTarget === "materials") return fetchMaterial();
 
@@ -569,6 +582,9 @@ async function fetchSameFolderPosts(post) {
   );
   endpoint.searchParams.set("limit", "1000");
   endpoint.searchParams.set("order", "title.asc.nullslast,published_at.asc.nullslast,created_at.asc.nullslast");
+  if (viewerSource === "home" || viewerSource === "public-blog") {
+    endpoint.searchParams.set("published", "eq.true");
+  }
 
   const ownerFilter = getPostOwnerFilter(post);
   if (ownerFilter) {
@@ -623,7 +639,7 @@ async function initViewer() {
 }
 
 els.back.addEventListener("click", () => {
-  window.location.href = viewerTarget === "materials" ? "./materials.html" : "./my-blog.html";
+  window.location.href = getViewerBackHref();
 });
 
 els.edit.addEventListener("click", () => {
