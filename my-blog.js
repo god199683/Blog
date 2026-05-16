@@ -3,7 +3,8 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
 const ALL_NODE_ID = "all";
-const BLOG_LIST_PAGE_SIZE = 10;
+const BLOG_PAGE_SIZE_OPTIONS = Object.freeze([5, 10, 20, 30, 40, 50]);
+const BLOG_DEFAULT_PAGE_SIZE = 5;
 const BLOG_PARAMS = new URLSearchParams(window.location.search);
 const PUBLIC_BLOG_ID = String(BLOG_PARAMS.get("user") || "").trim();
 
@@ -24,6 +25,8 @@ const state = {
   currentScopeTitle: "전체보기",
   listPage: 1,
   miniPage: 1,
+  listPageSize: BLOG_DEFAULT_PAGE_SIZE,
+  miniPageSize: BLOG_DEFAULT_PAGE_SIZE,
   postSelectionMode: false,
   selectedPostIds: new Set(),
   postBulkBusy: false,
@@ -265,18 +268,33 @@ function getTitleSortedPosts(posts = []) {
     .map((item) => item.post);
 }
 
-function clampPage(page, totalItems) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / BLOG_LIST_PAGE_SIZE));
+function normalizeBlogPageSize(value) {
+  const size = Number(value);
+  return BLOG_PAGE_SIZE_OPTIONS.includes(size) ? size : BLOG_DEFAULT_PAGE_SIZE;
+}
+
+function renderBlogPageSizeOptions(selectedSize) {
+  const currentSize = normalizeBlogPageSize(selectedSize);
+  return BLOG_PAGE_SIZE_OPTIONS.map(
+    (size) => `<option value="${size}" ${size === currentSize ? "selected" : ""}>${size}개</option>`
+  ).join("");
+}
+
+function clampPage(page, totalItems, pageSize = BLOG_DEFAULT_PAGE_SIZE) {
+  const size = normalizeBlogPageSize(pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalItems / size));
   return Math.min(Math.max(Number(page) || 1, 1), totalPages);
 }
 
-function getPagedPosts(posts = [], page) {
-  const currentPage = clampPage(page, posts.length);
-  const start = (currentPage - 1) * BLOG_LIST_PAGE_SIZE;
+function getPagedPosts(posts = [], page, pageSize = BLOG_DEFAULT_PAGE_SIZE) {
+  const size = normalizeBlogPageSize(pageSize);
+  const currentPage = clampPage(page, posts.length, size);
+  const start = (currentPage - 1) * size;
   return {
     page: currentPage,
-    totalPages: Math.max(1, Math.ceil(posts.length / BLOG_LIST_PAGE_SIZE)),
-    posts: posts.slice(start, start + BLOG_LIST_PAGE_SIZE),
+    pageSize: size,
+    totalPages: Math.max(1, Math.ceil(posts.length / size)),
+    posts: posts.slice(start, start + size),
   };
 }
 
@@ -294,13 +312,12 @@ function syncPagesToPost(postId) {
   if (!targetId) return;
   const index = getCurrentSortedScopePosts().findIndex((post) => getPostId(post) === targetId);
   if (index < 0) return;
-  const page = Math.floor(index / BLOG_LIST_PAGE_SIZE) + 1;
-  state.listPage = page;
-  state.miniPage = page;
+  state.listPage = Math.floor(index / normalizeBlogPageSize(state.listPageSize)) + 1;
+  state.miniPage = Math.floor(index / normalizeBlogPageSize(state.miniPageSize)) + 1;
 }
 
 function getCurrentPagePosts() {
-  return getPagedPosts(getCurrentSortedScopePosts(), state.listPage).posts;
+  return getPagedPosts(getCurrentSortedScopePosts(), state.listPage, state.listPageSize).posts;
 }
 
 function getTitleSortLabel() {
@@ -814,7 +831,7 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
 
   const title = scopeTitle === "전체보기" ? "전체 카테고리" : scopeTitle;
   const sortLabel = getTitleSortLabel();
-  const pageMeta = getPagedPosts(posts, state.miniPage);
+  const pageMeta = getPagedPosts(posts, state.miniPage, state.miniPageSize);
   state.miniPage = pageMeta.page;
   els.miniList.hidden = false;
   els.miniList.innerHTML = `
@@ -847,8 +864,14 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
     </div>
     <div class="blog-mini-footer">
       <button type="button" data-mini-page="prev" ${pageMeta.page <= 1 ? "disabled" : ""}>이전</button>
-      <span>${pageMeta.page} / ${pageMeta.totalPages}</span>
+      <span class="blog-page-state">${pageMeta.page} / ${pageMeta.totalPages}</span>
       <button type="button" data-mini-page="next" ${pageMeta.page >= pageMeta.totalPages ? "disabled" : ""}>다음</button>
+      <label class="blog-page-size-control">
+        <span class="sr-only">표시 개수</span>
+        <select data-mini-page-size aria-label="표시 개수">
+          ${renderBlogPageSizeOptions(state.miniPageSize)}
+        </select>
+      </label>
       <a href="#top">TOP</a>
     </div>
   `;
@@ -1475,7 +1498,7 @@ function exportActivePosts() {
 
 function renderPosts(posts = []) {
   const visiblePosts = getTitleSortedPosts(posts);
-  const pageMeta = getPagedPosts(visiblePosts, state.listPage);
+  const pageMeta = getPagedPosts(visiblePosts, state.listPage, state.listPageSize);
   state.listPage = pageMeta.page;
   syncTitleSortButton();
   if (els.count) els.count.textContent = `${posts.length}개의 글`;
@@ -1526,8 +1549,14 @@ function renderPosts(posts = []) {
     `
       <div class="blog-list-footer">
         <button type="button" data-post-page="prev" ${pageMeta.page <= 1 ? "disabled" : ""}>이전</button>
-        <span>${pageMeta.page} / ${pageMeta.totalPages}</span>
+        <span class="blog-page-state">${pageMeta.page} / ${pageMeta.totalPages}</span>
         <button type="button" data-post-page="next" ${pageMeta.page >= pageMeta.totalPages ? "disabled" : ""}>다음</button>
+        <label class="blog-page-size-control">
+          <span class="sr-only">표시 개수</span>
+          <select data-post-page-size aria-label="표시 개수">
+            ${renderBlogPageSizeOptions(state.listPageSize)}
+          </select>
+        </label>
       </div>
     `;
   syncPostBulkButtons();
@@ -1626,6 +1655,14 @@ els.postList?.addEventListener("click", (event) => {
   selectFeaturePost(row.dataset.postRow);
 });
 
+els.postList?.addEventListener("change", (event) => {
+  const sizeSelect = event.target.closest("[data-post-page-size]");
+  if (!sizeSelect) return;
+  state.listPageSize = normalizeBlogPageSize(sizeSelect.value);
+  state.listPage = 1;
+  renderPosts(state.currentScopePosts);
+});
+
 els.postList?.addEventListener("keydown", (event) => {
   const row = event.target.closest("[data-post-row]");
   if (!row || (event.key !== "Enter" && event.key !== " ")) return;
@@ -1666,6 +1703,14 @@ els.miniList?.addEventListener("click", (event) => {
     selectFeaturePost(row.dataset.miniPost);
     return;
   }
+});
+
+els.miniList?.addEventListener("change", (event) => {
+  const sizeSelect = event.target.closest("[data-mini-page-size]");
+  if (!sizeSelect) return;
+  state.miniPageSize = normalizeBlogPageSize(sizeSelect.value);
+  state.miniPage = 1;
+  renderMiniList(getCurrentSortedScopePosts(), state.currentScopeTitle);
 });
 
 els.scrollTop?.addEventListener("click", () => {

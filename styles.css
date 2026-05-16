@@ -1950,9 +1950,9 @@ body.is-away-locked {
 }
 
 .blog-list-footer button,
-.blog-list-footer span,
+.blog-list-footer .blog-page-state,
 .blog-mini-footer button,
-.blog-mini-footer span {
+.blog-mini-footer .blog-page-state {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1967,11 +1967,36 @@ body.is-away-locked {
   line-height: 1;
 }
 
-.blog-list-footer span,
-.blog-mini-footer span {
+.blog-list-footer .blog-page-state,
+.blog-mini-footer .blog-page-state {
   min-width: 2.8rem;
   border-color: transparent;
   background: transparent;
+}
+
+.blog-page-size-control {
+  display: inline-flex;
+  align-items: center;
+}
+
+.blog-page-size-control select {
+  min-width: 4.05rem;
+  min-height: 1.55rem;
+  padding: 0 1.35rem 0 0.62rem;
+  border: 1px solid rgba(186, 230, 253, 0.9);
+  border-radius: 999px;
+  background: #fbfdff;
+  color: #557085;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.blog-page-size-control select:hover,
+.blog-page-size-control select:focus-visible {
+  border-color: rgba(56, 189, 248, 0.48);
+  background: #f0f9ff;
+  color: var(--sky-dark);
 }
 
 .blog-list-footer button:hover:not(:disabled),
@@ -1989,12 +2014,12 @@ body.is-away-locked {
   opacity: 0.52;
 }
 
-.blog-list-footer button:first-child::before {
+.blog-list-footer [data-post-page="prev"]::before {
   margin-right: 0.18rem;
   content: "‹";
 }
 
-.blog-list-footer button:nth-child(3)::after {
+.blog-list-footer [data-post-page="next"]::after {
   margin-left: 0.18rem;
   content: "›";
 }
@@ -2303,7 +2328,7 @@ body.is-away-locked {
   font-size: 0.74rem;
 }
 
-.blog-mini-footer span {
+.blog-mini-footer .blog-page-state {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2322,12 +2347,12 @@ body.is-away-locked {
   opacity: 0.58;
 }
 
-.blog-mini-footer button:first-child::before {
+.blog-mini-footer [data-mini-page="prev"]::before {
   margin-right: 0.18rem;
   content: "‹";
 }
 
-.blog-mini-footer button:nth-child(3)::after {
+.blog-mini-footer [data-mini-page="next"]::after {
   margin-left: 0.18rem;
   content: "›";
 }
