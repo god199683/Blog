@@ -8,12 +8,10 @@ const FILTER_LABELS = {
   link: "링크",
   file: "파일",
   reference: "참고",
-  space: "공간",
 };
 
 const SECTION_LABELS = {
   materials: "자료",
-  spaces: "공간",
 };
 
 const MATERIAL_ALL_NODE_ID = "materials-all";
@@ -24,7 +22,7 @@ const state = {
   materials: [],
   materialTree: [],
   materialError: "",
-  activeSection: readActiveSectionFromUrl(),
+  activeSection: "materials",
   activeMaterialNodeId: MATERIAL_ALL_NODE_ID,
   collapsedMaterialNodeIds: new Set(),
   activeFilter: "all",
@@ -34,7 +32,6 @@ const state = {
   selectedNodeIds: new Set(),
   selectionMode: false,
   titleSortDirection: "none",
-  editingSpaceId: "",
 };
 
 const els = {
@@ -51,7 +48,6 @@ const els = {
   titleHeading: document.querySelector("[data-material-title-heading]"),
   typeHeading: document.querySelector("[data-material-type-heading]"),
   table: document.querySelector("[data-material-table]"),
-  spaceGrid: document.querySelector("[data-material-space-grid]"),
   listToggle: document.querySelector("[data-material-list-toggle]"),
   list: document.querySelector("[data-material-list]"),
   featureCard: document.querySelector("[data-material-feature-card]"),
@@ -79,14 +75,10 @@ const els = {
   scrollBottom: document.querySelector("[data-scroll-bottom]"),
 };
 
-function readActiveSectionFromUrl() {
-  return window.location.hash.replace("#", "") === "spaces" ? "spaces" : "materials";
-}
-
 function setActiveSection(section, shouldSyncUrl = true) {
-  state.activeSection = section === "spaces" ? "spaces" : "materials";
+  state.activeSection = "materials";
   if (!shouldSyncUrl) return;
-  const hash = state.activeSection === "spaces" ? "#spaces" : "#materials";
+  const hash = "#materials";
   if (window.location.hash === hash) return;
   history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
 }
@@ -410,16 +402,13 @@ function getMaterialCounts() {
   return state.materials.reduce(
     (counts, material) => {
       const type = material.material_type || "note";
+      if (type === "space") return counts;
       counts.total += 1;
-      if (type === "space") {
-        counts.spaces += 1;
-      } else {
-        counts.materials += 1;
-      }
+      counts.materials += 1;
       counts[type] = (counts[type] || 0) + 1;
       return counts;
     },
-    { total: 0, materials: 0, spaces: 0, note: 0, link: 0, file: 0, reference: 0, space: 0 }
+    { total: 0, materials: 0, note: 0, link: 0, file: 0, reference: 0 }
   );
 }
 
@@ -433,22 +422,7 @@ function isWebLink(url = "") {
 }
 
 function getMaterialPreview(material = {}) {
-  if (material.material_type === "space") {
-    try {
-      const parsed = JSON.parse(material.content || "");
-      if (parsed?.kind === "blog-map") {
-        const width = parsed.canvasWidth || (parsed.width || 0) * (parsed.tileSize || 32);
-        const height = parsed.canvasHeight || (parsed.height || 0) * (parsed.tileSize || 32);
-        return String(parsed.note || `${width || 0} x ${height || 0} 캔버스`).replace(/\s+/g, " ").trim();
-      }
-    } catch {}
-  }
   return clampPreviewText(material.content || material.url || "자료 설명이 없습니다.");
-}
-
-function openSpaceDashboard(spaceId) {
-  if (!spaceId) return;
-  window.location.href = `./space-dashboard.html?space=${encodeURIComponent(spaceId)}`;
 }
 
 function openMaterialEditor(materialId) {
@@ -471,13 +445,9 @@ function getLatestSortLabel() {
 
 function getCurrentMaterials() {
   const query = state.searchQuery.trim().toLowerCase();
-  let materials = state.materials.filter((material) =>
-    state.activeSection === "spaces" ? material.material_type === "space" : material.material_type !== "space"
-  );
+  let materials = state.materials.filter((material) => material.material_type !== "space");
 
-  if (state.activeSection === "materials") {
-    materials = materials.filter(isMaterialInActiveNode);
-  }
+  materials = materials.filter(isMaterialInActiveNode);
 
   if (query) {
     materials = materials.filter((material) =>
@@ -527,10 +497,6 @@ function renderSections() {
     }
   });
   els.sectionCounts.forEach((item) => {
-    if (item.dataset.materialSectionCount === "spaces") {
-      item.textContent = `${counts.spaces}개의 공간`;
-      return;
-    }
     item.textContent = `${counts.materials}개의 자료`;
   });
 }
@@ -621,16 +587,16 @@ function renderBoardHeader(materials = []) {
       ? findMaterialNode(state.materialTree, state.activeMaterialNodeId)?.node.label || "자료"
       : SECTION_LABELS[state.activeSection] || "자료";
   if (els.boardTitle) els.boardTitle.textContent = title;
-  if (els.count) els.count.textContent = `${materials.length}개의 ${state.activeSection === "spaces" ? "공간" : "자료"}`;
-  if (els.titleHeading) els.titleHeading.textContent = state.activeSection === "spaces" ? "공간 이름" : "자료 제목";
-  if (els.typeHeading) els.typeHeading.textContent = state.activeSection === "spaces" ? "구분" : "종류";
+  if (els.count) els.count.textContent = `${materials.length}개의 자료`;
+  if (els.titleHeading) els.titleHeading.textContent = "자료 제목";
+  if (els.typeHeading) els.typeHeading.textContent = "종류";
 }
 
 function renderMaterialRows(materials = []) {
   if (!els.list) return;
 
   if (materials.length === 0) {
-    const message = state.materialError || (state.activeSection === "spaces" ? "아직 만든 공간이 없습니다." : "아직 저장된 자료가 없습니다.");
+    const message = state.materialError || "아직 저장된 자료가 없습니다.";
     els.list.innerHTML = `
       <div class="blog-empty-row">
         <span>${escapeHtml(message)}</span>
@@ -722,59 +688,6 @@ function renderFeatureArea(materials = []) {
   `;
 }
 
-function renderSpaceCards(spaces = []) {
-  if (!els.spaceGrid) return;
-
-  if (spaces.length === 0) {
-    state.selectedMaterialId = "";
-    els.spaceGrid.innerHTML = `
-      <div class="materials-space-empty">
-        <strong>아직 만든 공간이 없습니다.</strong>
-        <span>공간 영역에서 불러오기를 사용하면 카드로 정리됩니다.</span>
-      </div>
-    `;
-    return;
-  }
-
-  const selectedExists = spaces.some((space) => space.id === state.selectedMaterialId);
-  if (!selectedExists) state.selectedMaterialId = spaces[0].id;
-
-  els.spaceGrid.innerHTML = spaces
-    .map((space) => {
-      const isSelected = space.id && space.id === state.selectedMaterialId;
-      const isChecked = space.id && state.selectedMaterialIds.has(space.id);
-      const isEditing = space.id && space.id === state.editingSpaceId;
-      const preview = getMaterialPreview(space);
-      return `
-        <article class="materials-space-board-card ${isSelected || isChecked ? "is-selected" : ""}" data-space-card="${escapeHtml(space.id)}" tabindex="0">
-          <div class="materials-space-card-top">
-            ${
-              state.selectionMode
-                ? `<input class="materials-select-check" type="checkbox" data-material-check="${escapeHtml(space.id)}" ${isChecked ? "checked" : ""} aria-label="${escapeHtml(space.title)} 선택">`
-                : `<span>공간</span>`
-            }
-            <time datetime="${escapeHtml(space.created_at || space.updated_at || "")}">${escapeHtml(formatDate(space.created_at || space.updated_at))}</time>
-          </div>
-          ${
-            isEditing
-              ? `<form class="materials-space-title-form" data-space-rename-form="${escapeHtml(space.id)}">
-                  <input name="title" data-space-title-input maxlength="120" value="${escapeHtml(space.title || "이름 없는 공간")}" aria-label="공간 이름">
-                  <button type="submit">저장</button>
-                  <button type="button" data-space-rename-cancel>취소</button>
-                </form>`
-              : `<h3>${escapeHtml(space.title || "이름 없는 공간")}</h3>`
-          }
-          <p>${escapeHtml(preview)}</p>
-          <div class="materials-space-card-actions">
-            <button type="button" data-space-rename="${escapeHtml(space.id)}" ${isEditing ? "disabled" : ""}>이름 수정</button>
-            <button type="button" data-space-delete="${escapeHtml(space.id)}">삭제</button>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-}
-
 function renderMiniList(materials = []) {
   if (!els.miniList) return;
   if (materials.length === 0) {
@@ -825,33 +738,17 @@ function renderMiniList(materials = []) {
 
 function renderDashboard() {
   const materials = getCurrentMaterials();
-  const isSpaceSection = state.activeSection === "spaces";
   renderStats();
   renderSections();
   renderMaterialTree();
   renderToolState();
   renderBoardHeader(materials);
   renderMaterialSelectionControls(materials);
-  if (els.table) els.table.hidden = isSpaceSection;
-  if (els.spaceGrid) els.spaceGrid.hidden = !isSpaceSection;
-  if (els.listToggle) els.listToggle.hidden = isSpaceSection;
-
-  if (isSpaceSection) {
-    renderSpaceCards(materials);
-    if (els.featureCard) {
-      els.featureCard.hidden = true;
-      els.featureCard.innerHTML = "";
-    }
-    if (els.miniList) {
-      els.miniList.hidden = true;
-      els.miniList.innerHTML = "";
-    }
-  } else {
-    if (els.spaceGrid) els.spaceGrid.innerHTML = "";
-    renderFeatureArea(materials);
-    renderMaterialRows(materials);
-    renderMiniList(materials);
-  }
+  if (els.table) els.table.hidden = false;
+  if (els.listToggle) els.listToggle.hidden = false;
+  renderFeatureArea(materials);
+  renderMaterialRows(materials);
+  renderMiniList(materials);
   const sortLabel = getTitleSortLabel();
   if (els.titleSort) {
     els.titleSort.dataset.sortDirection = state.titleSortDirection;
@@ -987,64 +884,6 @@ async function createMaterial(payload) {
   return normalizeMaterial(Array.isArray(rows) ? rows[0] : payload);
 }
 
-function createDefaultSpaceContent(title = "새 공간") {
-  return JSON.stringify({
-    kind: "blog-map",
-    version: 4,
-    title,
-    canvasWidth: 1152,
-    canvasHeight: 648,
-    background: "#ffffff",
-    slides: [{ id: "slide-1", title: "1", objects: [] }],
-    activeSlideId: "slide-1",
-    zones: [],
-    creatures: [],
-    relations: { nodes: [], edges: [] },
-    appearances: [],
-    abilities: [],
-    titles: [],
-    creations: [],
-    items: [],
-    manaStones: [],
-    byproducts: [],
-    accessKeys: [],
-    trash: [],
-    note: "새 공간",
-  });
-}
-
-async function addSpaceMaterial() {
-  const title = promptName("추가할 공간 이름을 입력해주세요.", "새 공간");
-  if (!title) return;
-
-  try {
-    const material = await createMaterial({
-      user_id: state.session.user.id,
-      login_id: state.id,
-      title: title.slice(0, 120),
-      material_type: "space",
-      url: null,
-      content: createDefaultSpaceContent(title),
-      category: "전체",
-      folder_id: null,
-      folder_name: null,
-      folder_path: null,
-      deleted_at: null,
-    });
-    state.materials = [material, ...state.materials];
-    state.selectedMaterialId = material.id;
-    state.selectedMaterialIds.clear();
-    state.selectedNodeIds.clear();
-    setActiveSection("spaces");
-    state.searchQuery = "";
-    state.materialError = "";
-    if (els.searchInput) els.searchInput.value = "";
-    renderDashboard();
-  } catch (error) {
-    window.alert(error.message || "공간을 추가하지 못했습니다.");
-  }
-}
-
 async function readMaterialFile(file) {
   const extension = getFileExtension(file.name);
 
@@ -1081,13 +920,13 @@ async function importMaterialFiles(files = []) {
         user_id: state.session.user.id,
         login_id: state.id,
         title: getFileStem(file.name).slice(0, 120),
-        material_type: state.activeSection === "spaces" ? "space" : "file",
+        material_type: "file",
         url: file.name,
         content: content || file.name,
-        category: state.activeSection === "spaces" ? "전체" : location.category,
-        folder_id: state.activeSection === "spaces" ? null : location.folder?.id || null,
-        folder_name: state.activeSection === "spaces" ? null : location.folder?.label || null,
-        folder_path: state.activeSection === "spaces" ? null : location.folder?.path || null,
+        category: location.category,
+        folder_id: location.folder?.id || null,
+        folder_name: location.folder?.label || null,
+        folder_path: location.folder?.path || null,
         deleted_at: null,
       });
       imported.push(material);
@@ -1099,7 +938,7 @@ async function importMaterialFiles(files = []) {
   if (imported.length > 0) {
     state.materials = [...imported, ...state.materials];
     state.selectedMaterialId = imported[0].id;
-    setActiveSection(imported[0].material_type === "space" ? "spaces" : "materials");
+    setActiveSection("materials");
     state.activeFilter = "all";
     state.searchQuery = "";
     state.materialError = "";
@@ -1219,17 +1058,16 @@ function exportMaterials() {
 }
 
 async function promptCreateMaterial() {
-  const isSpaceSection = state.activeSection === "spaces";
-  const title = window.prompt(isSpaceSection ? "공간 이름을 입력해주세요." : "자료 제목을 입력해주세요.", "")?.trim();
+  const title = window.prompt("자료 제목을 입력해주세요.", "")?.trim();
   if (!title) return;
 
-  const defaultType = isSpaceSection ? "공간" : "메모";
-  const typeInput = isSpaceSection ? "공간" : window.prompt("자료 종류를 입력해주세요. 메모, 링크, 파일, 참고", defaultType);
+  const defaultType = "메모";
+  const typeInput = window.prompt("자료 종류를 입력해주세요. 메모, 링크, 파일, 참고", defaultType);
   if (typeInput === null) return;
 
-  const url = isSpaceSection ? "" : window.prompt("링크 또는 파일 경로를 입력해주세요. 비워둘 수 있습니다.", "")?.trim() || "";
+  const url = window.prompt("링크 또는 파일 경로를 입력해주세요. 비워둘 수 있습니다.", "")?.trim() || "";
   const content = window.prompt(
-    isSpaceSection ? "공간 설명을 입력해주세요. 비워둘 수 있습니다." : "자료 내용을 입력해주세요. 비워둘 수 있습니다.",
+    "자료 내용을 입력해주세요. 비워둘 수 있습니다.",
     ""
   )?.trim() || "";
   const location = getActiveMaterialLocation();
@@ -1242,15 +1080,15 @@ async function promptCreateMaterial() {
       material_type: getMaterialTypeFromInput(typeInput),
       url: url || null,
       content: content || null,
-      category: isSpaceSection ? "전체" : location.category,
-      folder_id: isSpaceSection ? null : location.folder?.id || null,
-      folder_name: isSpaceSection ? null : location.folder?.label || null,
-      folder_path: isSpaceSection ? null : location.folder?.path || null,
+      category: location.category,
+      folder_id: location.folder?.id || null,
+      folder_name: location.folder?.label || null,
+      folder_path: location.folder?.path || null,
       deleted_at: null,
     });
     state.materials = [material, ...state.materials];
     state.selectedMaterialId = material.id;
-    setActiveSection(material.material_type === "space" ? "spaces" : "materials");
+    setActiveSection("materials");
     state.activeFilter = "all";
     state.searchQuery = "";
     state.materialError = "";
@@ -1292,59 +1130,6 @@ async function deleteMaterial(materialId) {
   state.materials = state.materials.filter((material) => material.id !== materialId);
   state.selectedMaterialIds.delete(materialId);
   if (state.selectedMaterialId === materialId) state.selectedMaterialId = "";
-  if (state.editingSpaceId === materialId) state.editingSpaceId = "";
-  renderDashboard();
-}
-
-function startSpaceRename(spaceId) {
-  const space = state.materials.find((material) => material.id === spaceId && material.material_type === "space");
-  if (!space) return;
-  state.editingSpaceId = spaceId;
-  state.selectedMaterialId = spaceId;
-  renderDashboard();
-  requestAnimationFrame(() => {
-    const input = els.spaceGrid?.querySelector("[data-space-title-input]");
-    input?.focus();
-    input?.select();
-  });
-}
-
-function cancelSpaceRename() {
-  state.editingSpaceId = "";
-  renderDashboard();
-}
-
-async function saveSpaceTitle(spaceId, rawTitle) {
-  const space = state.materials.find((material) => material.id === spaceId && material.material_type === "space");
-  if (!space) return;
-
-  const title = String(rawTitle || "").trim();
-  if (!title) return;
-  if (title === space.title) {
-    cancelSpaceRename();
-    return;
-  }
-
-  const updatedAt = new Date().toISOString();
-  const rows = await requestRest(
-    `blog_materials?id=eq.${encodeURIComponent(spaceId)}&user_id=eq.${encodeURIComponent(state.session.user.id)}`,
-    state.session.access_token,
-    {
-      method: "PATCH",
-      headers: {
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({
-        title: title.slice(0, 120),
-        updated_at: updatedAt,
-      }),
-    }
-  );
-  const fallback = { ...space, title: title.slice(0, 120), updated_at: updatedAt };
-  const updated = normalizeMaterial(Array.isArray(rows) ? rows[0] || fallback : fallback);
-  state.materials = state.materials.map((material) => (material.id === spaceId ? updated : material));
-  state.selectedMaterialId = spaceId;
-  state.editingSpaceId = "";
   renderDashboard();
 }
 
@@ -1367,7 +1152,6 @@ async function deleteSelectedMaterials() {
     state.materials = state.materials.filter((material) => !idSet.has(material.id));
     state.selectedMaterialIds.clear();
     state.selectedMaterialId = "";
-    if (idSet.has(state.editingSpaceId)) state.editingSpaceId = "";
     state.selectionMode = false;
     renderDashboard();
   } catch (error) {
@@ -1520,75 +1304,6 @@ els.list?.addEventListener("change", (event) => {
   renderDashboard();
 });
 
-els.spaceGrid?.addEventListener("click", async (event) => {
-  const renameButton = event.target.closest("[data-space-rename]");
-  if (renameButton) {
-    event.preventDefault();
-    startSpaceRename(renameButton.dataset.spaceRename);
-    return;
-  }
-
-  if (event.target.closest("[data-space-rename-cancel]")) {
-    event.preventDefault();
-    cancelSpaceRename();
-    return;
-  }
-
-  if (event.target.closest("[data-space-rename-form]")) {
-    event.stopPropagation();
-    return;
-  }
-
-  const deleteButton = event.target.closest("[data-space-delete]");
-  if (deleteButton) {
-    event.preventDefault();
-    await deleteMaterial(deleteButton.dataset.spaceDelete);
-    return;
-  }
-
-  if (event.target.closest("[data-material-check]")) return;
-  const card = event.target.closest("[data-space-card]");
-  if (!card) return;
-  event.preventDefault();
-  openSpaceDashboard(card.dataset.spaceCard);
-});
-
-els.spaceGrid?.addEventListener("submit", async (event) => {
-  const form = event.target.closest("[data-space-rename-form]");
-  if (!form) return;
-  event.preventDefault();
-  const input = form.querySelector("[data-space-title-input]");
-  try {
-    await saveSpaceTitle(form.dataset.spaceRenameForm, input?.value || "");
-  } catch (error) {
-    window.alert(error.message || "공간 이름을 저장하지 못했습니다.");
-  }
-});
-
-els.spaceGrid?.addEventListener("keydown", (event) => {
-  if (event.target.closest("[data-space-rename-form]") && event.key === "Escape") {
-    event.preventDefault();
-    cancelSpaceRename();
-    return;
-  }
-  if (event.target.closest("button, input, select, textarea, a")) return;
-  const card = event.target.closest("[data-space-card]");
-  if (!card || (event.key !== "Enter" && event.key !== " ")) return;
-  event.preventDefault();
-  openSpaceDashboard(card.dataset.spaceCard);
-});
-
-els.spaceGrid?.addEventListener("change", (event) => {
-  const checkbox = event.target.closest("[data-material-check]");
-  if (!checkbox) return;
-  if (checkbox.checked) {
-    state.selectedMaterialIds.add(checkbox.dataset.materialCheck);
-  } else {
-    state.selectedMaterialIds.delete(checkbox.dataset.materialCheck);
-  }
-  renderDashboard();
-});
-
 els.featureCard?.addEventListener("click", async (event) => {
   const editButton = event.target.closest("[data-feature-edit]");
   if (editButton) {
@@ -1669,11 +1384,6 @@ els.tools?.addEventListener("click", async (event) => {
     return;
   }
 
-  if (action === "add-space") {
-    await addSpaceMaterial();
-    return;
-  }
-
   if (action === "toggle-selection") {
     state.selectionMode = !state.selectionMode;
     state.selectedMaterialIds.clear();
@@ -1710,7 +1420,6 @@ els.importInput?.addEventListener("change", async (event) => {
 
 els.treeAll?.addEventListener("click", () => {
   setActiveSection("materials");
-  state.editingSpaceId = "";
   state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
   state.searchQuery = "";
   state.selectedMaterialId = "";
@@ -1751,7 +1460,6 @@ els.tree?.addEventListener("click", async (event) => {
   const select = event.target.closest("[data-material-tree-select]");
   if (select) {
     setActiveSection("materials");
-    state.editingSpaceId = "";
     state.activeMaterialNodeId = select.dataset.materialTreeSelect;
     state.searchQuery = "";
     state.selectedMaterialId = "";
@@ -1775,7 +1483,6 @@ els.tree?.addEventListener("change", (event) => {
 els.sectionButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setActiveSection(button.dataset.materialSection || "materials");
-    state.editingSpaceId = "";
     if (state.activeSection === "materials" && !findMaterialNode(state.materialTree, state.activeMaterialNodeId)) {
       state.activeMaterialNodeId = MATERIAL_ALL_NODE_ID;
     }
