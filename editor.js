@@ -1719,7 +1719,7 @@ function finishEditorStyleChange() {
 }
 
 function shouldApplyStyleDeep(property) {
-  return property === "font-size" || property === "line-height";
+  return property === "font-family" || property === "font-size" || property === "line-height";
 }
 
 function normalizeCssStyleValue(property, value) {
@@ -1831,9 +1831,39 @@ function applyFontFamily(fontName) {
   ensureEditorFontOption(name);
   els.fontFamily.value = name;
 
-  applyInlineStyle("fontFamily", name, {
-    selectAllWhenMissing: false,
+  const hadSavedRange = rangeIsInEditor(savedEditorRange);
+  restoreEditorSelection({
+    selectAllWhenMissing: !hadSavedRange && Boolean(els.content.textContent.replace(/\u200b/g, "").trim()),
   });
+
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) {
+    applyCssProperty(els.content, "font-family", name);
+    finishEditorStyleChange();
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+
+  if (range.collapsed) {
+    const block = getClosestEditorBlock(range.startContainer) || els.content;
+    applyCssProperty(block, "font-family", name);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    savedEditorRange = range.cloneRange();
+    finishEditorStyleChange();
+    return;
+  }
+
+  const span = document.createElement("span");
+  applyCssProperty(span, "font-family", name);
+  span.appendChild(range.extractContents());
+  range.insertNode(span);
+  range.selectNodeContents(span);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  savedEditorRange = range.cloneRange();
+  finishEditorStyleChange();
 }
 
 function normalizeFontSize(value) {
