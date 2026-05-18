@@ -255,6 +255,10 @@ const state = {
   editId: "",
   selectedZoneId: "",
   selectedCreatureId: "",
+  selectedRelationNodeId: "",
+  relationConnectSourceId: "",
+  mindDrag: null,
+  suppressMindClick: false,
   mapZoom: 1,
   creatureTypeFilter: "all",
   sidebarCollapsed: localStorage.getItem("spaceDashboardSidebar") === "collapsed",
@@ -498,11 +502,15 @@ function normalizeCatalogItem(collection, item = {}) {
 }
 
 function normalizeRelationNode(item = {}) {
+  const x = Number(item.x ?? item.mind_x ?? item.left);
+  const y = Number(item.y ?? item.mind_y ?? item.top);
   return {
     id: item.id || createId(),
     name: String(item.name || item.label || "이름 없는 주제").slice(0, 80),
     type: String(item.type || "관계 대상").slice(0, 60),
     color: /^#[0-9a-f]{6}$/i.test(item.color || "") ? item.color : "#4aa8d8",
+    x: Number.isFinite(x) ? clampNumber(x, 4, 96) : null,
+    y: Number.isFinite(y) ? clampNumber(y, 6, 94) : null,
     description: String(item.description || "").slice(0, 700),
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
   };
@@ -1474,52 +1482,112 @@ function getMindMapBranches(relations = state.map.relations, rootNode) {
   return branches;
 }
 
-function renderMindMapNode(node, edge = null, className = "") {
-  const label = edge?.label || node.type || "주제";
-  return `
-    <button class="garden-mindmap-node ${escapeHtml(className)}" type="button" data-action="edit-relation-node" data-id="${escapeHtml(node.id)}" style="--node-color:${escapeHtml(node.color)}">
-      <strong>${escapeHtml(node.name)}</strong>
-      <small>${escapeHtml(label)}</small>
-    </button>
-  `;
+function distributeMindMapY(count, index, top = 18, bottom = 82) {
+  if (count <= 1) return 50;
+  return top + ((bottom - top) * index) / (count - 1);
 }
 
-function renderMindMapBranch(branch, side = "right") {
+function hasMindMapPosition(node = {}) {
+  return Number.isFinite(Number(node.x)) && Number.isFinite(Number(node.y));
+}
+
+function getMindMapLayout(relations = state.map.relations, rootNode = getMindMapRootNode(relations)) {
+  const positions = new Map();
+  if (!rootNode) return positions;
+
+  const branches = getMindMapBranches(relations, rootNode);
+  const left = branches.filter((_, index) => index % 2 === 0);
+  const right = branches.filter((_, index) => index % 2 === 1);
+  const placeNode = (node, x, y) => {
+    positions.set(node.id, hasMindMapPosition(node) ? { x: Number(node.x), y: Number(node.y) } : { x, y });
+  };
+
+  placeNode(rootNode, 50, 50);
+
+  const placeBranches = (items, side) => {
+    const mainX = side === "left" ? 30 : 70;
+    const childX = side === "left" ? 14 : 86;
+    items.forEach((branch, index) => {
+      const y = distributeMindMapY(items.length, index);
+      placeNode(branch.node, mainX, y);
+      const childTop = Math.max(10, y - Math.max(8, branch.children.length * 4));
+      const childBottom = Math.min(90, y + Math.max(8, branch.children.length * 4));
+      branch.children.forEach((child, childIndex) => {
+        placeNode(child.node, childX, distributeMindMapY(branch.children.length, childIndex, childTop, childBottom));
+      });
+    });
+  };
+
+  placeBranches(left, "left");
+  placeBranches(right, "right");
+
+  relations.nodes.forEach((node, index) => {
+    if (positions.has(node.id)) return;
+    placeNode(node, 50 + ((index % 5) - 2) * 8, 84);
+  });
+
+  return positions;
+}
+
+function getMindMapNodePosition(node = {}, layout = new Map()) {
+  return layout.get(node.id) || { x: 50, y: 50 };
+}
+
+function renderMindMapEdge(edge, layout) {
+  const source = layout.get(edge.sourceId);
+  const target = layout.get(edge.targetId);
+  if (!source || !target) return "";
+  return `<line data-mind-edge="${escapeHtml(edge.id)}" data-source="${escapeHtml(edge.sourceId)}" data-target="${escapeHtml(edge.targetId)}" x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}"></line>`;
+}
+
+function renderMindMapNode(node, rootNode, layout) {
+  const position = getMindMapNodePosition(node, layout);
+  const isSelected = state.selectedRelationNodeId === node.id;
+  const isConnectSource = state.relationConnectSourceId === node.id;
   return `
-    <article class="garden-mindmap-branch is-${escapeHtml(side)}">
-      ${renderMindMapNode(branch.node, branch.edge, "is-main")}
-      ${
-        branch.children.length
-          ? `<div class="garden-mindmap-twigs">
-              ${branch.children.map((child) => renderMindMapNode(child.node, child.edge, "is-child")).join("")}
-            </div>`
-          : ""
-      }
-    </article>
+    <button
+      class="garden-mindmap-node ${node.id === rootNode?.id ? "is-root" : ""} ${isSelected ? "is-selected" : ""} ${isConnectSource ? "is-connect-source" : ""}"
+      type="button"
+      data-mind-node="${escapeHtml(node.id)}"
+      data-mind-x="${position.x}"
+      data-mind-y="${position.y}"
+      style="--node-color:${escapeHtml(node.color)}; left:${position.x}%; top:${position.y}%;"
+      aria-pressed="${isSelected ? "true" : "false"}"
+    >
+      <strong>${escapeHtml(node.name)}</strong>
+      <small>${escapeHtml(node.type || "주제")}</small>
+    </button>
   `;
 }
 
 function renderMindMap(relations = state.map.relations) {
   const rootNode = getMindMapRootNode(relations);
-  if (!rootNode) return `<p class="garden-empty">주제를 추가하면 마인드맵을 만들 수 있습니다.</p>`;
+  if (!rootNode) {
+    return `
+      <div class="garden-mindmap-board garden-mindmap-editor is-empty" data-mindmap-editor>
+        <p class="garden-empty">주제를 추가하면 마인드맵을 직접 작성할 수 있습니다.</p>
+      </div>
+    `;
+  }
 
-  const branches = getMindMapBranches(relations, rootNode);
-  const left = branches.filter((_, index) => index % 2 === 0);
-  const right = branches.filter((_, index) => index % 2 === 1);
+  const layout = getMindMapLayout(relations, rootNode);
+  const edgeMarkup = relations.edges.map((edge) => renderMindMapEdge(edge, layout)).join("");
+  const nodeMarkup = relations.nodes.map((node) => renderMindMapNode(node, rootNode, layout)).join("");
 
   return `
-    <div class="garden-mindmap-board" aria-label="마인드맵">
-      <div class="garden-mindmap-branches is-left">
-        ${left.length ? left.map((branch) => renderMindMapBranch(branch, "left")).join("") : `<span class="garden-mindmap-empty">왼쪽 가지 없음</span>`}
-      </div>
-      <section class="garden-mindmap-root" style="--node-color:${escapeHtml(rootNode.color)}">
-        <strong>${escapeHtml(rootNode.name)}</strong>
-        <small>${escapeHtml(rootNode.type)}</small>
-        ${rootNode.description ? `<p>${escapeHtml(rootNode.description)}</p>` : ""}
-      </section>
-      <div class="garden-mindmap-branches is-right">
-        ${right.length ? right.map((branch) => renderMindMapBranch(branch, "right")).join("") : `<span class="garden-mindmap-empty">오른쪽 가지 없음</span>`}
-      </div>
+    <div class="garden-mindmap-board garden-mindmap-editor" data-mindmap-editor aria-label="마인드맵 편집기">
+      <svg class="garden-mindmap-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        ${edgeMarkup}
+      </svg>
+      ${relations.edges
+        .map((edge) => {
+          const source = layout.get(edge.sourceId);
+          const target = layout.get(edge.targetId);
+          if (!source || !target) return "";
+          return `<span class="garden-mindmap-edge-label" data-mind-edge-label="${escapeHtml(edge.id)}" data-source="${escapeHtml(edge.sourceId)}" data-target="${escapeHtml(edge.targetId)}" style="left:${(source.x + target.x) / 2}%; top:${(source.y + target.y) / 2}%;">${escapeHtml(edge.label)}</span>`;
+        })
+        .join("")}
+      ${nodeMarkup}
     </div>
   `;
 }
@@ -1593,6 +1661,7 @@ function renderRelationEdgeForm(edge = null) {
 
 function renderRelationsPage() {
   const relations = state.map.relations;
+  const selectedNode = relations.nodes.find((node) => node.id === state.selectedRelationNodeId) || null;
   const editingNode =
     state.editType === "relation-node" ? relations.nodes.find((node) => node.id === state.editId) || null : null;
   const editingEdge =
@@ -1601,15 +1670,23 @@ function renderRelationsPage() {
   return `
     ${getPageIntro()}
     <section class="garden-page-actions">
-      <button class="garden-button is-primary" type="button" data-action="open-relation-node-form">주제 추가</button>
-      <button class="garden-button" type="button" data-action="open-relation-edge-form" ${relations.nodes.length < 2 ? "disabled" : ""}>연결 추가</button>
+      <button class="garden-button is-primary" type="button" data-action="add-mind-node">주제 추가</button>
+      <button class="garden-button" type="button" data-action="add-mind-child" ${selectedNode ? "" : "disabled"}>하위 주제</button>
+      <button class="garden-button ${state.relationConnectSourceId ? "is-primary" : ""}" type="button" data-action="start-mind-connect" ${selectedNode ? "" : "disabled"}>
+        ${state.relationConnectSourceId ? "연결할 대상 선택 중" : "연결 시작"}
+      </button>
+      <button class="garden-button" type="button" data-action="reset-mind-layout" ${relations.nodes.length ? "" : "disabled"}>자동 정렬</button>
+      <button class="garden-button" type="button" data-action="clear-mind-selection" ${selectedNode ? "" : "disabled"}>선택 해제</button>
+      <button class="garden-button is-danger" type="button" data-action="delete-mind-selected" ${selectedNode ? "" : "disabled"}>선택 삭제</button>
     </section>
+    ${state.relationConnectSourceId ? `<p class="garden-mindmap-hint">연결할 대상 주제를 클릭하면 선이 추가됩니다.</p>` : ""}
     ${state.editType === "relation-node" ? renderCard(editingNode ? "주제 수정" : "새 주제", renderRelationNodeForm(editingNode)) : ""}
     ${state.editType === "relation-edge" ? renderCard(editingEdge ? "연결 수정" : "새 연결", renderRelationEdgeForm(editingEdge)) : ""}
     ${renderCard(
-      "마인드맵 보기",
+      "마인드맵 작성",
       renderMindMap(relations)
     )}
+    ${selectedNode ? renderCard("선택 주제 수정", renderRelationNodeForm(selectedNode)) : ""}
     ${renderCard(
       "주제 목록",
       relations.nodes.length
@@ -2038,6 +2115,8 @@ async function deleteRelationEntity(kind, id, message = "삭제할까요?") {
     ];
     relations.nodes = relations.nodes.filter((entry) => entry.id !== id);
     relations.edges = relations.edges.filter((edge) => edge.sourceId !== id && edge.targetId !== id);
+    if (state.selectedRelationNodeId === id) state.selectedRelationNodeId = "";
+    if (state.relationConnectSourceId === id) state.relationConnectSourceId = "";
   } else {
     const edge = relations.edges.find((entry) => entry.id === id);
     if (!edge) return;
@@ -2116,6 +2195,14 @@ async function emptyDashboardTrash() {
   render();
 }
 
+function getMindPointerPosition(event, board) {
+  const rect = board.getBoundingClientRect();
+  return {
+    x: clampNumber(((event.clientX - rect.left) / rect.width) * 100, 4, 96),
+    y: clampNumber(((event.clientY - rect.top) / rect.height) * 100, 6, 94),
+  };
+}
+
 async function handleAction(action, target) {
   if (action === "toggle-sidebar") {
     state.sidebarCollapsed = !state.sidebarCollapsed;
@@ -2127,6 +2214,25 @@ async function handleAction(action, target) {
   if (action === "open-creature-form") return openEditor("creature");
   if (action === "open-relation-node-form") return openEditor("relation-node");
   if (action === "open-relation-edge-form") return openEditor("relation-edge");
+  if (action === "add-mind-node") return addMindNode();
+  if (action === "add-mind-child") return addMindNode(state.selectedRelationNodeId);
+  if (action === "start-mind-connect") {
+    if (!state.selectedRelationNodeId) return;
+    state.relationConnectSourceId =
+      state.relationConnectSourceId === state.selectedRelationNodeId ? "" : state.selectedRelationNodeId;
+    render();
+    return;
+  }
+  if (action === "reset-mind-layout") return resetMindLayout();
+  if (action === "delete-mind-selected") {
+    return deleteRelationEntity("node", state.selectedRelationNodeId, "선택한 주제를 휴지통으로 이동할까요?");
+  }
+  if (action === "clear-mind-selection") {
+    state.selectedRelationNodeId = "";
+    state.relationConnectSourceId = "";
+    render();
+    return;
+  }
   if (action === "open-byproduct-form") return openEditor("byproducts");
   if (action === "open-catalog-form") return openEditor(target.dataset.collection || "byproducts");
   if (action === "open-access-form") return openEditor("access");
@@ -2236,17 +2342,21 @@ async function handleCreatureSubmit(form) {
 async function handleRelationNodeSubmit(form) {
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
+  const existing = state.map.relations.nodes.find((node) => node.id === id);
   const item = normalizeRelationNode({
     id: id || createId(),
     name: formData.get("name"),
     type: formData.get("type"),
     color: formData.get("color"),
+    x: existing?.x,
+    y: existing?.y,
     description: formData.get("description"),
-    createdAt: state.map.relations.nodes.find((node) => node.id === id)?.createdAt,
+    createdAt: existing?.createdAt,
   });
   state.map.relations.nodes = id
     ? state.map.relations.nodes.map((node) => (node.id === id ? item : node))
     : [...state.map.relations.nodes, item];
+  state.selectedRelationNodeId = item.id;
   await saveSpaceContent();
   closeEditor();
 }
@@ -2269,8 +2379,121 @@ async function handleRelationEdgeSubmit(form) {
   state.map.relations.edges = id
     ? state.map.relations.edges.map((edge) => (edge.id === id ? item : edge))
     : [...state.map.relations.edges, item];
+  state.relationConnectSourceId = "";
   await saveSpaceContent();
   closeEditor();
+}
+
+function getRelationNodeById(id = "") {
+  return state.map.relations.nodes.find((node) => node.id === id) || null;
+}
+
+function getStoredMindPosition(node = null) {
+  if (!node) return { x: 50, y: 50 };
+  if (hasMindMapPosition(node)) return { x: Number(node.x), y: Number(node.y) };
+  const layout = getMindMapLayout(state.map.relations, getMindMapRootNode(state.map.relations));
+  return getMindMapNodePosition(node, layout);
+}
+
+function createMindNodeNear(parent = null) {
+  const base = getStoredMindPosition(parent);
+  const offset = parent ? 14 : state.map.relations.nodes.length * 4;
+  return normalizeRelationNode({
+    name: parent ? "새 하위 주제" : "새 주제",
+    type: "주제",
+    color: parent?.color || "#4aa8d8",
+    x: clampNumber(base.x + (parent ? offset : 0), 6, 94),
+    y: clampNumber(base.y + (parent ? 8 : offset), 8, 92),
+  });
+}
+
+async function addMindNode(parentId = "") {
+  const parent = getRelationNodeById(parentId);
+  const item = createMindNodeNear(parent);
+  state.map.relations.nodes = [...state.map.relations.nodes, item];
+  if (parent) {
+    state.map.relations.edges = [
+      ...state.map.relations.edges,
+      normalizeRelationEdge({
+        sourceId: parent.id,
+        targetId: item.id,
+        label: "연결",
+      }),
+    ];
+  }
+  state.selectedRelationNodeId = item.id;
+  state.relationConnectSourceId = "";
+  await saveSpaceContent();
+  render();
+}
+
+async function connectMindNodes(sourceId = "", targetId = "") {
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  const source = getRelationNodeById(sourceId);
+  const target = getRelationNodeById(targetId);
+  if (!source || !target) return;
+  const label = window.prompt("연결 이름을 입력해주세요.", "연결");
+  if (label === null) return;
+  state.map.relations.edges = [
+    ...state.map.relations.edges,
+    normalizeRelationEdge({
+      sourceId,
+      targetId,
+      label: label.trim() || "연결",
+    }),
+  ];
+  state.selectedRelationNodeId = targetId;
+  state.relationConnectSourceId = "";
+  await saveSpaceContent();
+  render();
+}
+
+async function resetMindLayout() {
+  const rootNode = getMindMapRootNode(state.map.relations);
+  if (!rootNode) return;
+  const layout = getMindMapLayout(
+    {
+      ...state.map.relations,
+      nodes: state.map.relations.nodes.map((node) => ({ ...node, x: null, y: null })),
+    },
+    { ...rootNode, x: null, y: null }
+  );
+  state.map.relations.nodes = state.map.relations.nodes.map((node) => {
+    const position = layout.get(node.id) || { x: 50, y: 50 };
+    return { ...node, x: position.x, y: position.y };
+  });
+  await saveSpaceContent();
+  render();
+}
+
+function updateMindMapLines() {
+  const board = document.querySelector("[data-mindmap-editor]");
+  if (!board) return;
+  const nodePositions = new Map(
+    [...board.querySelectorAll("[data-mind-node]")].map((node) => [
+      node.dataset.mindNode,
+      {
+        x: Number(node.dataset.mindX) || 50,
+        y: Number(node.dataset.mindY) || 50,
+      },
+    ])
+  );
+  board.querySelectorAll("[data-mind-edge]").forEach((line) => {
+    const source = nodePositions.get(line.dataset.source);
+    const target = nodePositions.get(line.dataset.target);
+    if (!source || !target) return;
+    line.setAttribute("x1", source.x);
+    line.setAttribute("y1", source.y);
+    line.setAttribute("x2", target.x);
+    line.setAttribute("y2", target.y);
+  });
+  board.querySelectorAll("[data-mind-edge-label]").forEach((label) => {
+    const source = nodePositions.get(label.dataset.source);
+    const target = nodePositions.get(label.dataset.target);
+    if (!source || !target) return;
+    label.style.left = `${(source.x + target.x) / 2}%`;
+    label.style.top = `${(source.y + target.y) / 2}%`;
+  });
 }
 
 async function handleByproductSubmit(form) {
@@ -2322,6 +2545,21 @@ async function handleAccessSubmit(form) {
 }
 
 document.addEventListener("click", async (event) => {
+  const mindNode = event.target.closest("[data-mind-node]");
+  if (mindNode) {
+    event.preventDefault();
+    if (state.suppressMindClick) return;
+    const nodeId = mindNode.dataset.mindNode || "";
+    if (state.relationConnectSourceId && state.relationConnectSourceId !== nodeId) {
+      await connectMindNodes(state.relationConnectSourceId, nodeId);
+      return;
+    }
+    state.selectedRelationNodeId = nodeId;
+    if (state.relationConnectSourceId === nodeId) state.relationConnectSourceId = "";
+    render();
+    return;
+  }
+
   const pageLink = event.target.closest("[data-space-page-link]");
   if (pageLink) {
     event.preventDefault();
@@ -2337,6 +2575,75 @@ document.addEventListener("click", async (event) => {
   } catch (error) {
     window.alert(error.message || "작업을 처리하지 못했습니다.");
   }
+});
+
+document.addEventListener("pointerdown", (event) => {
+  const node = event.target.closest("[data-mind-node]");
+  if (!node || event.button !== 0) return;
+  const board = node.closest("[data-mindmap-editor]");
+  if (!board) return;
+  state.mindDrag = {
+    id: node.dataset.mindNode || "",
+    pointerId: event.pointerId,
+    node,
+    board,
+    moved: false,
+    startX: event.clientX,
+    startY: event.clientY,
+  };
+  node.setPointerCapture?.(event.pointerId);
+});
+
+document.addEventListener("pointermove", (event) => {
+  const drag = state.mindDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const distance = Math.abs(event.clientX - drag.startX) + Math.abs(event.clientY - drag.startY);
+  if (distance < 3 && !drag.moved) return;
+  const position = getMindPointerPosition(event, drag.board);
+  drag.moved = true;
+  drag.node.style.left = `${position.x}%`;
+  drag.node.style.top = `${position.y}%`;
+  drag.node.dataset.mindX = String(position.x);
+  drag.node.dataset.mindY = String(position.y);
+  state.map.relations.nodes = state.map.relations.nodes.map((node) =>
+    node.id === drag.id ? { ...node, x: position.x, y: position.y } : node
+  );
+  updateMindMapLines();
+});
+
+document.addEventListener("pointerup", async (event) => {
+  const drag = state.mindDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  drag.node.releasePointerCapture?.(event.pointerId);
+  state.mindDrag = null;
+  if (!drag.moved) return;
+  state.selectedRelationNodeId = drag.id;
+  state.suppressMindClick = true;
+  window.setTimeout(() => {
+    state.suppressMindClick = false;
+  }, 0);
+  try {
+    await saveSpaceContent();
+  } catch (error) {
+    window.alert(error.message || "마인드맵 위치를 저장하지 못했습니다.");
+  }
+  render();
+});
+
+document.addEventListener("dblclick", async (event) => {
+  const mindNode = event.target.closest("[data-mind-node]");
+  if (!mindNode) return;
+  event.preventDefault();
+  const node = getRelationNodeById(mindNode.dataset.mindNode || "");
+  if (!node) return;
+  const name = window.prompt("주제 이름을 수정해주세요.", node.name);
+  if (name === null) return;
+  state.map.relations.nodes = state.map.relations.nodes.map((item) =>
+    item.id === node.id ? { ...item, name: name.trim() || item.name } : item
+  );
+  state.selectedRelationNodeId = node.id;
+  await saveSpaceContent();
+  render();
 });
 
 document.addEventListener("submit", async (event) => {
