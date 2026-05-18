@@ -73,7 +73,18 @@ let editorHistoryRestoring = false;
 let activeEditorLineHeight = "";
 let lastEditorEllipsisReplacement = null;
 
-const BUILTIN_EDITOR_FONTS = ["Carlito", "Arial", "Noto Sans KR", "Georgia", "Courier New"];
+const BUILTIN_EDITOR_FONTS = [
+  "Noto Sans KR",
+  "Malgun Gothic",
+  "Gulim",
+  "Dotum",
+  "Batang",
+  "Gungsuh",
+  "Arial",
+  "Georgia",
+  "Courier New",
+  "Carlito",
+];
 const EDITOR_INLINE_STYLE_PROPERTIES = {
   fontFamily: "font-family",
   fontSize: "font-size",
@@ -1419,6 +1430,11 @@ function ensureEditorFontOption(fontName = "") {
   return normalized;
 }
 
+function prepareEditorSelectionForToolbar({ holdSelection = false } = {}) {
+  if (holdSelection && holdEditorSelection()) return;
+  saveCurrentSelection();
+}
+
 function getInlineEditorFontName(element) {
   let current = element;
   while (current && current !== els.content && els.content.contains(current)) {
@@ -1830,6 +1846,10 @@ function applyFontFamily(fontName) {
   if (!name) return;
   ensureEditorFontOption(name);
   els.fontFamily.value = name;
+
+  if (applyStyleToHeldSelection("font-family", name)) {
+    return;
+  }
 
   const hadSavedRange = rangeIsInEditor(savedEditorRange);
   restoreEditorSelection({
@@ -2649,7 +2669,19 @@ els.fontFamily.addEventListener("change", (event) => {
 });
 
 els.fontFamily.addEventListener("pointerdown", () => {
-  saveCurrentSelection();
+  prepareEditorSelectionForToolbar({ holdSelection: true });
+});
+
+els.fontFamily.addEventListener("mousedown", () => {
+  prepareEditorSelectionForToolbar({ holdSelection: true });
+});
+
+els.fontFamily.addEventListener("focus", () => {
+  prepareEditorSelectionForToolbar({ holdSelection: true });
+});
+
+els.fontFamily.addEventListener("blur", () => {
+  window.setTimeout(() => clearEditorSelectionHold({ unwrap: true }), 160);
 });
 
 els.addFont.addEventListener("click", addEditorFont);
@@ -2700,7 +2732,7 @@ document.addEventListener("pointerup", () => {
 
 els.toolbar.addEventListener("mousedown", (event) => {
   if (event.target.closest("input, select")) {
-    saveCurrentSelection();
+    prepareEditorSelectionForToolbar({ holdSelection: Boolean(event.target.closest("[data-editor-font-family]")) });
   }
 
   if (event.target.closest("button")) {
