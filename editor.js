@@ -791,7 +791,18 @@ function normalizeFontName(value = "") {
   return String(value)
     .trim()
     .replace(/[<>;{}]/g, "")
+    .replace(/^['"]|['"]$/g, "")
     .slice(0, 80);
+}
+
+function quoteFontFamily(value = "") {
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function formatFontFamilyValue(value = "") {
+  const name = normalizeFontName(value);
+  if (!name) return "";
+  return `${quoteFontFamily(name)}, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
 }
 
 function getStoredEditorFonts() {
@@ -832,7 +843,7 @@ function addEditorFont() {
   const storedFonts = getStoredEditorFonts();
   saveStoredEditorFonts([...storedFonts, name]);
   renderEditorFontOptions(name);
-  applyInlineStyle("fontFamily", name);
+  applyFontFamily(name);
 }
 
 function removeEditorFont() {
@@ -846,7 +857,7 @@ function removeEditorFont() {
   const nextFonts = getStoredEditorFonts().filter((font) => font !== name);
   saveStoredEditorFonts(nextFonts);
   renderEditorFontOptions(BUILTIN_EDITOR_FONTS[0]);
-  applyInlineStyle("fontFamily", BUILTIN_EDITOR_FONTS[0]);
+  applyFontFamily(BUILTIN_EDITOR_FONTS[0]);
 }
 
 function getCategoryOptions() {
@@ -1331,6 +1342,36 @@ function normalizeFontFamilyName(value = "") {
   return stripCssQuotes(value).toLowerCase();
 }
 
+function splitFontFamilies(value = "") {
+  const families = [];
+  let current = "";
+  let quote = "";
+
+  String(value).split("").forEach((char) => {
+    if ((char === '"' || char === "'") && !quote) {
+      quote = char;
+      current += char;
+      return;
+    }
+    if (char === quote) {
+      quote = "";
+      current += char;
+      return;
+    }
+    if (char === "," && !quote) {
+      const family = normalizeFontName(current);
+      if (family) families.push(family);
+      current = "";
+      return;
+    }
+    current += char;
+  });
+
+  const family = normalizeFontName(current);
+  if (family) families.push(family);
+  return families;
+}
+
 function getEditorStyleElement(node) {
   if (!node) return els.content;
   if (node.nodeType === Node.TEXT_NODE) return node.parentElement || els.content;
@@ -1353,10 +1394,7 @@ function getActiveEditorStyleElement() {
 }
 
 function findMatchingEditorFont(fontFamily = "") {
-  const families = String(fontFamily)
-    .split(",")
-    .map(stripCssQuotes)
-    .filter(Boolean);
+  const families = splitFontFamilies(fontFamily);
   const fonts = getEditorFonts();
 
   return (
@@ -1379,6 +1417,24 @@ function ensureEditorFontOption(fontName = "") {
   option.textContent = normalized;
   els.fontFamily.append(option);
   return normalized;
+}
+
+function getInlineEditorFontName(element) {
+  let current = element;
+  while (current && current !== els.content && els.content.contains(current)) {
+    if (current.nodeType === Node.ELEMENT_NODE) {
+      const inlineFont = current.style?.getPropertyValue("font-family") || "";
+      const family = splitFontFamilies(inlineFont)[0];
+      if (family) return family;
+
+      if (current.tagName === "FONT") {
+        const face = normalizeFontName(current.getAttribute("face") || "");
+        if (face) return face;
+      }
+    }
+    current = current.parentElement;
+  }
+  return "";
 }
 
 function normalizeLineHeightForToolbar(style) {
@@ -1414,7 +1470,7 @@ function syncEditorToolbarState({ force = false } = {}) {
 
   const style = window.getComputedStyle(target);
   if (els.fontFamily && (force || document.activeElement !== els.fontFamily)) {
-    const font = ensureEditorFontOption(findMatchingEditorFont(style.fontFamily));
+    const font = ensureEditorFontOption(getInlineEditorFontName(target) || findMatchingEditorFont(style.fontFamily));
     if (font) els.fontFamily.value = font;
   }
 
@@ -1666,11 +1722,18 @@ function shouldApplyStyleDeep(property) {
   return property === "font-size" || property === "line-height";
 }
 
+function normalizeCssStyleValue(property, value) {
+  if (property === "font-family") return formatFontFamilyValue(value);
+  return value;
+}
+
 function applyCssProperty(target, property, value) {
-  target.style.setProperty(property, value);
+  const cssValue = normalizeCssStyleValue(property, value);
+  if (!cssValue) return;
+  target.style.setProperty(property, cssValue);
   if (!shouldApplyStyleDeep(property)) return;
   target.querySelectorAll?.("*").forEach((node) => {
-    node.style.setProperty(property, value);
+    node.style.setProperty(property, cssValue);
   });
 }
 
@@ -1760,6 +1823,17 @@ function applyInlineStyle(property, value, options = {}) {
   selection.removeAllRanges();
   selection.addRange(range);
   finishEditorStyleChange();
+}
+
+function applyFontFamily(fontName) {
+  const name = normalizeFontName(fontName);
+  if (!name) return;
+  ensureEditorFontOption(name);
+  els.fontFamily.value = name;
+
+  applyInlineStyle("fontFamily", name, {
+    selectAllWhenMissing: false,
+  });
 }
 
 function normalizeFontSize(value) {
@@ -2541,7 +2615,7 @@ els.visibilityButtons.forEach((button) => {
 });
 
 els.fontFamily.addEventListener("change", (event) => {
-  applyInlineStyle("fontFamily", event.target.value);
+  applyFontFamily(event.target.value);
 });
 
 els.fontFamily.addEventListener("pointerdown", () => {
