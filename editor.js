@@ -1298,6 +1298,7 @@ function saveCurrentSelection() {
   const selection = window.getSelection();
   if (!selection?.rangeCount || !nodeIsInEditor(selection.anchorNode)) return;
   savedEditorRange = selection.getRangeAt(0).cloneRange();
+  syncEditorToolbarState();
 }
 
 function setEditorCaret(node, offset) {
@@ -1320,6 +1321,115 @@ function placeEditorCaretAtEnd() {
   selection.removeAllRanges();
   selection.addRange(range);
   savedEditorRange = range.cloneRange();
+}
+
+function stripCssQuotes(value = "") {
+  return String(value).trim().replace(/^['"]|['"]$/g, "");
+}
+
+function normalizeFontFamilyName(value = "") {
+  return stripCssQuotes(value).toLowerCase();
+}
+
+function getEditorStyleElement(node) {
+  if (!node) return els.content;
+  if (node.nodeType === Node.TEXT_NODE) return node.parentElement || els.content;
+  if (node.nodeType === Node.ELEMENT_NODE) return node;
+  return els.content;
+}
+
+function getActiveEditorStyleElement() {
+  const selection = window.getSelection();
+  const range = selection?.rangeCount && rangeIsInEditor(selection.getRangeAt(0))
+    ? selection.getRangeAt(0)
+    : rangeIsInEditor(savedEditorRange)
+      ? savedEditorRange
+      : null;
+
+  if (!range) return null;
+  const node = range.startContainer || range.commonAncestorContainer;
+  const element = getEditorStyleElement(node);
+  return nodeIsInEditor(element) ? element : els.content;
+}
+
+function findMatchingEditorFont(fontFamily = "") {
+  const families = String(fontFamily)
+    .split(",")
+    .map(stripCssQuotes)
+    .filter(Boolean);
+  const fonts = getEditorFonts();
+
+  return (
+    fonts.find((font) =>
+      families.some((family) => normalizeFontFamilyName(family) === normalizeFontFamilyName(font))
+    ) ||
+    fonts.find((font) =>
+      families.some((family) => normalizeFontFamilyName(family).includes(normalizeFontFamilyName(font)))
+    ) ||
+    families[0] ||
+    ""
+  );
+}
+
+function ensureEditorFontOption(fontName = "") {
+  const normalized = normalizeFontName(fontName);
+  if (!normalized || [...els.fontFamily.options].some((option) => option.value === normalized)) return normalized;
+  const option = document.createElement("option");
+  option.value = normalized;
+  option.textContent = normalized;
+  els.fontFamily.append(option);
+  return normalized;
+}
+
+function normalizeLineHeightForToolbar(style) {
+  const raw = style.lineHeight;
+  if (!raw || raw === "normal") return "";
+  if (raw.endsWith("px")) {
+    const fontSize = Number.parseFloat(style.fontSize) || 16;
+    const lineHeight = Number.parseFloat(raw);
+    if (!Number.isFinite(lineHeight) || !Number.isFinite(fontSize) || fontSize <= 0) return "";
+    return normalizeLineHeightValue(lineHeight / fontSize);
+  }
+  return normalizeLineHeightValue(raw);
+}
+
+function syncEditorCommandButtons() {
+  if (!els.toolbar) return;
+  els.toolbar.querySelectorAll("[data-editor-command]").forEach((button) => {
+    const command = button.dataset.editorCommand;
+    let active = false;
+    try {
+      active = document.queryCommandState(command);
+    } catch {
+      active = false;
+    }
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function syncEditorToolbarState({ force = false } = {}) {
+  const target = getActiveEditorStyleElement();
+  if (!target) return;
+
+  const style = window.getComputedStyle(target);
+  if (els.fontFamily && (force || document.activeElement !== els.fontFamily)) {
+    const font = ensureEditorFontOption(findMatchingEditorFont(style.fontFamily));
+    if (font) els.fontFamily.value = font;
+  }
+
+  if (els.fontSize && (force || document.activeElement !== els.fontSize)) {
+    const size = Number.parseInt(style.fontSize, 10);
+    if (Number.isFinite(size)) els.fontSize.value = String(size);
+  }
+
+  const lineHeightInput = els.toolbar?.querySelector("[data-line-height-custom]");
+  if (lineHeightInput && (force || document.activeElement !== lineHeightInput)) {
+    const lineHeight = normalizeLineHeightForToolbar(style);
+    if (lineHeight) lineHeightInput.value = lineHeight;
+  }
+
+  syncEditorCommandButtons();
 }
 
 function resetEditorHistory() {
@@ -1547,6 +1657,7 @@ function restoreEditorSelection({ selectAllWhenMissing = false } = {}) {
 function finishEditorStyleChange() {
   pushEditorHistorySnapshot();
   syncEditorStats();
+  syncEditorToolbarState({ force: true });
   markEditorDirty();
   saveCurrentSelection();
 }
@@ -1782,6 +1893,7 @@ function applyLineHeight(value) {
 
   pushEditorHistorySnapshot();
   syncEditorStats();
+  syncEditorToolbarState({ force: true });
   markEditorDirty();
   saveCurrentSelection();
 }
@@ -1790,6 +1902,7 @@ function handleEditorContentInput(event) {
   replaceTrailingEditorEllipsis(event);
   syncActiveLineHeightBlocks();
   pushEditorHistorySnapshot();
+  syncEditorToolbarState();
 }
 
 function executeEditorCommand(command, value = null) {
@@ -1797,6 +1910,7 @@ function executeEditorCommand(command, value = null) {
   document.execCommand(command, false, value);
   pushEditorHistorySnapshot();
   syncEditorStats();
+  syncEditorToolbarState({ force: true });
   markEditorDirty();
   saveCurrentSelection();
 }
@@ -2387,6 +2501,7 @@ async function initEditor() {
     setEditorMessage("");
   }
   syncEditorStats();
+  syncEditorToolbarState({ force: true });
   window.setTimeout(() => els.title.focus(), 0);
 }
 
@@ -2429,25 +2544,22 @@ els.fontFamily.addEventListener("change", (event) => {
   applyInlineStyle("fontFamily", event.target.value);
 });
 
+els.fontFamily.addEventListener("pointerdown", () => {
+  saveCurrentSelection();
+});
+
 els.addFont.addEventListener("click", addEditorFont);
 els.removeFont?.addEventListener("click", removeEditorFont);
 
 els.fontSize.addEventListener("pointerdown", (event) => {
   saveCurrentSelection();
-  holdEditorSelection();
   fontSizeStepPointerActive = isFontSizeStepPointer(event);
 });
 
 els.fontSize.addEventListener("mousedown", (event) => {
   const isStepPointer = isFontSizeStepPointer(event);
   saveCurrentSelection();
-  holdEditorSelection();
   fontSizeStepPointerActive = isStepPointer;
-
-  if (isStepPointer) return;
-
-  event.preventDefault();
-  focusFontSizeInputForTyping();
 });
 
 els.fontSize.addEventListener("input", () => {
@@ -2462,7 +2574,7 @@ els.fontSize.addEventListener("change", () => {
 els.fontSize.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    applyFontSizeFromInput();
+    applyFontSizeFromInput({ keepToolbarFocus: true });
     return;
   }
 
@@ -2483,7 +2595,7 @@ document.addEventListener("pointerup", () => {
 });
 
 els.toolbar.addEventListener("mousedown", (event) => {
-  if (event.target.closest("[data-line-height-custom]")) {
+  if (event.target.closest("input, select")) {
     saveCurrentSelection();
   }
 

@@ -203,6 +203,7 @@ grant insert, update, delete on table public.posts to authenticated;
 grant select, insert, update, delete on table public.blog_trees to authenticated;
 grant select on table public.password_hints to anon, authenticated;
 grant insert, update on table public.password_hints to authenticated;
+grant select on table public.blog_profiles to anon;
 grant select, insert, update on table public.blog_profiles to authenticated;
 grant select, insert, update on table public.account_security to authenticated;
 grant select, insert, update, delete on table public.blog_materials to authenticated;
@@ -368,6 +369,24 @@ begin
     for delete
     to authenticated
     using ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_profiles'
+      and policyname = 'Anyone can read blog profiles'
+  ) then
+    create policy "Anyone can read blog profiles"
+    on public.blog_profiles
+    for select
+    to anon, authenticated
+    using (true);
   end if;
 end
 $$;

@@ -2593,6 +2593,7 @@ body.is-away-locked {
 .editor-add-font-button:hover,
 .editor-tool-button:hover,
 .editor-tool-button:focus-visible,
+.editor-tool-button.is-active,
 .editor-table-button:hover,
 .editor-table-button:focus-visible {
   border-color: rgba(56, 189, 248, 0.46);

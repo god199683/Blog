@@ -78,12 +78,51 @@ async function fetchPublicPosts() {
   return Array.isArray(data) ? data.map(normalizePost) : [];
 }
 
-function getPublicProfiles(posts = []) {
-  const profiles = new Map();
+function getCurrentLoginId(session) {
+  return (
+    window.blogSession?.getId?.(session) ||
+    session?.id ||
+    session?.user?.user_metadata?.login_id ||
+    session?.user?.user_metadata?.username ||
+    ""
+  );
+}
+
+async function fetchPublicProfiles() {
+  const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_profiles`);
+  endpoint.searchParams.set("select", "login_id,blog_title,updated_at,created_at");
+  endpoint.searchParams.set("order", "login_id.asc");
+  endpoint.searchParams.set("limit", "60");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+  });
+  const data = await response.json().catch(() => []);
+
+  if (!response.ok) {
+    throw new Error(data?.message || "계정 목록을 불러오지 못했습니다.");
+  }
+
+  return Array.isArray(data)
+    ? data
+        .map((profile) => ({
+          id: String(profile.login_id || "").trim(),
+          title: profile.blog_title || `${profile.login_id}'s Blog`,
+          updatedAt: profile.updated_at || profile.created_at || "",
+        }))
+        .filter((profile) => profile.id)
+    : [];
+}
+
+function buildPublicPostProfileMap(posts = []) {
+  const counts = new Map();
   posts.forEach((post) => {
     const id = String(post.loginId || post.author || "").trim();
     if (!id) return;
-    const current = profiles.get(id) || {
+    const current = counts.get(id) || {
       id,
       title: `${id}'s Blog`,
       count: 0,
@@ -93,7 +132,29 @@ function getPublicProfiles(posts = []) {
     if (!current.latestAt || Date.parse(post.publishedAt || "") > Date.parse(current.latestAt || "")) {
       current.latestAt = post.publishedAt || "";
     }
-    profiles.set(id, current);
+    counts.set(id, current);
+  });
+  return counts;
+}
+
+function getPublicProfiles(posts = [], profileRows = []) {
+  const postProfiles = buildPublicPostProfileMap(posts);
+  const profiles = new Map();
+
+  profileRows.forEach((profile) => {
+    const id = String(profile.id || "").trim();
+    if (!id) return;
+    const postMeta = postProfiles.get(id);
+    profiles.set(id, {
+      id,
+      title: profile.title || postMeta?.title || `${id}'s Blog`,
+      count: postMeta?.count || 0,
+      latestAt: postMeta?.latestAt || profile.updatedAt || "",
+    });
+  });
+
+  postProfiles.forEach((profile, id) => {
+    if (!profiles.has(id)) profiles.set(id, profile);
   });
 
   return [...profiles.values()].sort((a, b) => {
@@ -103,9 +164,17 @@ function getPublicProfiles(posts = []) {
   });
 }
 
-function renderPublicProfiles(posts = []) {
+function getPublicProfileHref(profile, session) {
+  const currentId = getCurrentLoginId(session);
+  if (currentId && currentId.toLowerCase() === profile.id.toLowerCase()) {
+    return "./my-blog.html";
+  }
+  return `./my-blog.html?user=${encodeURIComponent(profile.id)}`;
+}
+
+function renderPublicProfiles(posts = [], profileRows = [], session = null) {
   if (!els.publicProfiles) return;
-  const profiles = getPublicProfiles(posts).slice(0, 12);
+  const profiles = getPublicProfiles(posts, profileRows).slice(0, 18);
   if (profiles.length === 0) {
     els.publicProfiles.hidden = true;
     els.publicProfiles.innerHTML = "";
@@ -117,7 +186,7 @@ function renderPublicProfiles(posts = []) {
     .map((profile) => {
       const initial = profile.id.slice(0, 1).toUpperCase();
       return `
-        <a class="public-profile-card" href="./my-blog.html?user=${encodeURIComponent(profile.id)}">
+        <a class="public-profile-card" href="${escapeHtml(getPublicProfileHref(profile, session))}">
           <span class="public-profile-mark" aria-hidden="true">${escapeHtml(initial)}</span>
           <span>
             <strong>${escapeHtml(profile.title)}</strong>
@@ -167,13 +236,22 @@ function renderPublicPosts(posts = []) {
 }
 
 async function initPublicHome() {
+  const session = await Promise.resolve(window.blogSession?.ready).catch(() => null);
   try {
     renderEmpty("공개 글을 불러오는 중입니다.");
-    const posts = await fetchPublicPosts();
-    renderPublicProfiles(posts);
+    const [posts, profiles] = await Promise.all([
+      fetchPublicPosts(),
+      fetchPublicProfiles().catch(() => []),
+    ]);
+    renderPublicProfiles(posts, profiles, session);
     renderPublicPosts(posts);
   } catch (error) {
-    renderPublicProfiles([]);
+    try {
+      const profiles = await fetchPublicProfiles();
+      renderPublicProfiles([], profiles, session);
+    } catch {
+      renderPublicProfiles([], [], session);
+    }
     renderEmpty(error.message || "공개 글을 불러오지 못했습니다.");
   }
 }

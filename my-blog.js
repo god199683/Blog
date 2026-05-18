@@ -109,6 +109,7 @@ function setOwnerControlsVisible(visible) {
   if (!visible && toolsPanel) toolsPanel.hidden = true;
   [
     document.querySelector(".blog-write-button"),
+    document.querySelector("[data-owner-only-link]"),
     document.querySelector(".blog-profile-tool"),
     document.querySelector("[data-file-import]"),
     document.querySelector(".blog-trash-link"),
