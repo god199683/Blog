@@ -1533,15 +1533,36 @@ function getMindMapNodePosition(node = {}, layout = new Map()) {
   return layout.get(node.id) || { x: 50, y: 50 };
 }
 
-function renderMindMapEdge(edge, layout) {
-  const source = layout.get(edge.sourceId);
-  const target = layout.get(edge.targetId);
-  if (!source || !target) return "";
-  return `<line data-mind-edge="${escapeHtml(edge.id)}" data-source="${escapeHtml(edge.sourceId)}" data-target="${escapeHtml(edge.targetId)}" x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}"></line>`;
+function buildMindMapTree(relations = state.map.relations, rootNode = getMindMapRootNode(relations)) {
+  if (!rootNode) return null;
+  const nodeMap = new Map(relations.nodes.map((node) => [node.id, node]));
+  const childrenById = new Map(relations.nodes.map((node) => [node.id, []]));
+
+  relations.edges.forEach((edge) => {
+    const source = nodeMap.get(edge.sourceId);
+    const target = nodeMap.get(edge.targetId);
+    if (!source || !target || source.id === target.id) return;
+    childrenById.get(source.id)?.push({ node: target, edge });
+  });
+
+  const used = new Set();
+  const build = (node, edge = null) => {
+    used.add(node.id);
+    const children = (childrenById.get(node.id) || [])
+      .filter((child) => !used.has(child.node.id))
+      .map((child) => build(child.node, child.edge));
+    return { node, edge, children };
+  };
+
+  const root = build(rootNode);
+  relations.nodes.forEach((node) => {
+    if (node.id === rootNode.id || used.has(node.id)) return;
+    root.children.push(build(node));
+  });
+  return root;
 }
 
-function renderMindMapNode(node, rootNode, layout) {
-  const position = getMindMapNodePosition(node, layout);
+function renderMindMapNode(node, rootNode, edge = null) {
   const isSelected = state.selectedRelationNodeId === node.id;
   const isConnectSource = state.relationConnectSourceId === node.id;
   return `
@@ -1549,14 +1570,25 @@ function renderMindMapNode(node, rootNode, layout) {
       class="garden-mindmap-node ${node.id === rootNode?.id ? "is-root" : ""} ${isSelected ? "is-selected" : ""} ${isConnectSource ? "is-connect-source" : ""}"
       type="button"
       data-mind-node="${escapeHtml(node.id)}"
-      data-mind-x="${position.x}"
-      data-mind-y="${position.y}"
-      style="--node-color:${escapeHtml(node.color)}; left:${position.x}%; top:${position.y}%;"
+      style="--node-color:${escapeHtml(node.color)};"
       aria-pressed="${isSelected ? "true" : "false"}"
     >
       <strong>${escapeHtml(node.name)}</strong>
-      <small>${escapeHtml(node.type || "주제")}</small>
+      <small>${escapeHtml(edge?.label || node.type || "주제")}</small>
     </button>
+  `;
+}
+
+function renderMindMapTopic(topic, rootNode) {
+  return `
+    <li class="garden-mindmap-topic">
+      ${renderMindMapNode(topic.node, rootNode, topic.edge)}
+      ${
+        topic.children.length
+          ? `<ul class="garden-mindmap-tree">${topic.children.map((child) => renderMindMapTopic(child, rootNode)).join("")}</ul>`
+          : ""
+      }
+    </li>
   `;
 }
 
@@ -1564,30 +1596,27 @@ function renderMindMap(relations = state.map.relations) {
   const rootNode = getMindMapRootNode(relations);
   if (!rootNode) {
     return `
-      <div class="garden-mindmap-board garden-mindmap-editor is-empty" data-mindmap-editor>
+      <div class="garden-mindmap-board garden-mindmap-almind is-empty" data-mindmap-editor>
         <p class="garden-empty">주제를 추가하면 마인드맵을 직접 작성할 수 있습니다.</p>
       </div>
     `;
   }
 
-  const layout = getMindMapLayout(relations, rootNode);
-  const edgeMarkup = relations.edges.map((edge) => renderMindMapEdge(edge, layout)).join("");
-  const nodeMarkup = relations.nodes.map((node) => renderMindMapNode(node, rootNode, layout)).join("");
+  const tree = buildMindMapTree(relations, rootNode);
+  const left = tree.children.filter((_, index) => index % 2 === 0);
+  const right = tree.children.filter((_, index) => index % 2 === 1);
 
   return `
-    <div class="garden-mindmap-board garden-mindmap-editor" data-mindmap-editor aria-label="마인드맵 편집기">
-      <svg class="garden-mindmap-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        ${edgeMarkup}
-      </svg>
-      ${relations.edges
-        .map((edge) => {
-          const source = layout.get(edge.sourceId);
-          const target = layout.get(edge.targetId);
-          if (!source || !target) return "";
-          return `<span class="garden-mindmap-edge-label" data-mind-edge-label="${escapeHtml(edge.id)}" data-source="${escapeHtml(edge.sourceId)}" data-target="${escapeHtml(edge.targetId)}" style="left:${(source.x + target.x) / 2}%; top:${(source.y + target.y) / 2}%;">${escapeHtml(edge.label)}</span>`;
-        })
-        .join("")}
-      ${nodeMarkup}
+    <div class="garden-mindmap-board garden-mindmap-almind" data-mindmap-editor aria-label="마인드맵 편집기">
+      <div class="garden-mindmap-side is-left">
+        ${left.length ? `<ul class="garden-mindmap-tree">${left.map((topic) => renderMindMapTopic(topic, rootNode)).join("")}</ul>` : ""}
+      </div>
+      <div class="garden-mindmap-center">
+        ${renderMindMapNode(tree.node, rootNode)}
+      </div>
+      <div class="garden-mindmap-side is-right">
+        ${right.length ? `<ul class="garden-mindmap-tree">${right.map((topic) => renderMindMapTopic(topic, rootNode)).join("")}</ul>` : ""}
+      </div>
     </div>
   `;
 }
@@ -1670,16 +1699,17 @@ function renderRelationsPage() {
   return `
     ${getPageIntro()}
     <section class="garden-page-actions">
-      <button class="garden-button is-primary" type="button" data-action="add-mind-node">주제 추가</button>
+      <button class="garden-button is-primary" type="button" data-action="add-mind-node">${relations.nodes.length ? "주제 추가" : "중심 주제"}</button>
       <button class="garden-button" type="button" data-action="add-mind-child" ${selectedNode ? "" : "disabled"}>하위 주제</button>
+      <button class="garden-button" type="button" data-action="add-mind-sibling" ${selectedNode ? "" : "disabled"}>동급 주제</button>
       <button class="garden-button ${state.relationConnectSourceId ? "is-primary" : ""}" type="button" data-action="start-mind-connect" ${selectedNode ? "" : "disabled"}>
-        ${state.relationConnectSourceId ? "연결할 대상 선택 중" : "연결 시작"}
+        ${state.relationConnectSourceId ? "관계 대상 선택 중" : "관계선"}
       </button>
-      <button class="garden-button" type="button" data-action="reset-mind-layout" ${relations.nodes.length ? "" : "disabled"}>자동 정렬</button>
+      <button class="garden-button" type="button" data-action="reset-mind-layout" ${relations.nodes.length ? "" : "disabled"}>가지 정리</button>
       <button class="garden-button" type="button" data-action="clear-mind-selection" ${selectedNode ? "" : "disabled"}>선택 해제</button>
       <button class="garden-button is-danger" type="button" data-action="delete-mind-selected" ${selectedNode ? "" : "disabled"}>선택 삭제</button>
     </section>
-    ${state.relationConnectSourceId ? `<p class="garden-mindmap-hint">연결할 대상 주제를 클릭하면 선이 추가됩니다.</p>` : ""}
+    ${state.relationConnectSourceId ? `<p class="garden-mindmap-hint">관계선을 이을 대상 주제를 클릭하면 가지가 추가됩니다.</p>` : ""}
     ${state.editType === "relation-node" ? renderCard(editingNode ? "주제 수정" : "새 주제", renderRelationNodeForm(editingNode)) : ""}
     ${state.editType === "relation-edge" ? renderCard(editingEdge ? "연결 수정" : "새 연결", renderRelationEdgeForm(editingEdge)) : ""}
     ${renderCard(
@@ -2216,6 +2246,7 @@ async function handleAction(action, target) {
   if (action === "open-relation-edge-form") return openEditor("relation-edge");
   if (action === "add-mind-node") return addMindNode();
   if (action === "add-mind-child") return addMindNode(state.selectedRelationNodeId);
+  if (action === "add-mind-sibling") return addMindSibling(state.selectedRelationNodeId);
   if (action === "start-mind-connect") {
     if (!state.selectedRelationNodeId) return;
     state.relationConnectSourceId =
@@ -2388,6 +2419,10 @@ function getRelationNodeById(id = "") {
   return state.map.relations.nodes.find((node) => node.id === id) || null;
 }
 
+function getMindParentNodeId(nodeId = "") {
+  return state.map.relations.edges.find((edge) => edge.targetId === nodeId)?.sourceId || "";
+}
+
 function getStoredMindPosition(node = null) {
   if (!node) return { x: 50, y: 50 };
   if (hasMindMapPosition(node)) return { x: Number(node.x), y: Number(node.y) };
@@ -2399,8 +2434,8 @@ function createMindNodeNear(parent = null) {
   const base = getStoredMindPosition(parent);
   const offset = parent ? 14 : state.map.relations.nodes.length * 4;
   return normalizeRelationNode({
-    name: parent ? "새 하위 주제" : "새 주제",
-    type: "주제",
+    name: parent ? "새 주제" : "중심 주제",
+    type: parent ? "주제" : "중심",
     color: parent?.color || "#4aa8d8",
     x: clampNumber(base.x + (parent ? offset : 0), 6, 94),
     y: clampNumber(base.y + (parent ? 8 : offset), 8, 92),
@@ -2408,7 +2443,7 @@ function createMindNodeNear(parent = null) {
 }
 
 async function addMindNode(parentId = "") {
-  const parent = getRelationNodeById(parentId);
+  const parent = getRelationNodeById(parentId) || (state.map.relations.nodes.length ? getMindMapRootNode(state.map.relations) : null);
   const item = createMindNodeNear(parent);
   state.map.relations.nodes = [...state.map.relations.nodes, item];
   if (parent) {
@@ -2417,7 +2452,7 @@ async function addMindNode(parentId = "") {
       normalizeRelationEdge({
         sourceId: parent.id,
         targetId: item.id,
-        label: "연결",
+        label: "가지",
       }),
     ];
   }
@@ -2427,19 +2462,29 @@ async function addMindNode(parentId = "") {
   render();
 }
 
+async function addMindSibling(nodeId = "") {
+  const parentId = getMindParentNodeId(nodeId);
+  if (parentId) {
+    await addMindNode(parentId);
+    return;
+  }
+  const rootNode = getMindMapRootNode(state.map.relations);
+  await addMindNode(rootNode?.id || "");
+}
+
 async function connectMindNodes(sourceId = "", targetId = "") {
   if (!sourceId || !targetId || sourceId === targetId) return;
   const source = getRelationNodeById(sourceId);
   const target = getRelationNodeById(targetId);
   if (!source || !target) return;
-  const label = window.prompt("연결 이름을 입력해주세요.", "연결");
+  const label = window.prompt("관계선 이름을 입력해주세요.", "가지");
   if (label === null) return;
   state.map.relations.edges = [
     ...state.map.relations.edges,
     normalizeRelationEdge({
       sourceId,
       targetId,
-      label: label.trim() || "연결",
+      label: label.trim() || "가지",
     }),
   ];
   state.selectedRelationNodeId = targetId;
@@ -2449,19 +2494,7 @@ async function connectMindNodes(sourceId = "", targetId = "") {
 }
 
 async function resetMindLayout() {
-  const rootNode = getMindMapRootNode(state.map.relations);
-  if (!rootNode) return;
-  const layout = getMindMapLayout(
-    {
-      ...state.map.relations,
-      nodes: state.map.relations.nodes.map((node) => ({ ...node, x: null, y: null })),
-    },
-    { ...rootNode, x: null, y: null }
-  );
-  state.map.relations.nodes = state.map.relations.nodes.map((node) => {
-    const position = layout.get(node.id) || { x: 50, y: 50 };
-    return { ...node, x: position.x, y: position.y };
-  });
+  state.map.relations.nodes = state.map.relations.nodes.map((node) => ({ ...node, x: null, y: null }));
   await saveSpaceContent();
   render();
 }
@@ -2582,6 +2615,7 @@ document.addEventListener("pointerdown", (event) => {
   if (!node || event.button !== 0) return;
   const board = node.closest("[data-mindmap-editor]");
   if (!board) return;
+  if (board.classList.contains("garden-mindmap-almind")) return;
   state.mindDrag = {
     id: node.dataset.mindNode || "",
     pointerId: event.pointerId,
@@ -2644,6 +2678,27 @@ document.addEventListener("dblclick", async (event) => {
   state.selectedRelationNodeId = node.id;
   await saveSpaceContent();
   render();
+});
+
+document.addEventListener("keydown", async (event) => {
+  const mindNode = event.target.closest("[data-mind-node]");
+  if (!mindNode) return;
+  const nodeId = mindNode.dataset.mindNode || "";
+  if (event.key === "Tab") {
+    event.preventDefault();
+    await addMindNode(nodeId);
+    return;
+  }
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    await addMindSibling(nodeId);
+    return;
+  }
+  if (event.key === "Delete" || event.key === "Backspace") {
+    event.preventDefault();
+    state.selectedRelationNodeId = nodeId;
+    await deleteRelationEntity("node", nodeId, "선택한 주제를 휴지통으로 이동할까요?");
+  }
 });
 
 document.addEventListener("submit", async (event) => {
