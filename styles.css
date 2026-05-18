@@ -8585,41 +8585,46 @@ body.is-book-mode :is(button, select):disabled {
 }
 
 .garden-mindmap-board {
+  --mind-line: #59aaff;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.72fr) minmax(0, 1fr);
+  grid-template-columns: minmax(17rem, 1fr) minmax(13rem, 0.64fr) minmax(17rem, 1fr);
   align-items: center;
-  gap: clamp(0.7rem, 2vw, 1.1rem);
-  padding: clamp(0.75rem, 2vw, 1rem);
+  gap: clamp(1rem, 2.4vw, 2rem);
+  min-height: clamp(24rem, 48vw, 34rem);
+  padding: clamp(1.2rem, 3vw, 2rem);
   overflow-x: auto;
-}
-
-.garden-mindmap-root,
-.garden-mindmap-branch {
-  border: 1px solid rgba(201, 224, 245, 0.9);
+  border-radius: 12px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--node-color, #4aa8d8) 12%, white), #fff 68%);
-  box-shadow: 0 10px 28px rgba(42, 110, 148, 0.07);
+    linear-gradient(rgba(220, 241, 255, 0.46) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(220, 241, 255, 0.46) 1px, transparent 1px),
+    #fff;
+  background-size: 2.4rem 2.4rem;
 }
 
 .garden-mindmap-root {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: grid;
-  gap: 0.24rem;
-  justify-items: center;
-  min-width: 11.5rem;
-  padding: 1rem 0.9rem;
-  border-radius: 18px;
-  text-align: center;
+  gap: 0.32rem;
+  min-width: 13rem;
+  padding: 0.78rem 0.86rem;
+  border: 1px solid #78b7ff;
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--node-color, #4aa8d8) 24%, #eaf5ff), #cfe4ff);
+  box-shadow: 0 12px 28px rgba(31, 120, 192, 0.14);
+  color: #0047ff;
+  text-align: left;
 }
 
 .garden-mindmap-root::before,
 .garden-mindmap-root::after {
   position: absolute;
   top: 50%;
-  width: clamp(1.8rem, 4vw, 3.2rem);
-  height: 2px;
-  background: rgba(125, 190, 229, 0.65);
+  width: clamp(1.25rem, 3vw, 2.6rem);
+  height: 3px;
+  border-radius: 999px;
+  background: var(--mind-line);
   content: "";
 }
 
@@ -8631,121 +8636,184 @@ body.is-book-mode :is(button, select):disabled {
   left: 100%;
 }
 
-.garden-mindmap-root span,
-.garden-mindmap-dot {
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--node-color, #4aa8d8) 22%, white);
-  color: #0f5f91;
-  font-weight: 820;
-}
-
-.garden-mindmap-root span {
-  width: 2.65rem;
-  height: 2.65rem;
-  font-size: 1rem;
-}
-
 .garden-mindmap-root strong {
-  color: #17324a;
-  font-size: 1rem;
+  color: #0047ff;
+  font-size: 0.88rem;
+  font-weight: 830;
+  letter-spacing: 0;
 }
 
-.garden-mindmap-root small,
-.garden-mindmap-root p,
-.garden-mindmap-branch small,
-.garden-mindmap-branch p {
-  color: #6e879d;
+.garden-mindmap-root small {
+  color: #0959c8;
+  font-size: 0.67rem;
+  font-weight: 760;
 }
 
-.garden-mindmap-root p,
-.garden-mindmap-branch p {
-  margin: 0.08rem 0 0;
-  font-size: 0.74rem;
-  line-height: 1.55;
+.garden-mindmap-root p {
+  margin: 0;
+  color: #0754bd;
+  font-size: 0.68rem;
+  line-height: 1.42;
 }
 
 .garden-mindmap-branches {
   display: grid;
-  gap: 0.62rem;
-  min-width: 13rem;
+  gap: clamp(0.8rem, 2vw, 1.3rem);
+  min-width: 17rem;
+}
+
+.garden-mindmap-branches.is-left {
+  justify-items: end;
+}
+
+.garden-mindmap-branches.is-right {
+  justify-items: start;
 }
 
 .garden-mindmap-branch {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(6.5rem, max-content) minmax(0, 1fr);
   align-items: center;
-  gap: 0.55rem;
-  min-height: 4rem;
-  padding: 0.68rem 0.72rem;
-  border-radius: 12px;
+  gap: 0.7rem;
+  max-width: min(100%, 24rem);
+}
+
+.garden-mindmap-branch.is-left {
+  grid-template-columns: minmax(0, 1fr) minmax(6.5rem, max-content);
+}
+
+.garden-mindmap-branch.is-left > .garden-mindmap-node.is-main {
+  grid-column: 2;
+}
+
+.garden-mindmap-branch.is-left > .garden-mindmap-twigs {
+  grid-column: 1;
+  grid-row: 1;
+  justify-items: end;
+  border-right: 2px solid rgba(89, 170, 255, 0.58);
+  border-left: 0;
+  padding: 0.2rem 0.7rem 0.2rem 0;
 }
 
 .garden-mindmap-branch::before {
   position: absolute;
   top: 50%;
-  width: clamp(1rem, 2vw, 1.6rem);
-  height: 2px;
-  background: rgba(125, 190, 229, 0.55);
+  width: clamp(1.3rem, 3vw, 2.3rem);
+  height: 3px;
+  border-radius: 999px;
+  background: var(--mind-line);
   content: "";
 }
 
 .garden-mindmap-branch.is-left::before {
-  right: -1.6rem;
+  right: calc(-1 * clamp(1.3rem, 3vw, 2.3rem));
 }
 
 .garden-mindmap-branch.is-right::before {
-  left: -1.6rem;
+  left: calc(-1 * clamp(1.3rem, 3vw, 2.3rem));
 }
 
-.garden-mindmap-dot {
-  width: 2rem;
-  height: 2rem;
-  font-size: 0.82rem;
-}
-
-.garden-mindmap-branch strong {
-  display: block;
-  overflow: hidden;
-  color: #17324a;
-  font-size: 0.84rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.garden-mindmap-branch small {
-  display: block;
-  margin-top: 0.1rem;
-  overflow: hidden;
-  font-size: 0.72rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.garden-mindmap-branch em {
+.garden-mindmap-node {
+  position: relative;
   display: grid;
-  width: 1.65rem;
-  height: 1.65rem;
-  place-items: center;
-  border: 1px solid rgba(186, 230, 253, 0.92);
-  border-radius: 999px;
-  background: #fff;
-  color: #557085;
-  font-size: 0.68rem;
-  font-style: normal;
-  font-weight: 760;
+  gap: 0.08rem;
+  min-width: 6.2rem;
+  max-width: 12rem;
+  min-height: 1.7rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid #58a8ff;
+  border-radius: 5px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--node-color, #4aa8d8) 13%, #fafdff), #eef7ff);
+  color: #0047ff;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  box-shadow: 0 6px 14px rgba(45, 137, 211, 0.09);
+}
+
+.garden-mindmap-node:hover,
+.garden-mindmap-node:focus-visible {
+  border-color: #188dff;
+  background: #e7f3ff;
+  box-shadow: 0 8px 18px rgba(45, 137, 211, 0.16);
+  transform: translateY(-1px);
+}
+
+.garden-mindmap-node::before {
+  position: absolute;
+  top: 50%;
+  width: 0.72rem;
+  height: 2px;
+  background: var(--mind-line);
+  content: "";
+}
+
+.garden-mindmap-branch.is-right .garden-mindmap-node::before {
+  right: 100%;
+}
+
+.garden-mindmap-branch.is-left .garden-mindmap-node::before {
+  left: 100%;
+}
+
+.garden-mindmap-node strong {
+  display: block;
+  overflow: hidden;
+  color: #0047ff;
+  font-size: 0.72rem;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.garden-mindmap-node small {
+  display: block;
+  overflow: hidden;
+  color: #3679c8;
+  font-size: 0.58rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.garden-mindmap-node.is-main {
+  min-height: 1.9rem;
+}
+
+.garden-mindmap-twigs {
+  display: grid;
+  gap: 0.42rem;
+  justify-items: start;
+  border-left: 2px solid rgba(89, 170, 255, 0.58);
+  padding: 0.2rem 0 0.2rem 0.7rem;
+}
+
+.garden-mindmap-twigs .garden-mindmap-node {
+  min-width: 5.4rem;
+  min-height: 1.45rem;
+  padding-block: 0.18rem;
+}
+
+.garden-mindmap-twigs .garden-mindmap-node strong {
+  font-size: 0.66rem;
+}
+
+.garden-mindmap-twigs .garden-mindmap-node small {
+  font-size: 0.54rem;
 }
 
 .garden-mindmap-empty {
   display: grid;
-  min-height: 3.4rem;
+  min-width: 8rem;
+  min-height: 2.2rem;
   place-items: center;
   border: 1px dashed rgba(186, 230, 253, 0.95);
-  border-radius: 12px;
+  border-radius: 7px;
+  background: rgba(248, 252, 255, 0.82);
   color: #91a4b4;
-  font-size: 0.74rem;
+  font-size: 0.7rem;
 }
 
 .garden-creature-detail {
@@ -9466,17 +9534,38 @@ body.is-book-mode :is(button, select):disabled {
 
   .garden-mindmap-board {
     grid-template-columns: 1fr;
+    min-height: auto;
     overflow-x: visible;
   }
 
   .garden-mindmap-root::before,
   .garden-mindmap-root::after,
-  .garden-mindmap-branch::before {
+  .garden-mindmap-branch::before,
+  .garden-mindmap-node::before {
     display: none;
   }
 
-  .garden-mindmap-branches {
+  .garden-mindmap-branches,
+  .garden-mindmap-branch,
+  .garden-mindmap-branch.is-left {
+    grid-template-columns: 1fr;
     min-width: 0;
+    max-width: 100%;
+    justify-items: stretch;
+  }
+
+  .garden-mindmap-branch.is-left > .garden-mindmap-node.is-main,
+  .garden-mindmap-branch.is-left > .garden-mindmap-twigs {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .garden-mindmap-twigs,
+  .garden-mindmap-branch.is-left > .garden-mindmap-twigs {
+    justify-items: stretch;
+    border-right: 0;
+    border-left: 2px solid rgba(89, 170, 255, 0.58);
+    padding: 0.2rem 0 0.2rem 0.7rem;
   }
 
   .garden-form-actions {

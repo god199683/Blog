@@ -1433,36 +1433,68 @@ function getRelationLabelsBetween(leftId = "", rightId = "") {
     .filter(Boolean);
 }
 
-function getMindMapBranchMeta(node, rootNode) {
-  const rootLabels = rootNode ? getRelationLabelsBetween(rootNode.id, node.id) : [];
-  const connections = getRelationEdgesForNode(node.id).filter(
-    (edge) => !rootNode || (edge.sourceId !== rootNode.id && edge.targetId !== rootNode.id)
-  );
-  const connectionText = connections
-    .slice(0, 3)
-    .map((edge) => {
-      const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
-      return `${edge.label}: ${getRelationNodeName(otherId)}`;
-    })
-    .join(" · ");
-
-  return {
-    label: rootLabels.join(" · ") || connectionText || "독립 주제",
-    count: getRelationEdgesForNode(node.id).length,
-  };
+function buildMindMapLinks(relations = state.map.relations) {
+  const nodeMap = new Map(relations.nodes.map((node) => [node.id, node]));
+  const links = new Map(relations.nodes.map((node) => [node.id, []]));
+  relations.edges.forEach((edge) => {
+    const source = nodeMap.get(edge.sourceId);
+    const target = nodeMap.get(edge.targetId);
+    if (!source || !target) return;
+    links.get(source.id)?.push({ edge, node: target });
+    links.get(target.id)?.push({ edge, node: source });
+  });
+  return links;
 }
 
-function renderMindMapBranch(node, rootNode, side = "right") {
-  const meta = getMindMapBranchMeta(node, rootNode);
+function getMindMapBranches(relations = state.map.relations, rootNode) {
+  const links = buildMindMapLinks(relations);
+  const used = new Set([rootNode.id]);
+  const primaryLinks = (links.get(rootNode.id) || []).map((link) => ({ ...link, children: [] }));
+  const branches = primaryLinks.length
+    ? primaryLinks
+    : relations.nodes.filter((node) => node.id !== rootNode.id).map((node) => ({ node, edge: null, children: [] }));
+
+  branches.forEach((branch) => {
+    used.add(branch.node.id);
+  });
+
+  branches.forEach((branch) => {
+    branch.children = (links.get(branch.node.id) || [])
+      .filter((link) => link.node.id !== rootNode.id && !used.has(link.node.id))
+      .slice(0, 6);
+    branch.children.forEach((child) => used.add(child.node.id));
+  });
+
+  relations.nodes.forEach((node) => {
+    if (used.has(node.id) || node.id === rootNode.id) return;
+    branches.push({ node, edge: null, children: [] });
+    used.add(node.id);
+  });
+
+  return branches;
+}
+
+function renderMindMapNode(node, edge = null, className = "") {
+  const label = edge?.label || node.type || "주제";
   return `
-    <article class="garden-mindmap-branch is-${escapeHtml(side)}" style="--node-color:${escapeHtml(node.color)}">
-      <span class="garden-mindmap-dot" aria-hidden="true">${escapeHtml(node.name.slice(0, 1))}</span>
-      <div>
-        <strong>${escapeHtml(node.name)}</strong>
-        <small>${escapeHtml(node.type)} · ${escapeHtml(meta.label)}</small>
-        ${node.description ? `<p>${escapeHtml(node.description)}</p>` : ""}
-      </div>
-      <em>${escapeHtml(String(meta.count))}</em>
+    <button class="garden-mindmap-node ${escapeHtml(className)}" type="button" data-action="edit-relation-node" data-id="${escapeHtml(node.id)}" style="--node-color:${escapeHtml(node.color)}">
+      <strong>${escapeHtml(node.name)}</strong>
+      <small>${escapeHtml(label)}</small>
+    </button>
+  `;
+}
+
+function renderMindMapBranch(branch, side = "right") {
+  return `
+    <article class="garden-mindmap-branch is-${escapeHtml(side)}">
+      ${renderMindMapNode(branch.node, branch.edge, "is-main")}
+      ${
+        branch.children.length
+          ? `<div class="garden-mindmap-twigs">
+              ${branch.children.map((child) => renderMindMapNode(child.node, child.edge, "is-child")).join("")}
+            </div>`
+          : ""
+      }
     </article>
   `;
 }
@@ -1471,23 +1503,22 @@ function renderMindMap(relations = state.map.relations) {
   const rootNode = getMindMapRootNode(relations);
   if (!rootNode) return `<p class="garden-empty">주제를 추가하면 마인드맵을 만들 수 있습니다.</p>`;
 
-  const branches = relations.nodes.filter((node) => node.id !== rootNode.id);
+  const branches = getMindMapBranches(relations, rootNode);
   const left = branches.filter((_, index) => index % 2 === 0);
   const right = branches.filter((_, index) => index % 2 === 1);
 
   return `
-    <div class="garden-mindmap-board">
+    <div class="garden-mindmap-board" aria-label="마인드맵">
       <div class="garden-mindmap-branches is-left">
-        ${left.length ? left.map((node) => renderMindMapBranch(node, rootNode, "left")).join("") : `<span class="garden-mindmap-empty">왼쪽 가지 없음</span>`}
+        ${left.length ? left.map((branch) => renderMindMapBranch(branch, "left")).join("") : `<span class="garden-mindmap-empty">왼쪽 가지 없음</span>`}
       </div>
       <section class="garden-mindmap-root" style="--node-color:${escapeHtml(rootNode.color)}">
-        <span aria-hidden="true">${escapeHtml(rootNode.name.slice(0, 1))}</span>
         <strong>${escapeHtml(rootNode.name)}</strong>
         <small>${escapeHtml(rootNode.type)}</small>
         ${rootNode.description ? `<p>${escapeHtml(rootNode.description)}</p>` : ""}
       </section>
       <div class="garden-mindmap-branches is-right">
-        ${right.length ? right.map((node) => renderMindMapBranch(node, rootNode, "right")).join("") : `<span class="garden-mindmap-empty">오른쪽 가지 없음</span>`}
+        ${right.length ? right.map((branch) => renderMindMapBranch(branch, "right")).join("") : `<span class="garden-mindmap-empty">오른쪽 가지 없음</span>`}
       </div>
     </div>
   `;
@@ -1530,16 +1561,19 @@ function renderRelationNodeForm(node = null) {
 
 function renderRelationEdgeForm(edge = null) {
   const item = edge || normalizeRelationEdge({});
+  const nodes = state.map.relations.nodes;
+  const sourceId = item.sourceId || nodes[0]?.id || "";
+  const targetId = item.targetId || nodes.find((node) => node.id !== sourceId)?.id || "";
   return `
     <form class="garden-form" data-form="relation-edge">
       <input type="hidden" name="id" value="${edge ? escapeHtml(edge.id) : ""}">
       <label>
         <span>시작 주제</span>
-        <select name="sourceId" required>${renderRelationNodeOptions(item.sourceId)}</select>
+        <select name="sourceId" required>${renderRelationNodeOptions(sourceId)}</select>
       </label>
       <label>
         <span>대상 주제</span>
-        <select name="targetId" required>${renderRelationNodeOptions(item.targetId)}</select>
+        <select name="targetId" required>${renderRelationNodeOptions(targetId)}</select>
       </label>
       <label class="garden-form-wide">
         <span>연결 이름</span>
