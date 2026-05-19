@@ -560,6 +560,90 @@ body.is-public-blog-view [data-feature-delete] {
   box-shadow: 0 0 0 3px rgba(186, 230, 253, 0.4);
 }
 
+.password-visibility-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.password-visibility-wrap > input {
+  width: 100%;
+  padding-right: 2.65rem;
+}
+
+.password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.42rem;
+  z-index: 2;
+  display: grid;
+  width: 1.72rem;
+  height: 1.72rem;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(186, 230, 253, 0.82);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #53738f;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition:
+    opacity 0.14s ease,
+    background-color 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
+}
+
+.password-visibility-wrap:hover .password-visibility-toggle,
+.password-visibility-wrap:focus-within .password-visibility-toggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.password-visibility-toggle:hover,
+.password-visibility-toggle:focus-visible {
+  border-color: rgba(56, 189, 248, 0.56);
+  background: #f0f9ff;
+  color: var(--sky-dark);
+  outline: none;
+}
+
+.password-eye-icon {
+  position: relative;
+  display: block;
+  width: 0.94rem;
+  height: 0.58rem;
+  border: 1.5px solid currentColor;
+  border-radius: 999px / 70%;
+}
+
+.password-eye-icon::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.password-visibility-wrap[data-password-visible="true"] .password-eye-icon::before {
+  position: absolute;
+  top: 50%;
+  left: -0.14rem;
+  width: 1.2rem;
+  height: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  transform: rotate(-35deg);
+}
+
 .field-help,
 .password-hint-result,
 .auth-message,

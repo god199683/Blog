@@ -166,6 +166,79 @@
     return session;
   }
 
+  function setupPasswordVisibilityToggles(root = document) {
+    const scope = root?.nodeType === Node.ELEMENT_NODE ? root : document;
+    const directMatches = scope.matches?.('input[type="password"], input[data-password-toggle-ready="true"]')
+      ? [scope]
+      : [];
+    const nestedMatches = scope.querySelectorAll
+      ? [...scope.querySelectorAll('input[type="password"], input[data-password-toggle-ready="true"]')]
+      : [];
+    const inputs = [...directMatches, ...nestedMatches];
+
+    inputs.forEach((input) => {
+      if (!(input instanceof HTMLInputElement) || input.dataset.passwordToggleReady === "true") return;
+      input.dataset.passwordToggleReady = "true";
+      input.dataset.passwordOriginalType = input.type || "password";
+
+      const wrapper = document.createElement("span");
+      wrapper.className = "password-visibility-wrap";
+      wrapper.dataset.passwordVisible = "false";
+      input.classList.add("has-password-visibility-toggle");
+      input.parentNode?.insertBefore(wrapper, input);
+      wrapper.append(input);
+
+      const button = document.createElement("button");
+      button.className = "password-visibility-toggle";
+      button.type = "button";
+      button.title = "비밀번호 표시";
+      button.setAttribute("aria-label", "비밀번호 표시");
+      button.setAttribute("aria-pressed", "false");
+      button.innerHTML = '<span class="password-eye-icon" aria-hidden="true"></span>';
+
+      button.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+      });
+
+      button.addEventListener("click", () => {
+        const selectionStart = input.selectionStart;
+        const selectionEnd = input.selectionEnd;
+        const nextVisible = input.type !== "text";
+        input.type = nextVisible ? "text" : "password";
+        wrapper.dataset.passwordVisible = String(nextVisible);
+        button.title = nextVisible ? "비밀번호 숨김" : "비밀번호 표시";
+        button.setAttribute("aria-label", button.title);
+        button.setAttribute("aria-pressed", String(nextVisible));
+        input.focus({ preventScroll: true });
+        if (selectionStart !== null && selectionEnd !== null) {
+          window.requestAnimationFrame(() => {
+            try {
+              input.setSelectionRange(selectionStart, selectionEnd);
+            } catch {
+              try {
+                input.setSelectionRange(input.value.length, input.value.length);
+              } catch {
+                // Some browser-managed password fields can reject selection changes.
+              }
+            }
+          });
+        }
+      });
+
+      wrapper.append(button);
+    });
+  }
+
+  function observePasswordInputs() {
+    setupPasswordVisibilityToggles();
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => setupPasswordVisibilityToggles(node));
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   async function getAwayPasswordHash(session) {
     if (!session?.access_token || !session.user?.id) return "";
     const rows = await requestRest(
@@ -219,6 +292,7 @@
 
     document.body.append(overlay);
     document.body.classList.add("is-away-locked");
+    setupPasswordVisibilityToggles(overlay);
     window.setTimeout(() => input.focus(), 0);
   }
 
@@ -301,6 +375,8 @@
 
     actions.replaceChildren(account);
   }
+
+  observePasswordInputs();
 
   const ready = getFreshSession().then((session) => {
     syncMyBlogNavLink(session);
