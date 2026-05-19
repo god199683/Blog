@@ -72,6 +72,8 @@ let editorHistoryIndex = -1;
 let editorHistoryRestoring = false;
 let activeEditorLineHeight = "";
 let lastEditorEllipsisReplacement = null;
+let pendingPastePayload = null;
+let pasteMenu = null;
 
 const BUILTIN_EDITOR_FONTS = [
   "Noto Sans KR",
@@ -181,6 +183,13 @@ const ALLOWED_EDITOR_STYLES = new Set([
   "text-align",
   "text-decoration",
 ]);
+
+const EDITOR_PASTE_OPTIONS = [
+  { key: "source", label: "원본 서식 유지" },
+  { key: "merge", label: "서식 병합" },
+  { key: "image", label: "그림 형태" },
+  { key: "text", label: "텍스트만 유지" },
+];
 
 function escapeHtml(value = "") {
   return String(value)
@@ -1157,6 +1166,19 @@ function getPlainTextFromHtml(html = "") {
   return getTextFromHtml(html).replace(/\s+/g, " ").trim();
 }
 
+function textToEditorHtml(text = "") {
+  const normalized = String(text || "").replace(/\r\n?/g, "\n");
+  const paragraphs = normalized
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trimEnd())
+    .filter((paragraph) => paragraph.trim());
+
+  if (paragraphs.length === 0) return "<p><br></p>";
+  return paragraphs
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
 function getCharacterCounts(html = "") {
   const text = getTextFromHtml(html);
   return {
@@ -1210,6 +1232,244 @@ function cleanEditorHtml(html = "") {
     }
   });
   return template.innerHTML.replace(/\u200b/g, "").trim();
+}
+
+function mergeEditorHtmlWithCurrentStyle(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = cleanEditorHtml(html);
+
+  template.content.querySelectorAll("*").forEach((node) => {
+    node.removeAttribute("style");
+    node.removeAttribute("class");
+    node.removeAttribute("id");
+    node.removeAttribute("width");
+    node.removeAttribute("height");
+    node.removeAttribute("face");
+    node.removeAttribute("size");
+    node.removeAttribute("color");
+
+    if (node.tagName === "FONT") {
+      node.replaceWith(...node.childNodes);
+    }
+  });
+
+  template.content.querySelectorAll("span").forEach((node) => {
+    if (node.attributes.length === 0) node.replaceWith(...node.childNodes);
+  });
+
+  return template.innerHTML.trim();
+}
+
+function readClipboardImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", () => reject(new Error("이미지를 읽지 못했습니다.")));
+    reader.readAsDataURL(file);
+  });
+}
+
+function wrapCanvasText(context, text, maxWidth) {
+  const wrappedLines = [];
+  String(text || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .forEach((rawLine) => {
+      const words = rawLine.trim() ? rawLine.split(/(\s+)/).filter(Boolean) : [""];
+      let line = "";
+      words.forEach((word) => {
+        const candidate = `${line}${word}`;
+        if (line && context.measureText(candidate).width > maxWidth) {
+          wrappedLines.push(line.trimEnd());
+          line = word.trimStart();
+        } else {
+          line = candidate;
+        }
+      });
+      wrappedLines.push(line.trimEnd());
+    });
+  return wrappedLines;
+}
+
+function buildPastedTextImage(text = "") {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  const style = window.getComputedStyle(getActiveEditorStyleElement() || els.content);
+  const fontSize = Math.min(28, Math.max(14, Number.parseFloat(style.fontSize) || 16));
+  const fontFamily = style.fontFamily || '"Noto Sans KR", sans-serif';
+  const padding = 36;
+  const maxTextWidth = 900;
+  const lineHeight = Math.round(fontSize * 1.65);
+
+  context.font = `${fontSize}px ${fontFamily}`;
+  const lines = wrapCanvasText(context, text || " ", maxTextWidth);
+  const textWidth = Math.max(220, Math.min(maxTextWidth, ...lines.map((line) => context.measureText(line).width)));
+  canvas.width = Math.ceil(textWidth + padding * 2);
+  canvas.height = Math.max(100, Math.ceil(lines.length * lineHeight + padding * 2));
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = "#d8eafb";
+  context.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+  context.font = `${fontSize}px ${fontFamily}`;
+  context.fillStyle = "#20364a";
+  context.textBaseline = "top";
+  lines.forEach((line, index) => {
+    context.fillText(line || " ", padding, padding + index * lineHeight);
+  });
+
+  return canvas.toDataURL("image/png");
+}
+
+function getPastePlainText(payload = {}) {
+  return payload.text || getPlainTextFromHtml(payload.html || "");
+}
+
+async function buildPasteHtml(mode, payload = {}) {
+  const html = payload.html || "";
+  const text = getPastePlainText(payload);
+  const imageFile = payload.imageFiles?.[0] || null;
+
+  if (mode === "source") {
+    if (html) return cleanEditorHtml(html) || textToEditorHtml(text);
+    if (imageFile) {
+      const imageUrl = await readClipboardImageFile(imageFile);
+      return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
+    }
+    return textToEditorHtml(text);
+  }
+
+  if (mode === "merge") {
+    if (html) return mergeEditorHtmlWithCurrentStyle(html) || textToEditorHtml(text);
+    if (imageFile) {
+      const imageUrl = await readClipboardImageFile(imageFile);
+      return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
+    }
+    return textToEditorHtml(text);
+  }
+
+  if (mode === "text") {
+    return textToEditorHtml(text);
+  }
+
+  if (mode === "image") {
+    if (imageFile) {
+      const imageUrl = await readClipboardImageFile(imageFile);
+      return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
+    }
+    const imageUrl = buildPastedTextImage(text || getPlainTextFromHtml(html));
+    return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 내용 이미지"></p>`;
+  }
+
+  return textToEditorHtml(text);
+}
+
+function insertEditorHtml(html = "") {
+  const safeHtml = cleanEditorHtml(html);
+  if (!safeHtml) return;
+  restoreEditorSelection();
+  document.execCommand("insertHTML", false, safeHtml);
+  pushEditorHistorySnapshot();
+  syncEditorStats();
+  syncEditorToolbarState({ force: true });
+  markEditorDirty();
+  saveCurrentSelection();
+}
+
+function closePasteMenu() {
+  pasteMenu?.remove();
+  pasteMenu = null;
+  pendingPastePayload = null;
+}
+
+function getPasteMenuPosition(event) {
+  if (event?.clientX || event?.clientY) {
+    return { x: event.clientX, y: event.clientY };
+  }
+
+  if (rangeIsInEditor(savedEditorRange)) {
+    const rect = savedEditorRange.getBoundingClientRect();
+    if (rect.width || rect.height) {
+      return { x: rect.left, y: rect.bottom };
+    }
+  }
+
+  const rect = els.content.getBoundingClientRect();
+  return { x: rect.left + 24, y: rect.top + 24 };
+}
+
+function positionPasteMenu(menu, point) {
+  const margin = 8;
+  menu.style.left = `${Math.max(margin, point.x)}px`;
+  menu.style.top = `${Math.max(margin, point.y)}px`;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(Math.max(margin, point.x), window.innerWidth - rect.width - margin);
+  const top = Math.min(Math.max(margin, point.y), window.innerHeight - rect.height - margin);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function showPasteMenu(event, payload) {
+  closePasteMenu();
+  pendingPastePayload = payload;
+
+  pasteMenu = document.createElement("div");
+  pasteMenu.className = "editor-paste-menu";
+  pasteMenu.setAttribute("role", "menu");
+  pasteMenu.setAttribute("aria-label", "붙여넣기 옵션");
+  pasteMenu.innerHTML = EDITOR_PASTE_OPTIONS.map(
+    (option) => `
+      <button type="button" role="menuitem" data-paste-mode="${escapeHtml(option.key)}">
+        ${escapeHtml(option.label)}
+      </button>
+    `
+  ).join("");
+
+  pasteMenu.addEventListener("mousedown", (mouseEvent) => {
+    mouseEvent.preventDefault();
+  });
+
+  pasteMenu.addEventListener("click", async (clickEvent) => {
+    const button = clickEvent.target.closest("[data-paste-mode]");
+    if (!button || !pendingPastePayload) return;
+
+    const payloadToInsert = pendingPastePayload;
+    const mode = button.dataset.pasteMode;
+    closePasteMenu();
+
+    try {
+      const html = await buildPasteHtml(mode, payloadToInsert);
+      insertEditorHtml(html);
+    } catch (error) {
+      window.alert(error.message || "붙여넣기를 처리하지 못했습니다.");
+    }
+  });
+
+  document.body.append(pasteMenu);
+  positionPasteMenu(pasteMenu, getPasteMenuPosition(event));
+  window.requestAnimationFrame(() => pasteMenu?.querySelector("button")?.focus({ preventScroll: true }));
+}
+
+function getClipboardPayload(event) {
+  const clipboard = event.clipboardData;
+  if (!clipboard) return null;
+
+  const imageFiles = [...clipboard.files].filter((file) => file.type.startsWith("image/"));
+  const html = clipboard.getData("text/html");
+  const text = clipboard.getData("text/plain");
+  if (!html && !text && imageFiles.length === 0) return null;
+
+  return { html, text, imageFiles };
+}
+
+function handleEditorPaste(event) {
+  if (!nodeIsInEditor(event.target)) return;
+  const payload = getClipboardPayload(event);
+  if (!payload) return;
+
+  event.preventDefault();
+  saveCurrentSelection();
+  showPasteMenu(event, payload);
 }
 
 function getReadingTimeLabel(text = "") {
@@ -2644,6 +2904,7 @@ els.form.addEventListener("input", () => {
 
 els.content.addEventListener("input", handleEditorContentInput);
 els.content.addEventListener("keydown", handleEditorKeydown);
+els.content.addEventListener("paste", handleEditorPaste);
 els.content.addEventListener("mouseup", saveCurrentSelection);
 els.content.addEventListener("keyup", saveCurrentSelection);
 document.addEventListener("selectionchange", saveCurrentSelection);
@@ -2833,6 +3094,17 @@ els.toolbar.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".editor-color-control") && !event.target.closest(".editor-table-control")) {
     closeAllToolbarMenus();
+  }
+  if (pasteMenu && !event.target.closest(".editor-paste-menu")) {
+    closePasteMenu();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && pasteMenu) {
+    event.preventDefault();
+    closePasteMenu();
+    els.content.focus({ preventScroll: true });
   }
 });
 

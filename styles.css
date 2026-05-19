@@ -2953,6 +2953,38 @@ body.is-away-locked {
   background: #f0f9ff;
 }
 
+.editor-paste-menu {
+  position: fixed;
+  z-index: 1200;
+  display: grid;
+  gap: 0.18rem;
+  min-width: 8.4rem;
+  padding: 0.34rem;
+  border: 1px solid rgba(186, 230, 253, 0.96);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 42px rgba(32, 54, 74, 0.16);
+}
+
+.editor-paste-menu button {
+  min-height: 1.78rem;
+  padding: 0 0.52rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #40586d;
+  font-size: 0.75rem;
+  font-weight: 680;
+  text-align: left;
+}
+
+.editor-paste-menu button:hover,
+.editor-paste-menu button:focus-visible {
+  background: #f0f9ff;
+  color: var(--sky-dark);
+  outline: none;
+}
+
 .editor-table-menu label {
   display: flex;
   align-items: center;
