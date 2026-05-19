@@ -10038,7 +10038,7 @@ body.is-book-mode .viewer-page-content {
   box-sizing: border-box;
   min-height: 100%;
   padding: clamp(1.25rem, 4vw, 3.25rem);
-  overflow: hidden;
+  overflow: visible;
 }
 
 body.is-book-mode .viewer-page-content :where(p, li, blockquote, span, div, td, th) {
