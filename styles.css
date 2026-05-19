@@ -10220,6 +10220,20 @@ body {
   box-shadow: 0 6px 14px rgba(34, 113, 158, 0.055);
 }
 
+.account-danger-button,
+.account-danger-button:disabled {
+  border-color: rgba(248, 113, 113, 0.46);
+  background: #fff8f8;
+  color: #b42318;
+}
+
+.account-danger-button:hover,
+.account-danger-button:focus-visible {
+  border-color: rgba(220, 38, 38, 0.58);
+  background: #fff1f2;
+  color: #991b1b;
+}
+
 .auth-button-primary,
 .auth-submit,
 .editor-primary-button,

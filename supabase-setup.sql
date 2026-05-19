@@ -409,6 +409,80 @@ begin
 end
 $$;
 
+create schema if not exists private;
+
+grant usage on schema private to authenticated;
+
+create or replace function private.delete_current_user_account()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, auth, pg_temp
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_result jsonb;
+begin
+  if v_user_id is null then
+    raise exception '로그인이 필요합니다.' using errcode = '28000';
+  end if;
+
+  with
+    deleted_materials as (
+      delete from public.blog_materials where user_id = v_user_id returning 1
+    ),
+    deleted_posts as (
+      delete from public.posts where user_id = v_user_id returning 1
+    ),
+    deleted_blog_trees as (
+      delete from public.blog_trees where user_id = v_user_id returning 1
+    ),
+    deleted_material_trees as (
+      delete from public.material_trees where user_id = v_user_id returning 1
+    ),
+    deleted_hints as (
+      delete from public.password_hints where user_id = v_user_id returning 1
+    ),
+    deleted_security as (
+      delete from public.account_security where user_id = v_user_id returning 1
+    ),
+    deleted_profiles as (
+      delete from public.blog_profiles where user_id = v_user_id returning 1
+    )
+  select jsonb_build_object(
+    'ok', true,
+    'posts', (select count(*) from deleted_posts),
+    'materials', (select count(*) from deleted_materials),
+    'blogTrees', (select count(*) from deleted_blog_trees),
+    'materialTrees', (select count(*) from deleted_material_trees),
+    'passwordHints', (select count(*) from deleted_hints),
+    'accountSecurity', (select count(*) from deleted_security),
+    'profiles', (select count(*) from deleted_profiles)
+  ) into v_result;
+
+  delete from auth.users where id = v_user_id;
+
+  return v_result;
+end;
+$$;
+
+revoke all on function private.delete_current_user_account() from public, anon;
+grant execute on function private.delete_current_user_account() to authenticated;
+
+create or replace function public.delete_current_user_account()
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public, private, pg_temp
+as $$
+begin
+  return private.delete_current_user_account();
+end;
+$$;
+
+revoke all on function public.delete_current_user_account() from public, anon;
+grant execute on function public.delete_current_user_account() to authenticated;
+
 do $$
 begin
   if not exists (

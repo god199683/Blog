@@ -6,10 +6,12 @@
 
   const idEl = document.querySelector("[data-account-id]");
   const logoutButton = document.querySelector("[data-account-logout]");
+  const deleteButton = document.querySelector("[data-account-delete]");
   const passwordForm = document.querySelector("[data-password-form]");
   const awayForm = document.querySelector("[data-away-form]");
   const passwordMessage = document.querySelector("[data-password-message]");
   const awayMessage = document.querySelector("[data-away-message]");
+  const accountMessage = document.querySelector("[data-account-message]");
 
   let currentSession = null;
   let currentId = "";
@@ -75,6 +77,22 @@
     return payload;
   }
 
+  async function requestRpc(name, token, body = {}) {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(payload?.message || "요청을 처리하지 못했습니다.");
+    return payload;
+  }
+
   async function hashAwayPassword(userId, password) {
     const data = new TextEncoder().encode(`${userId}:away:${password}`);
     const digest = await crypto.subtle.digest("SHA-256", data);
@@ -85,6 +103,31 @@
     const button = form.querySelector("button[type='submit']");
     button.disabled = busy;
     button.textContent = busy ? "처리 중" : button.dataset.label;
+  }
+
+  function setButtonBusy(button, busy, busyLabel = "처리 중") {
+    if (!button) return;
+    if (!button.dataset.label) button.dataset.label = button.textContent;
+    button.disabled = busy;
+    button.textContent = busy ? busyLabel : button.dataset.label;
+  }
+
+  function clearLocalAccountData(id) {
+    const prefixes = [
+      `blog.categoryTree.${id}`,
+      `blog.editorDraft.posts.${id}`,
+      `blog.editorDraft.materials.${id}`,
+      `blog.editorFonts.${id}`,
+    ];
+
+    Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)).forEach((key) => {
+      if (!key) return;
+      if (key === "blog.auth.session" || prefixes.some((prefix) => key === prefix || key.startsWith(`${prefix}.`))) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    sessionStorage.removeItem("blog.away.locked");
   }
 
   passwordForm?.addEventListener("submit", async (event) => {
@@ -174,5 +217,26 @@
 
   logoutButton?.addEventListener("click", () => {
     window.blogSession?.logout();
+  });
+
+  deleteButton?.addEventListener("click", async () => {
+    if (!currentSession?.access_token || !currentId) return;
+
+    const confirmed = window.confirm(
+      "회원탈퇴를 진행할까요?\n계정, 글, 자료, 카테고리, 폴더가 모두 삭제됩니다."
+    );
+    if (!confirmed) return;
+
+    try {
+      setButtonBusy(deleteButton, true, "탈퇴 중");
+      setMessage(accountMessage, "회원탈퇴를 처리하고 있습니다...");
+      await requestRpc("delete_current_user_account", currentSession.access_token);
+      clearLocalAccountData(currentId);
+      window.alert("회원탈퇴가 완료되었습니다.");
+      window.location.href = "./";
+    } catch (error) {
+      setMessage(accountMessage, error.message, "error");
+      setButtonBusy(deleteButton, false);
+    }
   });
 })();
