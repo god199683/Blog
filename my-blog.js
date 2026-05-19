@@ -72,6 +72,35 @@ const els = {
 };
 
 let importLocationResolver = null;
+const listToggle = document.querySelector("[data-list-toggle]");
+const blogBoard = document.querySelector("[data-blog-board]");
+
+function isPostListOpen() {
+  return Boolean(blogBoard && !blogBoard.classList.contains("is-list-collapsed"));
+}
+
+function syncPostBoardToolbar() {
+  const isOpen = isPostListOpen();
+  if (listToggle) {
+    listToggle.textContent = isOpen ? "목록닫기" : "목록열기";
+    listToggle.setAttribute("aria-expanded", String(isOpen));
+  }
+
+  [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle].forEach((button) => {
+    if (button) button.hidden = !isOpen;
+  });
+}
+
+function setPostListOpen(isOpen) {
+  if (!blogBoard) return;
+  blogBoard.classList.toggle("is-list-collapsed", !isOpen);
+  if (!isOpen && state.postSelectionMode) {
+    state.postSelectionMode = false;
+    state.selectedPostIds.clear();
+  }
+  syncPostBoardToolbar();
+  syncPostBulkButtons();
+}
 
 async function requestRest(path, token, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -1580,18 +1609,12 @@ async function fetchPublicBlogPosts(id) {
   return Array.isArray(rows) ? rows : [];
 }
 
-const listToggle = document.querySelector("[data-list-toggle]");
-const blogBoard = document.querySelector("[data-blog-board]");
-
 if (listToggle && blogBoard) {
-  const isInitiallyCollapsed = blogBoard.classList.contains("is-list-collapsed");
-  listToggle.textContent = isInitiallyCollapsed ? "목록열기" : "목록닫기";
-  listToggle.setAttribute("aria-expanded", String(!isInitiallyCollapsed));
+  syncPostBoardToolbar();
 
   listToggle.addEventListener("click", () => {
-    const isCollapsed = blogBoard.classList.toggle("is-list-collapsed");
-    listToggle.textContent = isCollapsed ? "목록열기" : "목록닫기";
-    listToggle.setAttribute("aria-expanded", String(!isCollapsed));
+    setPostListOpen(!isPostListOpen());
+    renderPosts(state.currentScopePosts);
   });
 }
 
