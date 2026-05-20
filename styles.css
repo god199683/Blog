@@ -137,6 +137,11 @@ button {
   color: #fff;
 }
 
+.app-download-button {
+  min-width: 3rem;
+  letter-spacing: 0;
+}
+
 .account-name {
   display: inline-flex;
   align-items: center;

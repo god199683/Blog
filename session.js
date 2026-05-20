@@ -5,6 +5,7 @@
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
   const REFRESH_WINDOW_MS = 60 * 1000;
   const AWAY_LOCK_KEY = "blog.away.locked";
+  const APK_DOWNLOAD_PATH = "./Blog.apk";
 
   function readSession() {
     try {
@@ -62,6 +63,44 @@
     }
 
     return nav;
+  }
+
+  function ensureAppDownloadButton() {
+    const header = document.querySelector(".site-header");
+    const actions = document.querySelector("[data-auth-actions]");
+    if (!header || !actions || header.querySelector("[data-apk-download]")) return;
+
+    const link = document.createElement("a");
+    link.className = "auth-button app-download-button";
+    link.href = APK_DOWNLOAD_PATH;
+    link.download = "Blog.apk";
+    link.dataset.apkDownload = "true";
+    link.textContent = "APK";
+    link.title = "앱 파일 다운로드";
+    link.setAttribute("aria-label", "APK 앱 파일 다운로드");
+
+    link.addEventListener("click", async (event) => {
+      if (link.dataset.downloadReady === "true") return;
+
+      event.preventDefault();
+      try {
+        const response = await fetch(APK_DOWNLOAD_PATH, { method: "HEAD", cache: "no-store" });
+        if (response.ok) {
+          link.dataset.downloadReady = "true";
+          link.click();
+          window.setTimeout(() => {
+            delete link.dataset.downloadReady;
+          }, 0);
+          return;
+        }
+      } catch {
+        // The alert below gives the user a clear result when the file is not deployed yet.
+      }
+
+      window.alert("APK 파일이 아직 준비되지 않았습니다.");
+    });
+
+    header.insertBefore(link, actions);
   }
 
   function syncMyBlogNavLink(session) {
@@ -377,6 +416,7 @@
   }
 
   observePasswordInputs();
+  ensureAppDownloadButton();
 
   const ready = getFreshSession().then((session) => {
     syncMyBlogNavLink(session);
