@@ -1,0 +1,21 @@
+{
+  "name": "Blog",
+  "short_name": "Blog",
+  "description": "A clean sky-blue and white blog app.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fcff",
+  "theme_color": "#dff3ff",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "./app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "social"]
+}

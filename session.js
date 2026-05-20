@@ -239,6 +239,19 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  function registerAppServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    const safeOrigin =
+      window.location.protocol === "https:" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    if (!safeOrigin) return;
+
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    });
+  }
+
   async function getAwayPasswordHash(session) {
     if (!session?.access_token || !session.user?.id) return "";
     const rows = await requestRest(
@@ -377,6 +390,7 @@
   }
 
   observePasswordInputs();
+  registerAppServiceWorker();
 
   const ready = getFreshSession().then((session) => {
     syncMyBlogNavLink(session);
