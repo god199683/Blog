@@ -79,27 +79,6 @@
     link.title = "앱 파일 다운로드";
     link.setAttribute("aria-label", "APK 앱 파일 다운로드");
 
-    link.addEventListener("click", async (event) => {
-      if (link.dataset.downloadReady === "true") return;
-
-      event.preventDefault();
-      try {
-        const response = await fetch(APK_DOWNLOAD_PATH, { method: "HEAD", cache: "no-store" });
-        if (response.ok) {
-          link.dataset.downloadReady = "true";
-          link.click();
-          window.setTimeout(() => {
-            delete link.dataset.downloadReady;
-          }, 0);
-          return;
-        }
-      } catch {
-        // The alert below gives the user a clear result when the file is not deployed yet.
-      }
-
-      window.alert("APK 파일이 아직 준비되지 않았습니다.");
-    });
-
     header.insertBefore(link, actions);
   }
 
