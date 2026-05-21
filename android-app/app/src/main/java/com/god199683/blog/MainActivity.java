@@ -10,7 +10,10 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
+import android.view.ViewConfiguration;
+import android.view.WindowManager;
 import android.webkit.DownloadListener;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -28,11 +31,12 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        rootView = new FrameLayout(this);
+        rootView = new PullRefreshLayout(this);
         rootView.setBackgroundColor(Color.WHITE);
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.WHITE);
+        ((PullRefreshLayout) rootView).setRefreshTarget(webView, () -> webView.reload());
         rootView.addView(webView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -44,6 +48,7 @@ public class MainActivity extends Activity {
         settings.setDatabaseEnabled(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
+        settings.setUserAgentString(settings.getUserAgentString() + " BlogAndroidApp");
 
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new BlogWebViewClient());
@@ -60,6 +65,8 @@ public class MainActivity extends Activity {
     }
 
     private void applySystemBarInsets(View root) {
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Window window = getWindow();
             window.setStatusBarColor(Color.parseColor("#E9F8FF"));
@@ -75,7 +82,9 @@ public class MainActivity extends Activity {
             getWindow().setDecorFitsSystemWindows(false);
             root.setOnApplyWindowInsetsListener((view, insets) -> {
                 Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
-                view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                Insets ime = insets.getInsets(WindowInsets.Type.ime());
+                int bottomInset = Math.max(bars.bottom, ime.bottom);
+                view.setPadding(bars.left, bars.top, bars.right, bottomInset);
                 return WindowInsets.CONSUMED;
             });
             root.requestApplyInsets();
@@ -124,6 +133,73 @@ public class MainActivity extends Activity {
 
             Intent intent = new Intent(Intent.ACTION_VIEW, uri);
             view.getContext().startActivity(intent);
+            return true;
+        }
+    }
+
+    private static class PullRefreshLayout extends FrameLayout {
+        private final int touchSlop;
+        private WebView refreshTarget;
+        private Runnable refreshAction;
+        private float startY;
+        private float startX;
+        private boolean pulling;
+
+        PullRefreshLayout(Activity context) {
+            super(context);
+            touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+        }
+
+        void setRefreshTarget(WebView target, Runnable action) {
+            refreshTarget = target;
+            refreshAction = action;
+        }
+
+        @Override
+        public boolean onInterceptTouchEvent(MotionEvent event) {
+            if (refreshTarget == null || refreshTarget.getScrollY() > 0) {
+                return super.onInterceptTouchEvent(event);
+            }
+
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    startY = event.getY();
+                    startX = event.getX();
+                    pulling = false;
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    float distanceY = event.getY() - startY;
+                    float distanceX = Math.abs(event.getX() - startX);
+                    if (distanceY > touchSlop * 2 && distanceY > distanceX * 1.35f) {
+                        pulling = true;
+                        return true;
+                    }
+                    break;
+                default:
+                    pulling = false;
+                    break;
+            }
+
+            return super.onInterceptTouchEvent(event);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            if (!pulling) return super.onTouchEvent(event);
+
+            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                if (event.getY() - startY > touchSlop * 5 && refreshAction != null) {
+                    refreshAction.run();
+                }
+                pulling = false;
+                return true;
+            }
+
+            if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                pulling = false;
+                return true;
+            }
+
             return true;
         }
     }
