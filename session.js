@@ -44,6 +44,11 @@
     return path === "" || path.endsWith("/Blog") || path.endsWith("/index.html");
   }
 
+  function isAndroidAppWebView() {
+    const ua = navigator.userAgent || "";
+    return /\bwv\b/i.test(ua) || /; wv\)/i.test(ua) || /BlogAndroidApp/i.test(ua);
+  }
+
   function ensureTopNav() {
     const header = document.querySelector(".site-header");
     const actions = document.querySelector("[data-auth-actions]");
@@ -68,7 +73,12 @@
   function ensureAppDownloadButton() {
     const header = document.querySelector(".site-header");
     const actions = document.querySelector("[data-auth-actions]");
-    if (!header || !actions || header.querySelector("[data-apk-download]")) return;
+    const existingButton = header?.querySelector("[data-apk-download]");
+    if (isAndroidAppWebView()) {
+      existingButton?.remove();
+      return;
+    }
+    if (!header || !actions || existingButton) return;
 
     const link = document.createElement("a");
     link.className = "auth-button app-download-button";
