@@ -1,9 +1,14 @@
 package com.god199683.blog;
 
 import android.app.Activity;
+import android.graphics.Color;
+import android.graphics.Insets;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.view.Window;
+import android.view.WindowInsets;
 import android.view.ViewGroup;
 import android.webkit.DownloadListener;
 import android.webkit.WebChromeClient;
@@ -38,11 +43,29 @@ public class MainActivity extends Activity {
         webView.setDownloadListener(createDownloadListener());
 
         setContentView(webView);
+        applySystemBarInsets();
 
         if (savedInstanceState == null) {
             webView.loadUrl(HOME_URL);
         } else {
             webView.restoreState(savedInstanceState);
+        }
+    }
+
+    private void applySystemBarInsets() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.setStatusBarColor(Color.parseColor("#E9F8FF"));
+            window.setNavigationBarColor(Color.WHITE);
+        }
+
+        if (Build.VERSION.SDK_INT >= 35) {
+            webView.setOnApplyWindowInsetsListener((view, insets) -> {
+                Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                return insets;
+            });
+            webView.requestApplyInsets();
         }
     }
 

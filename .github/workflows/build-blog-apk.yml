@@ -48,19 +48,33 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
-      - name: Build debug APK
-        run: gradle -p android-app assembleDebug --no-daemon
+      - name: Prepare signing key
+        run: |
+          if [ ! -f android-app/app/blog-release.keystore ]; then
+            keytool -genkeypair \
+              -keystore android-app/app/blog-release.keystore \
+              -storepass blog-app-password \
+              -keypass blog-app-password \
+              -alias blog \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Blog App,O=god199683,C=KR"
+          fi
+
+      - name: Build release APK
+        run: gradle -p android-app assembleRelease --no-daemon
 
       - name: Prepare APK
-        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk Blog.apk
+        run: cp android-app/app/build/outputs/apk/release/app-release.apk Blog.apk
 
       - name: Commit APK to app-version
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B app-version origin/app-version
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk Blog.apk
-          git add Blog.apk
+          cp android-app/app/build/outputs/apk/release/app-release.apk Blog.apk
+          git add Blog.apk android-app/app/blog-release.keystore
           if ! git diff --cached --quiet; then
             git commit -m "Add generated APK [skip ci]"
             git push origin HEAD:app-version
