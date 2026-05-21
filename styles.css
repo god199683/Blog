@@ -1679,11 +1679,15 @@ body.is-away-locked {
 }
 
 .blog-board-head h2 {
+  display: inline-flex;
+  align-items: center;
   min-width: 0;
+  min-height: 1.75rem;
   margin: 0;
   color: #263d50;
   font-size: 0.87rem;
   font-weight: 760;
+  line-height: 1.35;
 }
 
 .blog-board-head h2 span {
@@ -10597,6 +10601,10 @@ textarea,
   .garden-page-heading,
   .space-dashboard-topbar {
     align-items: stretch;
+  }
+
+  .blog-board-head {
+    align-items: center;
   }
 
   .blog-menu-bar,

@@ -46,7 +46,7 @@
 
   function isAndroidAppWebView() {
     const ua = navigator.userAgent || "";
-    return /\bwv\b/i.test(ua) || /; wv\)/i.test(ua) || /BlogAndroidApp/i.test(ua);
+    return /Android/i.test(ua) || /\bwv\b/i.test(ua) || /; wv\)/i.test(ua) || /BlogAndroidApp/i.test(ua);
   }
 
   function ensureTopNav() {
