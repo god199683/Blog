@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.ViewGroup;
@@ -16,17 +17,23 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 
 public class MainActivity extends Activity {
     private static final String HOME_URL = "https://god199683.github.io/Blog/";
+    private FrameLayout rootView;
     private WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        rootView = new FrameLayout(this);
+        rootView.setBackgroundColor(Color.WHITE);
+
         webView = new WebView(this);
-        webView.setLayoutParams(new ViewGroup.LayoutParams(
+        webView.setBackgroundColor(Color.WHITE);
+        rootView.addView(webView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
@@ -42,8 +49,8 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new BlogWebViewClient());
         webView.setDownloadListener(createDownloadListener());
 
-        setContentView(webView);
-        applySystemBarInsets();
+        setContentView(rootView);
+        applySystemBarInsets(rootView);
 
         if (savedInstanceState == null) {
             webView.loadUrl(HOME_URL);
@@ -52,20 +59,26 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void applySystemBarInsets() {
+    private void applySystemBarInsets(View root) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Window window = getWindow();
             window.setStatusBarColor(Color.parseColor("#E9F8FF"));
             window.setNavigationBarColor(Color.WHITE);
         }
 
-        if (Build.VERSION.SDK_INT >= 35) {
-            webView.setOnApplyWindowInsetsListener((view, insets) -> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+            root.setOnApplyWindowInsetsListener((view, insets) -> {
                 Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
                 view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-                return insets;
+                return WindowInsets.CONSUMED;
             });
-            webView.requestApplyInsets();
+            root.requestApplyInsets();
         }
     }
 

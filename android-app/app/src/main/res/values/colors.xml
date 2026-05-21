@@ -3,4 +3,5 @@
     <color name="sky_light">#E9F8FF</color>
     <color name="sky_line">#8BD3F7</color>
     <color name="sky_deep">#0B6FA4</color>
+    <color name="icon_background">#74CFF2</color>
 </resources>
