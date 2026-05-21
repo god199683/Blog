@@ -75,6 +75,22 @@ const els = {
   scrollBottom: document.querySelector("[data-scroll-bottom]"),
 };
 
+function isMaterialListOpen() {
+  return Boolean(els.board && !els.board.classList.contains("is-list-collapsed"));
+}
+
+function syncMaterialBoardToolbar() {
+  const isOpen = isMaterialListOpen();
+  if (els.listToggle) {
+    els.listToggle.textContent = isOpen ? "목록닫기" : "목록열기";
+    els.listToggle.setAttribute("aria-expanded", String(isOpen));
+  }
+
+  [els.materialSelectMode, els.materialSelectAll, els.materialDeleteSelected].forEach((button) => {
+    if (button) button.hidden = !isOpen;
+  });
+}
+
 function setActiveSection(section, shouldSyncUrl = true) {
   state.activeSection = "materials";
   if (!shouldSyncUrl) return;
@@ -1223,14 +1239,11 @@ function setLatestSort() {
 }
 
 if (els.listToggle && els.board) {
-  const isInitiallyCollapsed = els.board.classList.contains("is-list-collapsed");
-  els.listToggle.textContent = isInitiallyCollapsed ? "목록열기" : "목록닫기";
-  els.listToggle.setAttribute("aria-expanded", String(!isInitiallyCollapsed));
+  syncMaterialBoardToolbar();
 
   els.listToggle.addEventListener("click", () => {
-    const isCollapsed = els.board.classList.toggle("is-list-collapsed");
-    els.listToggle.textContent = isCollapsed ? "목록열기" : "목록닫기";
-    els.listToggle.setAttribute("aria-expanded", String(!isCollapsed));
+    els.board.classList.toggle("is-list-collapsed");
+    syncMaterialBoardToolbar();
   });
 }
 

@@ -41,6 +41,9 @@
 
       <div class="blog-body-layout materials-blog-layout">
         <aside class="blog-side-panel" aria-label="자료실 정보">
+          <button class="blog-sidebar-toggle" type="button" data-sidebar-toggle aria-expanded="true" aria-label="사이드바 접기">
+            <span aria-hidden="true"></span>
+          </button>
           <div class="blog-profile-box">
             <span class="blog-profile-mark" data-blog-initial aria-hidden="true">B</span>
             <div>
@@ -96,13 +99,13 @@
           <div class="blog-board-head">
             <h2 id="materials-board-title"><span data-material-board-title>전체 자료</span> <span data-material-count>0개의 자료</span></h2>
             <div class="blog-board-actions" aria-label="자료 목록 관리">
-              <button class="blog-board-icon-button" type="button" data-material-select-mode aria-pressed="false" title="선택 모드" aria-label="선택 모드">
+              <button class="blog-board-icon-button" type="button" data-material-select-mode aria-pressed="false" title="선택 모드" aria-label="선택 모드" hidden>
                 <span class="board-action-icon board-action-select" aria-hidden="true"></span>
               </button>
-              <button class="blog-board-icon-button" type="button" data-material-select-all disabled title="현재 목록 전체 선택" aria-label="현재 목록 전체 선택">
+              <button class="blog-board-icon-button" type="button" data-material-select-all disabled title="현재 목록 전체 선택" aria-label="현재 목록 전체 선택" hidden>
                 <span class="board-action-icon board-action-check-all" aria-hidden="true"></span>
               </button>
-              <button class="blog-board-icon-button" type="button" data-material-delete-selected disabled title="선택항목 삭제" aria-label="선택항목 삭제">
+              <button class="blog-board-icon-button" type="button" data-material-delete-selected disabled title="선택항목 삭제" aria-label="선택항목 삭제" hidden>
                 <span class="tree-action-icon tree-action-trash" aria-hidden="true"></span>
               </button>
               <button class="blog-board-toggle" type="button" data-material-list-toggle aria-expanded="false">목록열기</button>

@@ -257,6 +257,42 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  function setupCollapsibleSidebars() {
+    document.querySelectorAll("[data-sidebar-toggle]").forEach((button) => {
+      const panel = button.closest(".blog-side-panel");
+      const layout = panel?.closest(".blog-body-layout");
+      if (!panel || !layout || button.dataset.sidebarToggleReady === "true") return;
+
+      button.dataset.sidebarToggleReady = "true";
+      const storageKey = `blog.sidebarCollapsed:${window.location.pathname.split("/").pop() || "home"}`;
+
+      function setCollapsed(collapsed) {
+        panel.classList.toggle("is-sidebar-collapsed", collapsed);
+        layout.classList.toggle("is-sidebar-collapsed", collapsed);
+        button.setAttribute("aria-expanded", String(!collapsed));
+        button.setAttribute("aria-label", collapsed ? "사이드바 펼치기" : "사이드바 접기");
+        button.title = collapsed ? "사이드바 펼치기" : "사이드바 접기";
+        try {
+          localStorage.setItem(storageKey, collapsed ? "1" : "0");
+        } catch {
+          // Sidebar state is a convenience only.
+        }
+      }
+
+      let isCollapsed = false;
+      try {
+        isCollapsed = localStorage.getItem(storageKey) === "1";
+      } catch {
+        isCollapsed = false;
+      }
+      setCollapsed(isCollapsed);
+
+      button.addEventListener("click", () => {
+        setCollapsed(!panel.classList.contains("is-sidebar-collapsed"));
+      });
+    });
+  }
+
   async function getAwayPasswordHash(session) {
     if (!session?.access_token || !session.user?.id) return "";
     const rows = await requestRest(
@@ -395,6 +431,7 @@
   }
 
   observePasswordInputs();
+  setupCollapsibleSidebars();
   ensureAppDownloadButton();
 
   const ready = getFreshSession().then((session) => {

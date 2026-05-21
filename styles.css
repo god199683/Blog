@@ -944,6 +944,10 @@ body.is-away-locked {
   align-items: start;
 }
 
+.blog-body-layout.is-sidebar-collapsed {
+  grid-template-columns: 3.15rem minmax(0, 1fr);
+}
+
 .blog-scroll-jump {
   position: fixed;
   top: 50%;
@@ -1013,6 +1017,49 @@ body.is-away-locked {
   gap: 0.7rem;
   min-height: calc(100svh - 9.4rem);
   padding: 0.82rem;
+}
+
+.blog-sidebar-toggle {
+  display: inline-grid;
+  width: 1.78rem;
+  height: 1.78rem;
+  margin-left: auto;
+  place-items: center;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--sky-dark);
+}
+
+.blog-sidebar-toggle span {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: translateX(0.12rem) rotate(-45deg);
+}
+
+.blog-sidebar-toggle:hover,
+.blog-sidebar-toggle:focus-visible {
+  background: var(--surface-soft);
+}
+
+.blog-side-panel.is-sidebar-collapsed {
+  align-items: center;
+  gap: 0;
+  padding: 0.62rem 0.5rem;
+}
+
+.blog-side-panel.is-sidebar-collapsed > :not(.blog-sidebar-toggle) {
+  display: none !important;
+}
+
+.blog-side-panel.is-sidebar-collapsed .blog-sidebar-toggle {
+  margin: 0;
+}
+
+.blog-side-panel.is-sidebar-collapsed .blog-sidebar-toggle span {
+  transform: translateX(-0.08rem) rotate(135deg);
 }
 
 .blog-profile-box {
@@ -1682,6 +1729,10 @@ body.is-away-locked {
   border-radius: 7px;
   background: #fff;
   color: #6f8497;
+}
+
+.blog-board-icon-button[hidden] {
+  display: none;
 }
 
 .blog-board-icon-button:hover:not(:disabled),
@@ -6699,6 +6750,15 @@ body.is-book-mode .viewer-page-arrow {
   border-color: var(--reader-line);
   background: var(--reader-toolbar-bg);
   color: var(--reader-ink);
+  z-index: 4;
+}
+
+body.is-book-mode .viewer-page-arrow-prev {
+  left: max(0.45rem, calc((100% - var(--reader-max-width, 920px)) / 2 - 3rem));
+}
+
+body.is-book-mode .viewer-page-arrow-next {
+  right: max(0.45rem, calc((100% - var(--reader-max-width, 920px)) / 2 - 3rem));
 }
 
 body.is-book-mode .viewer-page-arrow:not(:disabled):hover {
@@ -6749,6 +6809,10 @@ body.is-book-mode :is(button, select):disabled {
     padding: 1.1rem;
     border-inline: 0;
     box-shadow: none;
+  }
+
+  body.is-book-mode .viewer-page-arrow {
+    display: none;
   }
 
   body.is-book-mode .viewer-book-nav {

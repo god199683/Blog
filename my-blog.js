@@ -64,6 +64,7 @@ const els = {
   postSelectMode: document.querySelector("[data-post-select-mode]"),
   postSelectAll: document.querySelector("[data-post-select-all]"),
   postVisibilityToggle: document.querySelector("[data-post-visibility-toggle]"),
+  postDeleteSelected: document.querySelector("[data-post-delete-selected]"),
   importLocationDialog: document.querySelector("[data-import-location-dialog]"),
   importLocationOptions: document.querySelector("[data-import-location-options]"),
   importLocationConfirm: document.querySelector("[data-import-location-confirm]"),
@@ -86,7 +87,7 @@ function syncPostBoardToolbar() {
     listToggle.setAttribute("aria-expanded", String(isOpen));
   }
 
-  [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle].forEach((button) => {
+  [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected].forEach((button) => {
     if (button) button.hidden = !isOpen;
   });
 }
@@ -142,14 +143,19 @@ function setOwnerControlsVisible(visible) {
     document.querySelector(".blog-profile-tool"),
     document.querySelector("[data-file-import]"),
     document.querySelector(".blog-trash-link"),
-    els.postSelectMode,
-    els.postSelectAll,
-    els.postVisibilityToggle,
   ]
     .filter(Boolean)
     .forEach((item) => {
       item.hidden = !visible;
     });
+
+  if (visible) {
+    syncPostBoardToolbar();
+  } else {
+    [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected].forEach((button) => {
+      if (button) button.hidden = true;
+    });
+  }
 }
 
 function escapeHtml(value = "") {
@@ -643,6 +649,9 @@ function syncPostBulkButtons() {
     els.postVisibilityToggle.title = label;
     els.postVisibilityToggle.setAttribute("aria-label", label);
   }
+  if (els.postDeleteSelected) {
+    els.postDeleteSelected.disabled = !state.postSelectionMode || !hasSelectedPosts || state.postBulkBusy;
+  }
 }
 
 function togglePostSelection(postId, forceValue = null) {
@@ -708,6 +717,35 @@ async function toggleSelectedPostsVisibility() {
     renderActivePosts();
   } catch (error) {
     window.alert(error.message || "공개 상태를 변경하지 못했습니다.");
+  } finally {
+    state.postBulkBusy = false;
+    syncPostBulkButtons();
+  }
+}
+
+async function moveSelectedPostsToTrash() {
+  if (!state.postSelectionMode || state.selectedPostIds.size === 0) return;
+  const selectedIds = [...state.selectedPostIds];
+  const selectedPosts = state.posts.filter((post) => selectedIds.includes(getPostId(post)));
+  if (selectedPosts.length === 0) return;
+  if (!window.confirm("선택한 글을 휴지통으로 이동할까요?")) return;
+
+  state.postBulkBusy = true;
+  syncPostBulkButtons();
+
+  try {
+    state.trashItems = [...selectedPosts.map(buildTrashItemForPost), ...state.trashItems];
+    state.posts = state.posts.filter((post) => !selectedIds.includes(getPostId(post)));
+    state.selectedPostIds.clear();
+    state.postSelectionMode = false;
+    await saveTree();
+    if (els.searchInput?.value.trim()) {
+      applyBlogSearch(els.searchInput.value);
+    } else {
+      renderActivePosts();
+    }
+  } catch (error) {
+    window.alert(error.message || "선택한 글을 삭제하지 못했습니다.");
   } finally {
     state.postBulkBusy = false;
     syncPostBulkButtons();
@@ -1771,6 +1809,10 @@ els.postSelectAll?.addEventListener("click", () => {
 
 els.postVisibilityToggle?.addEventListener("click", () => {
   toggleSelectedPostsVisibility();
+});
+
+els.postDeleteSelected?.addEventListener("click", () => {
+  moveSelectedPostsToTrash();
 });
 
 els.toolsToggle?.addEventListener("click", () => {

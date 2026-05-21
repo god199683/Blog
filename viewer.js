@@ -267,6 +267,14 @@ function changeReaderFontSize(delta) {
   scheduleBookPagination();
 }
 
+function getCurrentViewerFontSize() {
+  const content = getBookContent();
+  const textNode = content?.querySelector("p, li, blockquote, span, div") || content || els.body;
+  const computedSize = Number.parseFloat(window.getComputedStyle(textNode).fontSize);
+  const bodySize = Number.parseFloat(window.getComputedStyle(els.body).fontSize);
+  return clampReaderFontSize(Math.round(computedSize || bodySize || 16));
+}
+
 function renderPostBody(post) {
   const content = post.body ? cleanViewerHtml(post.body) : `<p>${escapeHtml(post.excerpt || "")}</p>`;
   els.body.innerHTML = `<div class="viewer-page-content" data-viewer-page-content>${content}</div>`;
@@ -651,7 +659,11 @@ els.edit.addEventListener("click", () => {
 });
 
 els.bookToggle.addEventListener("click", () => {
-  bookMode = !bookMode;
+  const willEnterBookMode = !bookMode;
+  if (willEnterBookMode) {
+    readerFontSize = getCurrentViewerFontSize();
+  }
+  bookMode = willEnterBookMode;
   if (bookMode) {
     scheduleBookPagination(true);
   } else {
