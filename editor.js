@@ -88,6 +88,8 @@ const BUILTIN_EDITOR_FONTS = [
   "Carlito",
 ];
 const EDITOR_INLINE_STYLE_PROPERTIES = {
+  backgroundColor: "background-color",
+  color: "color",
   fontFamily: "font-family",
   fontSize: "font-size",
 };
@@ -254,6 +256,19 @@ const SOURCE_PASTE_COMPUTED_STYLES = [
   "vertical-align",
   "white-space",
   "word-break",
+];
+
+const SOURCE_PASTE_TEXT_LAYOUT_STYLES = [
+  "height",
+  "max-height",
+  "max-width",
+  "min-height",
+  "min-width",
+  "position",
+  "text-orientation",
+  "transform",
+  "width",
+  "writing-mode",
 ];
 
 function escapeHtml(value = "") {
@@ -959,10 +974,15 @@ function getCategoryOptions() {
     });
 }
 
+function resolveEditorCategoryValue(categoryValue = "", categories = getCategoryOptions()) {
+  const selectedKey = getCategoryKey(categoryValue);
+  const selectedOption = categories.find((category) => getCategoryKey(category.value) === selectedKey);
+  return selectedOption?.value || "";
+}
+
 function renderEditorCategoryOptions(selectedCategory = "") {
   const categories = getCategoryOptions();
-  const values = new Set(categories.map((category) => category.value));
-  const selected = selectedCategory && values.has(selectedCategory) ? selectedCategory : "";
+  const selected = resolveEditorCategoryValue(selectedCategory, categories);
 
   els.category.innerHTML = [
     `<option value="" ${selected ? "" : "selected"}>${DEFAULT_CATEGORY}</option>`,
@@ -976,13 +996,18 @@ function renderEditorCategoryOptions(selectedCategory = "") {
   ].join("");
 }
 
+function folderMatchesCategory(folder, category = "") {
+  const categoryKey = getCategoryKey(category);
+  if (!categoryKey) return true;
+  return getCategoryKey(folder?.category) === categoryKey;
+}
+
 function renderEditorFolderOptions(selectedFolderId = "") {
   const category = els.category.value;
-  const categoryKey = getCategoryKey(category);
   const seenFolders = new Set();
   const allFolders = collectFolderOptions();
   let folders = allFolders
-    .filter((folder) => !categoryKey || !folder.category || getCategoryKey(folder.category) === categoryKey)
+    .filter((folder) => folderMatchesCategory(folder, category))
     .filter((folder) => {
       const key = `${folder.category || ""}::${folder.path || folder.label || folder.id}`.trim().toLowerCase();
       if (seenFolders.has(key)) return false;
@@ -990,23 +1015,29 @@ function renderEditorFolderOptions(selectedFolderId = "") {
       return true;
     });
   const selectedFolder = allFolders.find((folder) => folder.id === selectedFolderId);
-  if (selectedFolder && !folders.some((folder) => folder.id === selectedFolder.id)) {
-    folders = [selectedFolder, ...folders];
-  }
-  if (categoryKey && folders.length === 0) {
-    folders = allFolders;
-  }
+  const selected = selectedFolder && folderMatchesCategory(selectedFolder, category) ? selectedFolder.id : "";
 
   els.folder.innerHTML = [
     `<option value="">폴더 없음</option>`,
     ...folders.map(
       (folder) => `
-        <option value="${escapeHtml(folder.id)}" ${folder.id === selectedFolderId ? "selected" : ""}>
+        <option value="${escapeHtml(folder.id)}" ${folder.id === selected ? "selected" : ""}>
           ${escapeHtml(folder.path || folder.label)}
         </option>
       `
     ),
   ].join("");
+
+  els.folder.value = selected;
+  return selected;
+}
+
+function setEditorLocationFields({ category = "", folderId = "" } = {}) {
+  const folder = getFolderMeta(folderId);
+  const nextCategory = folder?.category || category || "";
+  renderEditorCategoryOptions(nextCategory);
+  els.category.value = resolveEditorCategoryValue(nextCategory);
+  renderEditorFolderOptions(folder?.id || "");
 }
 
 function collectLocationOptions() {
@@ -1190,11 +1221,10 @@ function getPendingLocation() {
 
 function applyEditorLocation(location) {
   if (!location) return;
-  const category = location.category || "";
-  renderEditorCategoryOptions(category);
-  els.category.value = category;
-  renderEditorFolderOptions(location.folderId || "");
-  els.folder.value = location.folderId || "";
+  setEditorLocationFields({
+    category: location.category || "",
+    folderId: location.folderId || "",
+  });
 }
 
 function closeLocationDialog(result = null) {
@@ -1442,6 +1472,28 @@ function cleanEditorHtml(html = "") {
   return template.innerHTML.replace(/\u200b/g, "").trim();
 }
 
+function cleanSourcePasteHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = cleanEditorHtml(html);
+
+  template.content.querySelectorAll("*").forEach((node) => {
+    SOURCE_PASTE_TEXT_LAYOUT_STYLES.forEach((property) => {
+      node.style.removeProperty(property);
+    });
+
+    if (!["IMG", "TABLE", "TD", "TH"].includes(node.tagName)) {
+      node.removeAttribute("width");
+      node.removeAttribute("height");
+    }
+
+    if (!node.getAttribute("style")?.trim()) {
+      node.removeAttribute("style");
+    }
+  });
+
+  return template.innerHTML.trim();
+}
+
 function mergeEditorHtmlWithCurrentStyle(html = "") {
   const template = document.createElement("template");
   template.innerHTML = cleanEditorHtml(html);
@@ -1580,7 +1632,7 @@ async function buildPasteHtml(mode, payload = {}) {
   const imageFile = payload.imageFiles?.[0] || null;
 
   if (mode === "source") {
-    if (html) return cleanEditorHtml(html) || textToEditorHtml(text);
+    if (html) return cleanSourcePasteHtml(html) || textToEditorHtml(text);
     if (imageFile) {
       const imageUrl = await readClipboardImageFile(imageFile);
       return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
@@ -1753,6 +1805,21 @@ function getNativePastedHtml(payload = {}) {
   const template = document.createElement("template");
   template.content.append(range.cloneContents());
   return template.innerHTML.trim();
+}
+
+function sanitizeNativePastedContent(payload = {}) {
+  const range = getNativePasteRange(payload);
+  if (!range) return "";
+
+  const html = cleanSourcePasteHtml(getNativePastedHtml(payload));
+  if (!html) return "";
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  range.deleteContents();
+  range.insertNode(template.content);
+  payload.html = getNativePastedHtml(payload) || html;
+  return payload.html;
 }
 
 function placeCaretBeforeNode(node) {
@@ -1935,7 +2002,7 @@ function handleEditorPaste(event) {
 
   window.setTimeout(async () => {
     inlineNativePastedComputedStyles(nativePayload);
-    nativePayload.html = getNativePastedHtml(nativePayload) || nativePayload.html || "";
+    nativePayload.html = sanitizeNativePastedContent(nativePayload) || nativePayload.html || "";
 
     if (!nativePayload.html && (payload.html || payload.text || payload.imageFiles?.length)) {
       const html = await buildPasteHtml("source", payload);
@@ -2168,6 +2235,10 @@ function ensureEditorFontOption(fontName = "") {
   option.textContent = normalized;
   els.fontFamily.append(option);
   return normalized;
+}
+
+function targetNeedsEditorSelectionHold(target) {
+  return Boolean(target?.closest?.("[data-editor-font-family], [data-editor-font-size]"));
 }
 
 function prepareEditorSelectionForToolbar({ holdSelection = false } = {}) {
@@ -2781,16 +2852,25 @@ function executeEditorCommand(command, value = null) {
 
 function applyColor(target, color) {
   if (target === "foreground") {
-    executeEditorCommand("foreColor", color);
+    applyInlineStyle("color", color, {
+      selectAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
+      useSelectionHold: true,
+    });
     return;
   }
 
   if (color === "transparent") {
-    executeEditorCommand("backColor", "#ffffff");
+    applyInlineStyle("backgroundColor", "#ffffff", {
+      selectAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
+      useSelectionHold: true,
+    });
     return;
   }
 
-  executeEditorCommand("hiliteColor", color);
+  applyInlineStyle("backgroundColor", color, {
+    selectAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
+    useSelectionHold: true,
+  });
 }
 
 function insertEditorTable() {
@@ -3350,9 +3430,10 @@ async function initEditor() {
   }
 
   els.title.value = source?.title || "";
-  renderEditorCategoryOptions(source?.category || defaults.category);
-  renderEditorFolderOptions(source?.folder_id || defaults.folderId);
-  els.folder.value = source?.folder_id || defaults.folderId;
+  setEditorLocationFields({
+    category: source?.category || defaults.category,
+    folderId: source?.folder_id || defaults.folderId,
+  });
   els.content.innerHTML = source?.body || "";
   syncActiveLineHeightFromContent();
   resetEditorHistory();
@@ -3390,11 +3471,17 @@ els.content.addEventListener("keyup", saveCurrentSelection);
 document.addEventListener("selectionchange", saveCurrentSelection);
 
 els.category.addEventListener("change", () => {
-  renderEditorFolderOptions(els.folder.value);
+  const selectedFolder = getFolderMeta(els.folder.value);
+  const nextFolderId = selectedFolder && folderMatchesCategory(selectedFolder, els.category.value) ? selectedFolder.id : "";
+  renderEditorFolderOptions(nextFolderId);
   markEditorDirty();
 });
 
 els.folder.addEventListener("change", () => {
+  const selectedFolder = getFolderMeta(els.folder.value);
+  if (selectedFolder) {
+    setEditorLocationFields({ folderId: selectedFolder.id });
+  }
   markEditorDirty();
 });
 
@@ -3429,13 +3516,13 @@ els.addFont.addEventListener("click", addEditorFont);
 els.removeFont?.addEventListener("click", removeEditorFont);
 
 els.fontSize.addEventListener("pointerdown", (event) => {
-  saveCurrentSelection();
+  prepareEditorSelectionForToolbar({ holdSelection: true });
   fontSizeStepPointerActive = isFontSizeStepPointer(event);
 });
 
 els.fontSize.addEventListener("mousedown", (event) => {
   const isStepPointer = isFontSizeStepPointer(event);
-  saveCurrentSelection();
+  prepareEditorSelectionForToolbar({ holdSelection: true });
   fontSizeStepPointerActive = isStepPointer;
 });
 
@@ -3446,6 +3533,10 @@ els.fontSize.addEventListener("input", () => {
 
 els.fontSize.addEventListener("change", () => {
   applyFontSizeFromInput({ keepToolbarFocus: document.activeElement === els.fontSize });
+});
+
+els.fontSize.addEventListener("blur", () => {
+  window.setTimeout(() => clearEditorSelectionHold({ unwrap: true }), 160);
 });
 
 els.fontSize.addEventListener("keydown", (event) => {
@@ -3473,7 +3564,7 @@ document.addEventListener("pointerup", () => {
 
 els.toolbar.addEventListener("mousedown", (event) => {
   if (event.target.closest("input, select")) {
-    prepareEditorSelectionForToolbar({ holdSelection: Boolean(event.target.closest("[data-editor-font-family]")) });
+    prepareEditorSelectionForToolbar({ holdSelection: targetNeedsEditorSelectionHold(event.target) });
   }
 
   if (event.target.closest("button")) {
