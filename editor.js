@@ -170,18 +170,52 @@ const BASIC_DIALOG_COLORS = [
 ];
 
 const ALLOWED_EDITOR_STYLES = new Set([
+  "background",
   "background-color",
+  "border",
+  "border-bottom",
+  "border-bottom-color",
+  "border-bottom-style",
+  "border-bottom-width",
+  "border-collapse",
+  "border-color",
+  "border-left",
+  "border-left-color",
+  "border-left-style",
+  "border-left-width",
+  "border-right",
+  "border-right-color",
+  "border-right-style",
+  "border-right-width",
+  "border-spacing",
+  "border-style",
+  "border-top",
+  "border-top-color",
+  "border-top-style",
+  "border-top-width",
+  "border-width",
   "color",
   "font-family",
   "font-size",
   "font-style",
   "font-weight",
+  "height",
   "line-height",
   "margin",
   "margin-bottom",
+  "margin-left",
+  "margin-right",
   "margin-top",
+  "padding",
+  "padding-bottom",
+  "padding-left",
+  "padding-right",
+  "padding-top",
   "text-align",
   "text-decoration",
+  "vertical-align",
+  "white-space",
+  "width",
 ]);
 
 const EDITOR_PASTE_OPTIONS = [
@@ -1187,9 +1221,123 @@ function getCharacterCounts(html = "") {
   };
 }
 
+function getSafeEditorStyleValue(property, value = "") {
+  const normalizedProperty = String(property || "").trim().toLowerCase();
+  const normalizedValue = String(value || "").trim();
+  if (!normalizedProperty || !normalizedValue || !ALLOWED_EDITOR_STYLES.has(normalizedProperty)) return "";
+  if (/expression|javascript:|url\s*\(|behavior\s*:/i.test(normalizedValue)) return "";
+  return normalizedValue;
+}
+
+function applyAllowedEditorStylesFromCssText(node, cssText = "") {
+  if (!(node instanceof HTMLElement) || !cssText) return;
+  const scratch = document.createElement("span");
+  scratch.setAttribute("style", cssText);
+
+  ALLOWED_EDITOR_STYLES.forEach((property) => {
+    const value = getSafeEditorStyleValue(property, scratch.style.getPropertyValue(property));
+    if (!value) return;
+    node.style.setProperty(property, value);
+  });
+}
+
+function normalizeSourceCssSelector(selector = "") {
+  const normalized = String(selector || "")
+    .trim()
+    .replace(/^(?:html|body)\s+/i, "")
+    .replace(/^body(?=[.#])/i, "");
+  if (
+    !normalized ||
+    normalized.length > 160 ||
+    normalized.startsWith("@") ||
+    /[:[\]>+~*]/.test(normalized)
+  ) {
+    return "";
+  }
+  return normalized;
+}
+
+function inlinePastedStyleRules(fragment) {
+  const styleBlocks = [...fragment.querySelectorAll("style")];
+  if (styleBlocks.length === 0) return;
+
+  styleBlocks.forEach((styleNode) => {
+    const css = styleNode.textContent || "";
+    const rulePattern = /([^{}]+)\{([^{}]+)\}/g;
+    let match = rulePattern.exec(css);
+
+    while (match) {
+      const selectors = match[1]
+        .split(",")
+        .map(normalizeSourceCssSelector)
+        .filter(Boolean);
+      const declarations = match[2] || "";
+
+      selectors.forEach((selector) => {
+        try {
+          fragment.querySelectorAll(selector).forEach((node) => {
+            applyAllowedEditorStylesFromCssText(node, declarations);
+          });
+        } catch {
+          // Clipboard CSS often contains app-specific selectors; unsupported selectors are ignored.
+        }
+      });
+
+      match = rulePattern.exec(css);
+    }
+  });
+}
+
+function normalizeLegacyPastedFormatting(fragment) {
+  fragment.querySelectorAll("font").forEach((node) => {
+    const face = node.getAttribute("face");
+    const color = node.getAttribute("color");
+    const size = Number.parseInt(node.getAttribute("size"), 10);
+    if (face) node.style.fontFamily = face;
+    if (color) node.style.color = color;
+    if (Number.isFinite(size)) {
+      const mappedSize = {
+        1: "10px",
+        2: "13px",
+        3: "16px",
+        4: "18px",
+        5: "24px",
+        6: "32px",
+        7: "48px",
+      }[Math.min(7, Math.max(1, size))];
+      node.style.fontSize = mappedSize;
+    }
+  });
+
+  fragment.querySelectorAll("*").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    const align = node.getAttribute("align");
+    const valign = node.getAttribute("valign");
+    const bgColor = node.getAttribute("bgcolor");
+    const width = node.getAttribute("width");
+    const height = node.getAttribute("height");
+
+    if (/^(left|center|right|justify)$/i.test(align || "")) {
+      node.style.textAlign = align.toLowerCase();
+    }
+    if (/^(top|middle|bottom|baseline)$/i.test(valign || "")) {
+      node.style.verticalAlign = valign.toLowerCase();
+    }
+    if (bgColor) node.style.backgroundColor = bgColor;
+    if (width && /^\d+(?:\.\d+)?%?$/.test(width)) {
+      node.style.width = width.endsWith("%") ? width : `${width}px`;
+    }
+    if (height && /^\d+(?:\.\d+)?%?$/.test(height)) {
+      node.style.height = height.endsWith("%") ? height : `${height}px`;
+    }
+  });
+}
+
 function cleanEditorHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = html;
+  inlinePastedStyleRules(template.content);
+  normalizeLegacyPastedFormatting(template.content);
   template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
     node.remove();
   });
@@ -1211,8 +1359,8 @@ function cleanEditorHtml(html = "") {
     const safeStyles = [];
 
     ALLOWED_EDITOR_STYLES.forEach((property) => {
-      const value = node.style.getPropertyValue(property).trim();
-      if (!value || /expression|javascript:|url\s*\(/i.test(value)) return;
+      const value = getSafeEditorStyleValue(property, node.style.getPropertyValue(property));
+      if (!value) return;
       safeStyles.push(`${property}: ${value}`);
     });
 
