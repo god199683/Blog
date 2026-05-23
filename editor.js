@@ -196,11 +196,15 @@ const ALLOWED_EDITOR_STYLES = new Set([
   "border-width",
   "color",
   "font-family",
+  "font-kerning",
   "font-size",
   "font-style",
   "font-weight",
+  "letter-spacing",
   "height",
   "line-height",
+  "list-style-position",
+  "list-style-type",
   "margin",
   "margin-bottom",
   "margin-left",
@@ -213,9 +217,15 @@ const ALLOWED_EDITOR_STYLES = new Set([
   "padding-top",
   "text-align",
   "text-decoration",
+  "text-decoration-color",
+  "text-decoration-line",
+  "text-decoration-style",
+  "text-indent",
+  "text-transform",
   "vertical-align",
   "white-space",
   "width",
+  "word-break",
 ]);
 
 const EDITOR_PASTE_OPTIONS = [
@@ -1244,6 +1254,7 @@ function applyAllowedEditorStylesFromCssText(node, cssText = "") {
 function normalizeSourceCssSelector(selector = "") {
   const normalized = String(selector || "")
     .trim()
+    .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^(?:html|body)\s+/i, "")
     .replace(/^body(?=[.#])/i, "");
   if (
@@ -1257,35 +1268,60 @@ function normalizeSourceCssSelector(selector = "") {
   return normalized;
 }
 
-function inlinePastedStyleRules(fragment) {
-  const styleBlocks = [...fragment.querySelectorAll("style")];
-  if (styleBlocks.length === 0) return;
+function applyPastedCssStyleRule(scope, rule) {
+  if (!rule?.selectorText || !rule.style?.cssText) return;
+  const selectors = rule.selectorText
+    .split(",")
+    .map(normalizeSourceCssSelector)
+    .filter(Boolean);
 
-  styleBlocks.forEach((styleNode) => {
-    const css = styleNode.textContent || "";
-    const rulePattern = /([^{}]+)\{([^{}]+)\}/g;
-    let match = rulePattern.exec(css);
-
-    while (match) {
-      const selectors = match[1]
-        .split(",")
-        .map(normalizeSourceCssSelector)
-        .filter(Boolean);
-      const declarations = match[2] || "";
-
-      selectors.forEach((selector) => {
-        try {
-          fragment.querySelectorAll(selector).forEach((node) => {
-            applyAllowedEditorStylesFromCssText(node, declarations);
-          });
-        } catch {
-          // Clipboard CSS often contains app-specific selectors; unsupported selectors are ignored.
-        }
+  selectors.forEach((selector) => {
+    try {
+      scope.querySelectorAll(selector).forEach((node) => {
+        applyAllowedEditorStylesFromCssText(node, rule.style.cssText);
       });
-
-      match = rulePattern.exec(css);
+    } catch {
+      // Clipboard CSS often contains source-app selectors that are not valid in querySelectorAll.
     }
   });
+}
+
+function applyPastedCssRules(scope, rules) {
+  [...rules].forEach((rule) => {
+    if (rule.type === CSSRule.STYLE_RULE) {
+      applyPastedCssStyleRule(scope, rule);
+      return;
+    }
+
+    if (rule.cssRules) {
+      try {
+        applyPastedCssRules(scope, rule.cssRules);
+      } catch {
+        // Some nested rules are intentionally unreadable; ignore them.
+      }
+    }
+  });
+}
+
+function inlinePastedStyleRules(fragment) {
+  if (!fragment.querySelector("style")) return;
+
+  const doc = document.implementation.createHTMLDocument("pasted-source");
+  const wrapper = doc.createElement("div");
+  [...fragment.childNodes].forEach((node) => {
+    wrapper.append(doc.importNode(node, true));
+  });
+  doc.body.append(wrapper);
+
+  [...doc.styleSheets].forEach((sheet) => {
+    try {
+      applyPastedCssRules(wrapper, sheet.cssRules);
+    } catch {
+      // Clipboard style sheets can contain blocked or malformed rules.
+    }
+  });
+
+  fragment.replaceChildren(...[...wrapper.childNodes].map((node) => document.importNode(node, true)));
 }
 
 function normalizeLegacyPastedFormatting(fragment) {
@@ -1473,9 +1509,50 @@ function getPastePlainText(payload = {}) {
   return payload.text || getPlainTextFromHtml(payload.html || "");
 }
 
+async function readClipboardTextFromItem(item, type) {
+  const blob = await item.getType(type);
+  return blob.text();
+}
+
+async function readRichClipboardPayload() {
+  if (!navigator.clipboard?.read) return null;
+
+  try {
+    const items = await navigator.clipboard.read();
+    let html = "";
+    let text = "";
+
+    for (const item of items) {
+      if (!html && item.types.includes("text/html")) {
+        html = await readClipboardTextFromItem(item, "text/html");
+      }
+      if (!text && item.types.includes("text/plain")) {
+        text = await readClipboardTextFromItem(item, "text/plain");
+      }
+      if (html && text) break;
+    }
+
+    return html || text ? { html, text, imageFiles: [] } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveSourcePastePayload(payload = {}) {
+  if (payload.html) return payload;
+  const richPayload = await readRichClipboardPayload();
+  if (!richPayload?.html) return payload;
+  return {
+    ...payload,
+    ...richPayload,
+    imageFiles: payload.imageFiles || richPayload.imageFiles || [],
+  };
+}
+
 async function buildPasteHtml(mode, payload = {}) {
-  const html = payload.html || "";
-  const text = getPastePlainText(payload);
+  const sourcePayload = mode === "source" ? await resolveSourcePastePayload(payload) : payload;
+  const html = sourcePayload.html || "";
+  const text = getPastePlainText(sourcePayload);
   const imageFile = payload.imageFiles?.[0] || null;
 
   if (mode === "source") {
