@@ -49,6 +49,10 @@
     return /Android/i.test(ua) || /\bwv\b/i.test(ua) || /; wv\)/i.test(ua) || /BlogAndroidApp/i.test(ua);
   }
 
+  function markAppEnvironment() {
+    document.documentElement.classList.toggle("is-android-app-view", isAndroidAppWebView());
+  }
+
   function ensureTopNav() {
     const header = document.querySelector(".site-header");
     const actions = document.querySelector("[data-auth-actions]");
@@ -440,6 +444,7 @@
     actions.replaceChildren(account);
   }
 
+  markAppEnvironment();
   observePasswordInputs();
   setupCollapsibleSidebars();
   ensureAppDownloadButton();

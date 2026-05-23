@@ -10617,6 +10617,244 @@ textarea,
   }
 }
 
+html.is-android-app-view body {
+  color: #21374b;
+  font-size: 14.25px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html.is-android-app-view .site-header {
+  align-items: center;
+  min-height: 3.35rem;
+  gap: 0.48rem 0.58rem;
+  padding: 0.58rem max(0.78rem, env(safe-area-inset-right)) 0.58rem max(0.78rem, env(safe-area-inset-left));
+}
+
+html.is-android-app-view .brand {
+  gap: 0.48rem;
+  font-size: 0.92rem;
+}
+
+html.is-android-app-view .brand-mark {
+  width: 1.86rem;
+  height: 1.86rem;
+}
+
+html.is-android-app-view .top-nav a,
+html.is-android-app-view .auth-button,
+html.is-android-app-view .account-menu-button,
+html.is-android-app-view .blog-menu-bar a,
+html.is-android-app-view .blog-write-button,
+html.is-android-app-view .blog-board-toggle,
+html.is-android-app-view .editor-ghost-button,
+html.is-android-app-view .editor-primary-button,
+html.is-android-app-view .viewer-back-button,
+html.is-android-app-view .viewer-edit-button,
+html.is-android-app-view .viewer-book-button {
+  min-height: 1.92rem;
+  padding-block: 0.18rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+html.is-android-app-view .home-main,
+html.is-android-app-view .auth-main,
+html.is-android-app-view .account-main,
+html.is-android-app-view .blog-main,
+html.is-android-app-view .editor-page-main,
+html.is-android-app-view .viewer-main,
+html.is-android-app-view .trash-page-main,
+html.is-android-app-view .materials-main,
+html.is-android-app-view .garden-main {
+  width: min(100% - 1.05rem, 1240px);
+  padding-top: 0.78rem;
+  padding-bottom: 1.55rem;
+}
+
+html.is-android-app-view .home-hero,
+html.is-android-app-view .feed-section,
+html.is-android-app-view .personal-cover,
+html.is-android-app-view .blog-side-panel,
+html.is-android-app-view .blog-board,
+html.is-android-app-view .blog-feature-card,
+html.is-android-app-view .blog-mini-list,
+html.is-android-app-view .editor-shell,
+html.is-android-app-view .viewer-shell,
+html.is-android-app-view .materials-shell,
+html.is-android-app-view .garden-card {
+  border-radius: 10px;
+}
+
+html.is-android-app-view .home-hero {
+  gap: 0.75rem;
+  padding: 1.05rem;
+}
+
+html.is-android-app-view .home-hero h1 {
+  font-size: clamp(1.28rem, 5.2vw, 1.58rem);
+  line-height: 1.24;
+}
+
+html.is-android-app-view .home-hero p:last-child,
+html.is-android-app-view .auth-copy p:last-child,
+html.is-android-app-view .personal-cover p:last-child {
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+html.is-android-app-view .public-profile-strip {
+  gap: 0.5rem;
+  padding: 0.68rem 0.72rem;
+}
+
+html.is-android-app-view .public-profile-card {
+  min-width: 9.6rem;
+  padding: 0.52rem 0.58rem;
+}
+
+html.is-android-app-view .feed-list-head,
+html.is-android-app-view .blog-table-head {
+  min-height: 2.28rem;
+  padding-inline: 0.82rem;
+  font-size: 0.74rem;
+}
+
+html.is-android-app-view .feed-row,
+html.is-android-app-view .blog-post-row,
+html.is-android-app-view .blog-mini-row,
+html.is-android-app-view .materials-row {
+  min-height: 3.2rem;
+  padding: 0.54rem 0.82rem;
+  gap: 0.58rem;
+}
+
+html.is-android-app-view .feed-row strong,
+html.is-android-app-view .blog-post-title,
+html.is-android-app-view .blog-mini-row span,
+html.is-android-app-view .materials-row strong {
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+html.is-android-app-view .feed-row small,
+html.is-android-app-view .blog-post-row small,
+html.is-android-app-view .blog-feature-caption,
+html.is-android-app-view .materials-row small {
+  font-size: 0.7rem;
+  line-height: 1.38;
+}
+
+html.is-android-app-view .personal-cover {
+  gap: 0.6rem;
+  min-height: 2.85rem;
+  padding: 0.52rem 0.66rem;
+}
+
+html.is-android-app-view .personal-cover h1 {
+  font-size: 1rem;
+  line-height: 1.22;
+}
+
+html.is-android-app-view .blog-menu-bar {
+  min-height: 2.35rem;
+  margin: 0.5rem 0 0.68rem;
+  padding: 0.3rem 0.48rem;
+  gap: 0.22rem;
+}
+
+html.is-android-app-view .blog-body-layout {
+  gap: 0.68rem;
+}
+
+html.is-android-app-view .blog-side-panel {
+  padding: 0.68rem;
+}
+
+html.is-android-app-view .blog-profile-box,
+html.is-android-app-view .blog-side-widget {
+  padding: 0.68rem;
+}
+
+html.is-android-app-view .blog-board-head,
+html.is-android-app-view .section-head,
+html.is-android-app-view .materials-topbar,
+html.is-android-app-view .viewer-topbar,
+html.is-android-app-view .editor-topbar {
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.78rem;
+}
+
+html.is-android-app-view .blog-board-head h2,
+html.is-android-app-view .section-head h2,
+html.is-android-app-view .materials-topbar h1,
+html.is-android-app-view .viewer-title h1,
+html.is-android-app-view .editor-kicker {
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
+html.is-android-app-view .blog-board-actions,
+html.is-android-app-view .editor-topbar-actions,
+html.is-android-app-view .viewer-topbar-actions,
+html.is-android-app-view .materials-actions {
+  gap: 0.34rem;
+}
+
+html.is-android-app-view .blog-feature-card {
+  padding: 0.82rem;
+}
+
+html.is-android-app-view .blog-feature-title {
+  font-size: 1rem;
+  line-height: 1.36;
+}
+
+html.is-android-app-view .editor-grid {
+  min-height: calc(100svh - 8.4rem);
+}
+
+html.is-android-app-view .editor-canvas,
+html.is-android-app-view .editor-side-panel {
+  padding: 0.72rem;
+}
+
+html.is-android-app-view .editor-title-input {
+  min-height: 2.25rem;
+  font-size: 0.96rem;
+}
+
+html.is-android-app-view .editor-surface,
+html.is-android-app-view .viewer-body {
+  font-size: 0.94rem;
+  line-height: 1.66;
+}
+
+@media (max-width: 760px) {
+  html.is-android-app-view .top-nav {
+    gap: 0.26rem;
+  }
+
+  html.is-android-app-view .home-hero,
+  html.is-android-app-view .personal-cover,
+  html.is-android-app-view .section-head,
+  html.is-android-app-view .blog-board-head,
+  html.is-android-app-view .editor-topbar,
+  html.is-android-app-view .viewer-topbar,
+  html.is-android-app-view .materials-topbar {
+    align-items: center;
+  }
+
+  html.is-android-app-view .blog-menu-bar,
+  html.is-android-app-view .blog-board-actions,
+  html.is-android-app-view .editor-topbar-actions,
+  html.is-android-app-view .viewer-topbar-actions {
+    row-gap: 0.28rem;
+  }
+}
+
 body.paint-editor-page {
   width: 100%;
   max-width: 100vw;
