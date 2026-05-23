@@ -235,6 +235,27 @@ const EDITOR_PASTE_OPTIONS = [
   { key: "text", label: "텍스트만 유지" },
 ];
 
+const SOURCE_PASTE_COMPUTED_STYLES = [
+  "background-color",
+  "color",
+  "font-family",
+  "font-size",
+  "font-style",
+  "font-weight",
+  "letter-spacing",
+  "line-height",
+  "text-align",
+  "text-decoration",
+  "text-decoration-color",
+  "text-decoration-line",
+  "text-decoration-style",
+  "text-indent",
+  "text-transform",
+  "vertical-align",
+  "white-space",
+  "word-break",
+];
+
 function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -1377,6 +1398,9 @@ function cleanEditorHtml(html = "") {
   template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
     node.remove();
   });
+  template.content.querySelectorAll("[data-editor-paste-marker]").forEach((node) => {
+    node.remove();
+  });
   template.content.querySelectorAll("[data-editor-selection-hold]").forEach((node) => {
     if (!node.getAttribute("style")) {
       node.replaceWith(...node.childNodes);
@@ -1589,6 +1613,192 @@ async function buildPasteHtml(mode, payload = {}) {
   return textToEditorHtml(text);
 }
 
+function createNativePasteMarker(kind) {
+  const marker = document.createElement("span");
+  marker.dataset.editorPasteMarker = kind;
+  marker.setAttribute("aria-hidden", "true");
+  marker.setAttribute("contenteditable", "false");
+  marker.style.cssText = "display:none";
+  marker.textContent = "\u200b";
+  return marker;
+}
+
+function insertNativePasteMarkers() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return null;
+
+  const range = selection.getRangeAt(0);
+  if (!rangeIsInEditor(range)) return null;
+
+  const startMarker = createNativePasteMarker("start");
+  const endMarker = createNativePasteMarker("end");
+  const pasteRange = range.cloneRange();
+
+  pasteRange.deleteContents();
+  pasteRange.insertNode(endMarker);
+  pasteRange.insertNode(startMarker);
+  pasteRange.setStartAfter(startMarker);
+  pasteRange.setEndBefore(endMarker);
+
+  selection.removeAllRanges();
+  selection.addRange(pasteRange);
+  savedEditorRange = pasteRange.cloneRange();
+
+  return { startMarker, endMarker };
+}
+
+function getNativePasteRange(payload = {}) {
+  const { startMarker, endMarker } = payload;
+  if (!startMarker?.isConnected || !endMarker?.isConnected) return null;
+
+  const range = document.createRange();
+  try {
+    range.setStartAfter(startMarker);
+    range.setEndBefore(endMarker);
+    return range;
+  } catch {
+    return null;
+  }
+}
+
+function nodeIsFullyInsideRange(node, range) {
+  const nodeRange = document.createRange();
+  try {
+    nodeRange.selectNode(node);
+    return (
+      range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0 &&
+      range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0
+    );
+  } catch {
+    return false;
+  }
+}
+
+function computedStyleValueShouldBeKept(property, value = "") {
+  const normalized = String(value || "").trim();
+  if (!normalized) return false;
+  if (property === "background-color" && /^(transparent|rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\))$/i.test(normalized)) {
+    return false;
+  }
+  return Boolean(getSafeEditorStyleValue(property, normalized));
+}
+
+function inlineComputedSourcePasteStyles(node) {
+  if (!(node instanceof HTMLElement)) return;
+  const computed = window.getComputedStyle(node);
+
+  SOURCE_PASTE_COMPUTED_STYLES.forEach((property) => {
+    const value = computed.getPropertyValue(property);
+    if (!computedStyleValueShouldBeKept(property, value)) return;
+    node.style.setProperty(property, value);
+  });
+}
+
+function wrapNativePastedTextNode(textNode, range) {
+  if (!textNode?.textContent || !nodeIsFullyInsideRange(textNode, range)) return null;
+  const parent = textNode.parentElement;
+  if (!parent || parent.dataset?.editorPasteMarker) return null;
+
+  const span = document.createElement("span");
+  const computed = window.getComputedStyle(parent);
+  SOURCE_PASTE_COMPUTED_STYLES.forEach((property) => {
+    const value = computed.getPropertyValue(property);
+    if (!computedStyleValueShouldBeKept(property, value)) return;
+    span.style.setProperty(property, value);
+  });
+
+  textNode.replaceWith(span);
+  span.append(textNode);
+  return span;
+}
+
+function inlineNativePastedComputedStyles(payload = {}) {
+  const range = getNativePasteRange(payload);
+  if (!range) return "";
+
+  const textWalker = document.createTreeWalker(els.content, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (textWalker.nextNode()) {
+    const node = textWalker.currentNode;
+    if (node.textContent && nodeIsFullyInsideRange(node, range)) {
+      textNodes.push(node);
+    }
+  }
+  textNodes.forEach((node) => wrapNativePastedTextNode(node, range));
+
+  const nextRange = getNativePasteRange(payload);
+  if (!nextRange) return "";
+
+  const elementWalker = document.createTreeWalker(els.content, NodeFilter.SHOW_ELEMENT);
+  const elements = [];
+  while (elementWalker.nextNode()) {
+    const node = elementWalker.currentNode;
+    if (
+      node !== payload.startMarker &&
+      node !== payload.endMarker &&
+      nodeIsFullyInsideRange(node, nextRange)
+    ) {
+      elements.push(node);
+    }
+  }
+  elements.forEach(inlineComputedSourcePasteStyles);
+
+  const fragment = nextRange.cloneContents();
+  return fragment.textContent || fragment.childNodes.length ? fragment : "";
+}
+
+function getNativePastedHtml(payload = {}) {
+  const range = getNativePasteRange(payload);
+  if (!range) return "";
+  const template = document.createElement("template");
+  template.content.append(range.cloneContents());
+  return template.innerHTML.trim();
+}
+
+function placeCaretBeforeNode(node) {
+  if (!node?.isConnected) return;
+  const range = document.createRange();
+  range.setStartBefore(node);
+  range.collapse(true);
+
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  savedEditorRange = range.cloneRange();
+}
+
+function finalizeNativePastedContent(payload = {}) {
+  if (!payload.nativePaste) return;
+  placeCaretBeforeNode(payload.endMarker);
+  payload.startMarker?.remove();
+  payload.endMarker?.remove();
+  pushEditorHistorySnapshot();
+  syncEditorStats();
+  syncEditorToolbarState({ force: true });
+  markEditorDirty();
+  saveCurrentSelection();
+}
+
+function replaceNativePastedContent(payload = {}, html = "") {
+  const range = getNativePasteRange(payload);
+  if (!range) {
+    insertEditorHtml(html);
+    return;
+  }
+
+  const safeHtml = cleanEditorHtml(html);
+  if (!safeHtml) {
+    finalizeNativePastedContent(payload);
+    return;
+  }
+
+  const template = document.createElement("template");
+  template.innerHTML = safeHtml;
+  range.deleteContents();
+  range.insertNode(template.content);
+  finalizeNativePastedContent(payload);
+}
+
 function insertEditorHtml(html = "") {
   const safeHtml = cleanEditorHtml(html);
   if (!safeHtml) return;
@@ -1601,10 +1811,14 @@ function insertEditorHtml(html = "") {
   saveCurrentSelection();
 }
 
-function closePasteMenu() {
+function closePasteMenu({ finalizeNative = true } = {}) {
+  const payload = pendingPastePayload;
   pasteMenu?.remove();
   pasteMenu = null;
   pendingPastePayload = null;
+  if (finalizeNative && payload?.nativePaste) {
+    finalizeNativePastedContent(payload);
+  }
 }
 
 function getPasteMenuPosition(event) {
@@ -1660,12 +1874,25 @@ function showPasteMenu(event, payload) {
 
     const payloadToInsert = pendingPastePayload;
     const mode = button.dataset.pasteMode;
-    closePasteMenu();
+    pasteMenu?.remove();
+    pasteMenu = null;
+    pendingPastePayload = null;
 
     try {
+      if (payloadToInsert.nativePaste && mode === "source") {
+        finalizeNativePastedContent(payloadToInsert);
+        return;
+      }
       const html = await buildPasteHtml(mode, payloadToInsert);
-      insertEditorHtml(html);
+      if (payloadToInsert.nativePaste) {
+        replaceNativePastedContent(payloadToInsert, html);
+      } else {
+        insertEditorHtml(html);
+      }
     } catch (error) {
+      if (payloadToInsert.nativePaste) {
+        finalizeNativePastedContent(payloadToInsert);
+      }
       window.alert(error.message || "붙여넣기를 처리하지 못했습니다.");
     }
   });
@@ -1692,9 +1919,37 @@ function handleEditorPaste(event) {
   const payload = getClipboardPayload(event);
   if (!payload) return;
 
-  event.preventDefault();
-  saveCurrentSelection();
-  showPasteMenu(event, payload);
+  const markers = insertNativePasteMarkers();
+  if (!markers) {
+    event.preventDefault();
+    saveCurrentSelection();
+    showPasteMenu(event, payload);
+    return;
+  }
+
+  const nativePayload = {
+    ...payload,
+    nativePaste: true,
+    ...markers,
+  };
+
+  window.setTimeout(async () => {
+    inlineNativePastedComputedStyles(nativePayload);
+    nativePayload.html = getNativePastedHtml(nativePayload) || nativePayload.html || "";
+
+    if (!nativePayload.html && (payload.html || payload.text || payload.imageFiles?.length)) {
+      const html = await buildPasteHtml("source", payload);
+      replaceNativePastedContent(nativePayload, html);
+      return;
+    }
+
+    pushEditorHistorySnapshot();
+    syncEditorStats();
+    syncEditorToolbarState({ force: true });
+    markEditorDirty();
+    saveCurrentSelection();
+    showPasteMenu(event, nativePayload);
+  }, 0);
 }
 
 function getReadingTimeLabel(text = "") {
