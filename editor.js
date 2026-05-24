@@ -1600,14 +1600,10 @@ function normalizeSourcePasteTypography(fragment) {
 
   const boldWeight = textWeightUnderPredicate(fragment, nodeHasHeavyFontWeight);
   const shouldDropGlobalBold = boldWeight / total >= 0.65;
-  const shouldDropDominantFontSize = Boolean(dominantSourcePasteStyle(fragment, "font-size"));
 
   fragment.querySelectorAll("*").forEach((node) => {
     if (shouldDropGlobalBold) {
       node.style.removeProperty("font-weight");
-    }
-    if (shouldDropDominantFontSize) {
-      node.style.removeProperty("font-size");
     }
   });
 
@@ -1616,10 +1612,44 @@ function normalizeSourcePasteTypography(fragment) {
   }
 }
 
+function getNearestSourceTextStyle(node, property, root) {
+  let current = node?.parentElement || null;
+  while (current && current !== root) {
+    const value = current.style?.getPropertyValue(property);
+    if (value) return value;
+    current = current.parentElement;
+  }
+  return "";
+}
+
+function materializeSourcePasteTextStyles(fragment) {
+  const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node.textContent?.replace(/\s+/g, "")) {
+      textNodes.push(node);
+    }
+  }
+
+  textNodes.forEach((textNode) => {
+    const parent = textNode.parentElement;
+    if (!parent) return;
+
+    ["color", "font-family", "font-size"].forEach((property) => {
+      if (parent.style.getPropertyValue(property)) return;
+      const value = getNearestSourceTextStyle(textNode, property, fragment);
+      if (value) parent.style.setProperty(property, value);
+    });
+  });
+}
+
 function cleanSourcePasteHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = cleanEditorHtml(html);
   normalizeSourcePasteTypography(template.content);
+  materializeSourcePasteTextStyles(template.content);
 
   template.content.querySelectorAll("*").forEach((node) => {
     SOURCE_PASTE_TEXT_LAYOUT_STYLES.forEach((property) => {
