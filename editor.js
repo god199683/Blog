@@ -1281,6 +1281,30 @@ function textToEditorHtml(text = "") {
     .join("");
 }
 
+function getCurrentPlainTextPasteStyle() {
+  const activeStyle = window.getComputedStyle(getActiveEditorStyleElement() || els.content);
+  const fontFamily = formatFontFamilyValue(els.fontFamily?.value || "") || activeStyle.fontFamily || "";
+  const fontSize = normalizeFontSize(els.fontSize?.value || Number.parseInt(activeStyle.fontSize, 10));
+  const styles = [];
+
+  if (fontFamily) styles.push(`font-family: ${fontFamily}`);
+  if (fontSize) styles.push(`font-size: ${fontSize}`);
+  return styles.join("; ");
+}
+
+function textToEditorHtmlWithCurrentStyle(text = "") {
+  const style = getCurrentPlainTextPasteStyle();
+  const html = textToEditorHtml(text);
+  if (!style) return html;
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  template.content.querySelectorAll("p").forEach((paragraph) => {
+    paragraph.setAttribute("style", style);
+  });
+  return template.innerHTML.trim();
+}
+
 function sourcePasteShouldUsePlainText(payload = {}) {
   const html = String(payload.html || "");
   const text = String(payload.text || "").trim();
@@ -1772,7 +1796,7 @@ async function buildPasteHtml(mode, payload = {}) {
   }
 
   if (mode === "text") {
-    return textToEditorHtml(text);
+    return textToEditorHtmlWithCurrentStyle(text);
   }
 
   if (mode === "image") {
