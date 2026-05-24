@@ -259,6 +259,13 @@ const SOURCE_PASTE_COMPUTED_STYLES = [
 ];
 
 const SOURCE_PASTE_TEXT_LAYOUT_STYLES = [
+  "clear",
+  "column-count",
+  "column-gap",
+  "column-width",
+  "columns",
+  "display",
+  "float",
   "height",
   "max-height",
   "max-width",
@@ -1973,20 +1980,9 @@ function showPasteMenu(event, payload) {
     pendingPastePayload = null;
 
     try {
-      if (payloadToInsert.nativePaste && mode === "source") {
-        finalizeNativePastedContent(payloadToInsert);
-        return;
-      }
       const html = await buildPasteHtml(mode, payloadToInsert);
-      if (payloadToInsert.nativePaste) {
-        replaceNativePastedContent(payloadToInsert, html);
-      } else {
-        insertEditorHtml(html);
-      }
+      insertEditorHtml(html);
     } catch (error) {
-      if (payloadToInsert.nativePaste) {
-        finalizeNativePastedContent(payloadToInsert);
-      }
       window.alert(error.message || "붙여넣기를 처리하지 못했습니다.");
     }
   });
@@ -2013,41 +2009,9 @@ function handleEditorPaste(event) {
   const payload = getClipboardPayload(event);
   if (!payload) return;
 
-  const markers = insertNativePasteMarkers();
-  if (!markers) {
-    event.preventDefault();
-    saveCurrentSelection();
-    showPasteMenu(event, payload);
-    return;
-  }
-
-  const nativePayload = {
-    ...payload,
-    nativePaste: true,
-    ...markers,
-  };
-
-  window.setTimeout(async () => {
-    if (sourcePasteShouldUsePlainText(payload)) {
-      nativePayload.html = setNativePastedHtml(nativePayload, textToEditorHtml(normalizeSourcePlainText(payload.text))) || "";
-    } else {
-      inlineNativePastedComputedStyles(nativePayload);
-      nativePayload.html = sanitizeNativePastedContent(nativePayload) || nativePayload.html || "";
-    }
-
-    if (!nativePayload.html && (payload.html || payload.text || payload.imageFiles?.length)) {
-      const html = await buildPasteHtml("source", payload);
-      replaceNativePastedContent(nativePayload, html);
-      return;
-    }
-
-    pushEditorHistorySnapshot();
-    syncEditorStats();
-    syncEditorToolbarState({ force: true });
-    markEditorDirty();
-    saveCurrentSelection();
-    showPasteMenu(event, nativePayload);
-  }, 0);
+  event.preventDefault();
+  saveCurrentSelection();
+  showPasteMenu(event, payload);
 }
 
 function getReadingTimeLabel(text = "") {
