@@ -1707,7 +1707,7 @@ function insertNativePasteMarkers() {
   const selection = window.getSelection();
   if (!selection?.rangeCount) return null;
 
-  const range = selection.getRangeAt(0);
+  let range = selection.getRangeAt(0);
   if (!rangeIsInEditor(range)) return null;
 
   const startMarker = createNativePasteMarker("start");
@@ -2381,7 +2381,7 @@ function getCollapsedEditorTextPosition() {
   const selection = window.getSelection();
   if (!selection?.rangeCount) return null;
 
-  const range = selection.getRangeAt(0);
+  let range = selection.getRangeAt(0);
   if (!range.collapsed || !rangeIsInEditor(range)) return null;
 
   if (range.startContainer.nodeType === Node.TEXT_NODE) {
@@ -2541,7 +2541,7 @@ function finishEditorStyleChange() {
 }
 
 function shouldApplyStyleDeep(property) {
-  return property === "font-family" || property === "font-size" || property === "line-height";
+  return ["background-color", "color", "font-family", "font-size", "line-height"].includes(property);
 }
 
 function normalizeCssStyleValue(property, value) {
@@ -2557,6 +2557,63 @@ function applyCssProperty(target, property, value) {
   target.querySelectorAll?.("*").forEach((node) => {
     node.style.setProperty(property, cssValue);
   });
+}
+
+function nodeHasEditorBlockContent(node) {
+  return Boolean(
+    node?.querySelector?.(EDITOR_BLOCK_SELECTOR) ||
+      [...(node?.childNodes || [])].some(
+        (child) => child.nodeType === Node.ELEMENT_NODE && child.matches?.(EDITOR_BLOCK_SELECTOR),
+      ),
+  );
+}
+
+function styleInlineNode(node, property, value) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    if (!node.textContent) return;
+    const span = document.createElement("span");
+    applyCssProperty(span, property, value);
+    node.replaceWith(span);
+    span.append(node);
+    return;
+  }
+
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    applyCssProperty(node, property, value);
+  }
+}
+
+function styleInlineNodes(nodes, property, value) {
+  [...nodes].forEach((node) => styleInlineNode(node, property, value));
+}
+
+function replaceRangeWithStyledFragment(range, property, value) {
+  const fragment = range.extractContents();
+  const hasBlockContent = nodeHasEditorBlockContent(fragment);
+
+  if (!hasBlockContent) {
+    const span = document.createElement("span");
+    applyCssProperty(span, property, value);
+    span.append(fragment);
+    range.insertNode(span);
+    range.selectNodeContents(span);
+    return range;
+  }
+
+  styleInlineNodes(fragment.childNodes, property, value);
+
+  const startMarker = document.createTextNode("");
+  const endMarker = document.createTextNode("");
+  const wrapped = document.createDocumentFragment();
+  wrapped.append(startMarker, fragment, endMarker);
+  range.insertNode(wrapped);
+
+  const styledRange = document.createRange();
+  styledRange.setStartAfter(startMarker);
+  styledRange.setEndBefore(endMarker);
+  startMarker.remove();
+  endMarker.remove();
+  return styledRange;
 }
 
 function getEditorStyleBlocks() {
@@ -2592,14 +2649,30 @@ function applyStyleToHeldSelection(property, value) {
   const heldNodes = [...els.content.querySelectorAll("[data-editor-selection-hold]")];
   if (heldNodes.length === 0) return false;
 
+  const startMarker = document.createTextNode("");
+  const endMarker = document.createTextNode("");
+  heldNodes[0].before(startMarker);
+  heldNodes.at(-1).after(endMarker);
+
   heldNodes.forEach((node) => {
-    applyCssProperty(node, property, value);
-    node.removeAttribute("data-editor-selection-hold");
+    const childNodes = [...node.childNodes];
+    if (childNodes.length > 0) {
+      styleInlineNodes(childNodes, property, value);
+      node.replaceWith(...childNodes);
+    } else {
+      node.remove();
+    }
   });
 
   const range = document.createRange();
-  range.selectNodeContents(heldNodes.at(-1));
+  range.setStartAfter(startMarker);
+  range.setEndBefore(endMarker);
+  startMarker.remove();
+  endMarker.remove();
   savedEditorRange = range.cloneRange();
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
   finishEditorStyleChange();
   return true;
 }
@@ -2615,7 +2688,7 @@ function applyInlineStyle(property, value, options = {}) {
   const selection = window.getSelection();
   if (!selection?.rangeCount) return;
 
-  const range = selection.getRangeAt(0);
+  let range = selection.getRangeAt(0);
 
   if (
     range.collapsed &&
@@ -2625,10 +2698,9 @@ function applyInlineStyle(property, value, options = {}) {
     return;
   }
 
-  const span = document.createElement("span");
-  applyCssProperty(span, cssProperty, value);
-
   if (range.collapsed) {
+    const span = document.createElement("span");
+    applyCssProperty(span, cssProperty, value);
     span.dataset.editorStyleCaret = "true";
     const marker = document.createTextNode("\u200b");
     span.appendChild(marker);
@@ -2636,10 +2708,7 @@ function applyInlineStyle(property, value, options = {}) {
     range.setStart(marker, marker.length);
     range.collapse(true);
   } else {
-    span.appendChild(range.extractContents());
-    applyCssProperty(span, cssProperty, value);
-    range.insertNode(span);
-    range.selectNodeContents(span);
+    range = replaceRangeWithStyledFragment(range, cssProperty, value);
   }
 
   selection.removeAllRanges();
@@ -2652,44 +2721,12 @@ function applyFontFamily(fontName) {
   if (!name) return;
   ensureEditorFontOption(name);
   els.fontFamily.value = name;
-
-  if (applyStyleToHeldSelection("font-family", name)) {
-    return;
-  }
-
-  const hadSavedRange = rangeIsInEditor(savedEditorRange);
-  restoreEditorSelection({
-    selectAllWhenMissing: !hadSavedRange && Boolean(els.content.textContent.replace(/\u200b/g, "").trim()),
+  applyInlineStyle("fontFamily", name, {
+    applyCollapsedBlock: true,
+    applyAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
+    selectAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
+    useSelectionHold: true,
   });
-
-  const selection = window.getSelection();
-  if (!selection?.rangeCount) {
-    applyCssProperty(els.content, "font-family", name);
-    finishEditorStyleChange();
-    return;
-  }
-
-  const range = selection.getRangeAt(0);
-
-  if (range.collapsed) {
-    const block = getClosestEditorBlock(range.startContainer) || els.content;
-    applyCssProperty(block, "font-family", name);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    savedEditorRange = range.cloneRange();
-    finishEditorStyleChange();
-    return;
-  }
-
-  const span = document.createElement("span");
-  applyCssProperty(span, "font-family", name);
-  span.appendChild(range.extractContents());
-  range.insertNode(span);
-  range.selectNodeContents(span);
-  selection.removeAllRanges();
-  selection.addRange(range);
-  savedEditorRange = range.cloneRange();
-  finishEditorStyleChange();
 }
 
 function normalizeFontSize(value) {
@@ -2712,8 +2749,8 @@ function applyFontSizeFromInput({ keepToolbarFocus = false } = {}) {
   els.fontSize.value = size.replace("px", "");
   applyInlineStyle("fontSize", size, {
     applyCollapsedBlock: true,
-    applyAllWhenMissing: Boolean(state.editingPost),
-    selectAllWhenMissing: Boolean(state.editingPost),
+    applyAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
+    selectAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
     useSelectionHold: true,
   });
   if (shouldRefocusInput) {
@@ -3560,11 +3597,10 @@ document.addEventListener("pointerup", () => {
 els.toolbar.addEventListener("mousedown", (event) => {
   if (event.target.closest("input, select")) {
     prepareEditorSelectionForToolbar({ holdSelection: targetNeedsEditorSelectionHold(event.target) });
+    return;
   }
 
-  if (event.target.closest("button")) {
-    event.preventDefault();
-  }
+  event.preventDefault();
 });
 
 els.toolbar.addEventListener("click", (event) => {
