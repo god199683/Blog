@@ -1274,6 +1274,26 @@ function textToEditorHtml(text = "") {
     .join("");
 }
 
+function sourcePasteShouldUsePlainText(payload = {}) {
+  const html = String(payload.html || "");
+  const text = String(payload.text || "").trim();
+  if (!html || !text) return false;
+  return /(?:writing-mode|text-orientation)\s*:[^;"']*(?:vertical|sideways)|\b(?:vertical-rl|vertical-lr|sideways-rl|sideways-lr)\b/i.test(html);
+}
+
+function normalizeSourcePlainText(text = "") {
+  const normalized = String(text || "").replace(/\r\n?/g, "\n");
+  const lines = normalized.split("\n");
+  const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean);
+  if (nonEmptyLines.length < 8) return normalized;
+
+  const shortLineCount = nonEmptyLines.filter((line) => [...line].length <= 2).length;
+  const koreanLineCount = nonEmptyLines.filter((line) => /[가-힣]/.test(line)).length;
+  if (shortLineCount / nonEmptyLines.length < 0.72 || koreanLineCount < 4) return normalized;
+
+  return nonEmptyLines.join("");
+}
+
 function getCharacterCounts(html = "") {
   const text = getTextFromHtml(html);
   return {
@@ -1632,6 +1652,7 @@ async function buildPasteHtml(mode, payload = {}) {
   const imageFile = payload.imageFiles?.[0] || null;
 
   if (mode === "source") {
+    if (sourcePasteShouldUsePlainText(sourcePayload)) return textToEditorHtml(normalizeSourcePlainText(text));
     if (html) return cleanSourcePasteHtml(html) || textToEditorHtml(text);
     if (imageFile) {
       const imageUrl = await readClipboardImageFile(imageFile);
@@ -1807,12 +1828,9 @@ function getNativePastedHtml(payload = {}) {
   return template.innerHTML.trim();
 }
 
-function sanitizeNativePastedContent(payload = {}) {
+function setNativePastedHtml(payload = {}, html = "") {
   const range = getNativePasteRange(payload);
-  if (!range) return "";
-
-  const html = cleanSourcePasteHtml(getNativePastedHtml(payload));
-  if (!html) return "";
+  if (!range || !html) return "";
 
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -1820,6 +1838,15 @@ function sanitizeNativePastedContent(payload = {}) {
   range.insertNode(template.content);
   payload.html = getNativePastedHtml(payload) || html;
   return payload.html;
+}
+
+function sanitizeNativePastedContent(payload = {}) {
+  const range = getNativePasteRange(payload);
+  if (!range) return "";
+
+  const html = cleanSourcePasteHtml(getNativePastedHtml(payload));
+  if (!html) return "";
+  return setNativePastedHtml(payload, html);
 }
 
 function placeCaretBeforeNode(node) {
@@ -2001,8 +2028,12 @@ function handleEditorPaste(event) {
   };
 
   window.setTimeout(async () => {
-    inlineNativePastedComputedStyles(nativePayload);
-    nativePayload.html = sanitizeNativePastedContent(nativePayload) || nativePayload.html || "";
+    if (sourcePasteShouldUsePlainText(payload)) {
+      nativePayload.html = setNativePastedHtml(nativePayload, textToEditorHtml(normalizeSourcePlainText(payload.text))) || "";
+    } else {
+      inlineNativePastedComputedStyles(nativePayload);
+      nativePayload.html = sanitizeNativePastedContent(nativePayload) || nativePayload.html || "";
+    }
 
     if (!nativePayload.html && (payload.html || payload.text || payload.imageFiles?.length)) {
       const html = await buildPasteHtml("source", payload);
