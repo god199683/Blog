@@ -38,6 +38,7 @@ const els = {
   title: document.querySelector("[data-editor-title]"),
   category: document.querySelector("[data-editor-category]"),
   folder: document.querySelector("[data-editor-folder]"),
+  folderSecondary: document.querySelector("[data-editor-folder-secondary]"),
   content: document.querySelector("[data-editor-content]"),
   toolbar: document.querySelector("[data-editor-toolbar]"),
   fontFamily: document.querySelector("[data-editor-font-family]"),
@@ -1009,7 +1010,7 @@ function folderMatchesCategory(folder, category = "") {
   return getCategoryKey(folder?.category) === categoryKey;
 }
 
-function renderEditorFolderOptions(selectedFolderId = "") {
+function renderEditorFolderOptions(selectedFolderId = "", selectedSecondaryFolderId = "") {
   const category = els.category.value;
   const seenFolders = new Set();
   const allFolders = collectFolderOptions();
@@ -1023,6 +1024,9 @@ function renderEditorFolderOptions(selectedFolderId = "") {
     });
   const selectedFolder = allFolders.find((folder) => folder.id === selectedFolderId);
   const selected = selectedFolder && folderMatchesCategory(selectedFolder, category) ? selectedFolder.id : "";
+  const selectedSecondaryFolder = allFolders.find((folder) => folder.id === selectedSecondaryFolderId);
+  const selectedSecondary =
+    selectedSecondaryFolder && folderMatchesCategory(selectedSecondaryFolder, category) ? selectedSecondaryFolder.id : "";
 
   els.folder.innerHTML = [
     `<option value="">폴더 없음</option>`,
@@ -1036,15 +1040,28 @@ function renderEditorFolderOptions(selectedFolderId = "") {
   ].join("");
 
   els.folder.value = selected;
+  if (els.folderSecondary) {
+    els.folderSecondary.innerHTML = els.folder.innerHTML;
+    els.folderSecondary.value = selectedSecondary;
+  }
   return selected;
 }
 
-function setEditorLocationFields({ category = "", folderId = "" } = {}) {
+function setEditorLocationFields({ category = "", folderId = "", secondaryFolderId = "" } = {}) {
   const folder = getFolderMeta(folderId);
-  const nextCategory = folder?.category || category || "";
+  const secondaryFolder = getFolderMeta(secondaryFolderId);
+  const nextCategory = secondaryFolder?.category || folder?.category || category || "";
   renderEditorCategoryOptions(nextCategory);
   els.category.value = resolveEditorCategoryValue(nextCategory);
-  renderEditorFolderOptions(folder?.id || "");
+  renderEditorFolderOptions(folder?.id || "", secondaryFolder?.id || "");
+}
+
+function getSelectedEditorFolderId() {
+  return els.folderSecondary?.value || els.folder.value || "";
+}
+
+function getSelectedEditorFolderMeta() {
+  return getFolderMeta(getSelectedEditorFolderId());
 }
 
 function collectLocationOptions() {
@@ -1102,7 +1119,8 @@ function collectLocationOptions() {
 }
 
 function getCurrentLocationKey() {
-  if (els.folder.value) return `folder:${els.folder.value}`;
+  const folderId = getSelectedEditorFolderId();
+  if (folderId) return `folder:${folderId}`;
 
   const category = els.category.value;
   if (!category) return "all";
@@ -2172,7 +2190,7 @@ function collectEditorValues() {
   const body = cleanEditorHtml(els.content.innerHTML);
   const plainText = getPlainTextFromHtml(body);
   const characterCounts = getCharacterCounts(body);
-  const folder = getFolderMeta(els.folder.value);
+  const folder = getSelectedEditorFolderMeta();
   const category = folder?.category || els.category.value || DEFAULT_CATEGORY;
 
   return {
@@ -2222,7 +2240,8 @@ function saveEditorDraft() {
   const draft = {
     title: els.title.value,
     category: els.category.value,
-    folder_id: els.folder.value,
+    folder_id: getSelectedEditorFolderId(),
+    folder_secondary_id: els.folderSecondary?.value || "",
     body: els.content.innerHTML,
     published: els.published.checked,
     saved_at: new Date().toISOString(),
@@ -3613,6 +3632,7 @@ async function initEditor() {
   setEditorLocationFields({
     category: source?.category || defaults.category,
     folderId: source?.folder_id || defaults.folderId,
+    secondaryFolderId: source?.folder_secondary_id || "",
   });
   els.content.innerHTML = source?.body || "";
   syncActiveLineHeightFromContent();
@@ -3652,15 +3672,36 @@ document.addEventListener("selectionchange", saveCurrentSelection);
 
 els.category.addEventListener("change", () => {
   const selectedFolder = getFolderMeta(els.folder.value);
+  const selectedSecondaryFolder = getFolderMeta(els.folderSecondary?.value || "");
   const nextFolderId = selectedFolder && folderMatchesCategory(selectedFolder, els.category.value) ? selectedFolder.id : "";
-  renderEditorFolderOptions(nextFolderId);
+  const nextSecondaryFolderId =
+    selectedSecondaryFolder && folderMatchesCategory(selectedSecondaryFolder, els.category.value)
+      ? selectedSecondaryFolder.id
+      : "";
+  renderEditorFolderOptions(nextFolderId, nextSecondaryFolderId);
   markEditorDirty();
 });
 
 els.folder.addEventListener("change", () => {
   const selectedFolder = getFolderMeta(els.folder.value);
   if (selectedFolder) {
-    setEditorLocationFields({ folderId: selectedFolder.id });
+    const selectedSecondaryFolder = getFolderMeta(els.folderSecondary?.value || "");
+    const secondaryFolderId =
+      selectedSecondaryFolder && folderMatchesCategory(selectedSecondaryFolder, selectedFolder.category)
+        ? selectedSecondaryFolder.id
+        : "";
+    setEditorLocationFields({ folderId: selectedFolder.id, secondaryFolderId });
+  }
+  markEditorDirty();
+});
+
+els.folderSecondary?.addEventListener("change", () => {
+  const selectedSecondaryFolder = getFolderMeta(els.folderSecondary.value);
+  if (selectedSecondaryFolder) {
+    const selectedFolder = getFolderMeta(els.folder.value);
+    const folderId =
+      selectedFolder && folderMatchesCategory(selectedFolder, selectedSecondaryFolder.category) ? selectedFolder.id : "";
+    setEditorLocationFields({ category: selectedSecondaryFolder.category, folderId, secondaryFolderId: selectedSecondaryFolder.id });
   }
   markEditorDirty();
 });
