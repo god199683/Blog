@@ -1499,9 +1499,103 @@ function cleanEditorHtml(html = "") {
   return template.innerHTML.replace(/\u200b/g, "").trim();
 }
 
+function getPlainTextWeight(text = "") {
+  return String(text || "").replace(/\u200b/g, "").replace(/\s+/g, "").length;
+}
+
+function textWeightUnderPredicate(root, predicate) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let weight = 0;
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const nodeWeight = getPlainTextWeight(node.textContent);
+    if (!nodeWeight) continue;
+
+    let parent = node.parentElement;
+    while (parent && parent !== root) {
+      if (predicate(parent)) {
+        weight += nodeWeight;
+        break;
+      }
+      parent = parent.parentElement;
+    }
+  }
+
+  return weight;
+}
+
+function parseFontWeightValue(value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "bold" || normalized === "bolder") return 700;
+  const number = Number.parseInt(normalized, 10);
+  return Number.isFinite(number) ? number : 400;
+}
+
+function nodeHasHeavyFontWeight(node) {
+  return (
+    ["B", "STRONG"].includes(node.tagName) ||
+    parseFontWeightValue(node.style?.getPropertyValue("font-weight")) >= 600
+  );
+}
+
+function dominantSourcePasteStyle(root, property) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const weights = new Map();
+  let total = 0;
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode;
+    const textWeight = getPlainTextWeight(textNode.textContent);
+    if (!textWeight) continue;
+    total += textWeight;
+
+    let parent = textNode.parentElement;
+    while (parent && parent !== root) {
+      const value = parent.style?.getPropertyValue(property);
+      if (value) {
+        weights.set(value, (weights.get(value) || 0) + textWeight);
+        break;
+      }
+      parent = parent.parentElement;
+    }
+  }
+
+  if (!total) return "";
+  const dominant = [...weights.entries()].sort((a, b) => b[1] - a[1])[0];
+  return dominant && dominant[1] / total >= 0.65 ? dominant[0] : "";
+}
+
+function unwrapSourcePasteTag(node) {
+  node.replaceWith(...node.childNodes);
+}
+
+function normalizeSourcePasteTypography(fragment) {
+  const total = getPlainTextWeight(fragment.textContent);
+  if (!total) return;
+
+  const boldWeight = textWeightUnderPredicate(fragment, nodeHasHeavyFontWeight);
+  const shouldDropGlobalBold = boldWeight / total >= 0.65;
+  const shouldDropDominantFontSize = Boolean(dominantSourcePasteStyle(fragment, "font-size"));
+
+  fragment.querySelectorAll("*").forEach((node) => {
+    if (shouldDropGlobalBold) {
+      node.style.removeProperty("font-weight");
+    }
+    if (shouldDropDominantFontSize) {
+      node.style.removeProperty("font-size");
+    }
+  });
+
+  if (shouldDropGlobalBold) {
+    fragment.querySelectorAll("b, strong").forEach(unwrapSourcePasteTag);
+  }
+}
+
 function cleanSourcePasteHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = cleanEditorHtml(html);
+  normalizeSourcePasteTypography(template.content);
 
   template.content.querySelectorAll("*").forEach((node) => {
     SOURCE_PASTE_TEXT_LAYOUT_STYLES.forEach((property) => {
