@@ -1326,10 +1326,14 @@ function getCurrentPlainTextPasteStyle() {
   const activeStyle = window.getComputedStyle(getActiveEditorStyleElement() || els.content);
   const fontFamily = formatFontFamilyValue(els.fontFamily?.value || "") || activeStyle.fontFamily || "";
   const fontSize = normalizeFontSize(els.fontSize?.value || Number.parseInt(activeStyle.fontSize, 10));
+  const color = activeStyle.color || "";
+  const lineHeight = normalizeLineHeightForToolbar(activeStyle);
   const styles = [];
 
   if (fontFamily) styles.push(`font-family: ${fontFamily}`);
   if (fontSize) styles.push(`font-size: ${fontSize}`);
+  if (color) styles.push(`color: ${color}`);
+  if (lineHeight) styles.push(`line-height: ${lineHeight}`);
   return styles.join("; ");
 }
 
@@ -1678,7 +1682,7 @@ function materializeSourcePasteTextStyles(fragment) {
     const parent = textNode.parentElement;
     if (!parent) return;
 
-    ["color", "font-family", "font-size"].forEach((property) => {
+    SOURCE_PASTE_COMPUTED_STYLES.forEach((property) => {
       if (parent.style.getPropertyValue(property)) return;
       const value = getNearestSourceTextStyle(textNode, property, fragment);
       if (value) parent.style.setProperty(property, value);
@@ -1689,7 +1693,6 @@ function materializeSourcePasteTextStyles(fragment) {
 function cleanSourcePasteHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = cleanEditorHtml(html);
-  normalizeSourcePasteTypography(template.content);
   materializeSourcePasteTextStyles(template.content);
 
   template.content.querySelectorAll("*").forEach((node) => {
@@ -1713,6 +1716,7 @@ function cleanSourcePasteHtml(html = "") {
 function mergeEditorHtmlWithCurrentStyle(html = "") {
   const template = document.createElement("template");
   template.innerHTML = cleanEditorHtml(html);
+  const mergedStyle = getCurrentPlainTextPasteStyle();
 
   template.content.querySelectorAll("*").forEach((node) => {
     node.removeAttribute("style");
@@ -1732,6 +1736,19 @@ function mergeEditorHtmlWithCurrentStyle(html = "") {
   template.content.querySelectorAll("span").forEach((node) => {
     if (node.attributes.length === 0) node.replaceWith(...node.childNodes);
   });
+
+  if (mergedStyle) {
+    const targets = template.content.querySelectorAll(EDITOR_BLOCK_SELECTOR);
+    if (targets.length > 0) {
+      targets.forEach((node) => node.setAttribute("style", mergedStyle));
+    } else {
+      template.content.querySelectorAll("*").forEach((node) => {
+        if (!node.children.length && node.textContent.trim()) {
+          node.setAttribute("style", mergedStyle);
+        }
+      });
+    }
+  }
 
   return template.innerHTML.trim();
 }
@@ -1797,6 +1814,66 @@ function buildPastedTextImage(text = "") {
   return canvas.toDataURL("image/png");
 }
 
+function preparePastedImageContent(content) {
+  content.querySelectorAll("*").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    node.style.maxWidth = "100%";
+    node.style.boxSizing = "border-box";
+    if (node.tagName === "IMG") {
+      node.style.height = "auto";
+    }
+  });
+}
+
+function buildPastedContentImage(html = "", text = "") {
+  const safeHtml = html || textToEditorHtmlWithCurrentStyle(text);
+  if (!safeHtml.trim()) return buildPastedTextImage(text);
+
+  const activeStyle = window.getComputedStyle(getActiveEditorStyleElement() || els.content);
+  const template = document.createElement("template");
+  template.innerHTML = safeHtml;
+
+  const content = document.createElement("div");
+  content.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+  content.style.cssText = [
+    "box-sizing: border-box",
+    "width: 900px",
+    "min-height: 96px",
+    "padding: 28px",
+    "background: #ffffff",
+    "border: 1px solid #d8eafb",
+    "border-radius: 10px",
+    `color: ${activeStyle.color || "#20364a"}`,
+    `font-family: ${activeStyle.fontFamily || '"Noto Sans KR", sans-serif'}`,
+    `font-size: ${Number.parseInt(activeStyle.fontSize, 10) || 16}px`,
+    `line-height: ${normalizeLineHeightForToolbar(activeStyle) || "1.65"}`,
+    "white-space: normal",
+    "overflow-wrap: anywhere",
+  ].join("; ");
+  content.append(template.content.cloneNode(true));
+  preparePastedImageContent(content);
+
+  const measure = content.cloneNode(true);
+  measure.style.position = "fixed";
+  measure.style.left = "-10000px";
+  measure.style.top = "0";
+  measure.style.zIndex = "-1";
+  document.body.append(measure);
+  const width = 900;
+  const height = Math.max(96, Math.ceil(measure.scrollHeight || measure.getBoundingClientRect().height || 96));
+  measure.remove();
+
+  content.style.height = `${height}px`;
+  const serialized = new XMLSerializer().serializeToString(content);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <foreignObject width="100%" height="100%">${serialized}</foreignObject>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 function getPastePlainText(payload = {}) {
   return payload.text || getPlainTextFromHtml(payload.html || "");
 }
@@ -1842,7 +1919,7 @@ async function resolveSourcePastePayload(payload = {}) {
 }
 
 async function buildPasteHtml(mode, payload = {}) {
-  const sourcePayload = mode === "source" ? await resolveSourcePastePayload(payload) : payload;
+  const sourcePayload = mode === "source" || mode === "image" ? await resolveSourcePastePayload(payload) : payload;
   const html = sourcePayload.html || "";
   const text = getPastePlainText(sourcePayload);
   const imageFile = payload.imageFiles?.[0] || null;
@@ -1858,12 +1935,12 @@ async function buildPasteHtml(mode, payload = {}) {
   }
 
   if (mode === "merge") {
-    if (html) return mergeEditorHtmlWithCurrentStyle(html) || textToEditorHtml(text);
+    if (html) return mergeEditorHtmlWithCurrentStyle(html) || textToEditorHtmlWithCurrentStyle(text);
     if (imageFile) {
       const imageUrl = await readClipboardImageFile(imageFile);
       return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
     }
-    return textToEditorHtml(text);
+    return textToEditorHtmlWithCurrentStyle(text);
   }
 
   if (mode === "text") {
@@ -1875,7 +1952,8 @@ async function buildPasteHtml(mode, payload = {}) {
       const imageUrl = await readClipboardImageFile(imageFile);
       return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
     }
-    const imageUrl = buildPastedTextImage(text || getPlainTextFromHtml(html));
+    const imageHtml = html ? cleanSourcePasteHtml(html) : textToEditorHtmlWithCurrentStyle(text);
+    const imageUrl = buildPastedContentImage(imageHtml, text || getPlainTextFromHtml(html));
     return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 내용 이미지"></p>`;
   }
 
@@ -2422,7 +2500,26 @@ function ensureEditorFontOption(fontName = "") {
 }
 
 function targetNeedsEditorSelectionHold(target) {
-  return Boolean(target?.closest?.("[data-editor-font-family], [data-editor-font-size]"));
+  return Boolean(
+    target?.closest?.(
+      [
+        "[data-editor-font-family]",
+        "[data-editor-font-size]",
+        "[data-editor-command]",
+        "[data-editor-divider]",
+        "[data-line-menu-toggle]",
+        "[data-line-height]",
+        "[data-line-height-custom]",
+        "[data-color-menu-toggle]",
+        "[data-color-value]",
+        "[data-color-custom]",
+        "[data-table-menu-toggle]",
+        "[data-table-insert]",
+        "[data-table-add-row]",
+        "[data-table-add-col]",
+      ].join(", ")
+    )
+  );
 }
 
 function prepareEditorSelectionForToolbar({ holdSelection = false } = {}) {
@@ -2660,6 +2757,43 @@ function clearEditorSelectionHold({ unwrap = false } = {}) {
     }
     node.removeAttribute("data-editor-selection-hold");
   });
+}
+
+function releaseEditorSelectionHold({ preserveSelection = false } = {}) {
+  const heldNodes = [...els.content.querySelectorAll("[data-editor-selection-hold]")];
+  if (heldNodes.length === 0) return false;
+
+  let startMarker = null;
+  let endMarker = null;
+  if (preserveSelection) {
+    startMarker = document.createTextNode("");
+    endMarker = document.createTextNode("");
+    heldNodes[0].before(startMarker);
+    heldNodes.at(-1).after(endMarker);
+  }
+
+  heldNodes.forEach((node) => {
+    if (node.getAttribute("style")) {
+      node.removeAttribute("data-editor-selection-hold");
+      return;
+    }
+    node.replaceWith(...node.childNodes);
+  });
+
+  if (preserveSelection && startMarker?.isConnected && endMarker?.isConnected) {
+    const range = document.createRange();
+    range.setStartAfter(startMarker);
+    range.setEndBefore(endMarker);
+    startMarker.remove();
+    endMarker.remove();
+
+    savedEditorRange = range.cloneRange();
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  return true;
 }
 
 function holdEditorSelection() {
@@ -3062,8 +3196,12 @@ function handleEditorContentInput(event) {
 }
 
 function executeEditorCommand(command, value = null) {
+  const hadHeldSelection = Boolean(els.content.querySelector("[data-editor-selection-hold]"));
   restoreEditorSelection();
   document.execCommand(command, false, value);
+  if (hadHeldSelection) {
+    releaseEditorSelectionHold({ preserveSelection: true });
+  }
   pushEditorHistorySnapshot();
   syncEditorStats();
   syncEditorToolbarState({ force: true });
@@ -3798,11 +3936,13 @@ document.addEventListener("pointerup", () => {
 });
 
 els.toolbar.addEventListener("mousedown", (event) => {
+  const shouldHoldSelection = targetNeedsEditorSelectionHold(event.target);
   if (event.target.closest("input, select")) {
-    prepareEditorSelectionForToolbar({ holdSelection: targetNeedsEditorSelectionHold(event.target) });
+    prepareEditorSelectionForToolbar({ holdSelection: shouldHoldSelection });
     return;
   }
 
+  prepareEditorSelectionForToolbar({ holdSelection: shouldHoldSelection });
   event.preventDefault();
 });
 
