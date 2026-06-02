@@ -1409,12 +1409,14 @@ body.is-away-locked {
 .blog-tree-row {
   position: relative;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: auto auto minmax(0, 1fr) minmax(0, auto);
+  align-items: start;
   gap: 0.12rem;
   min-height: 1.92rem;
-  padding: 0 0.26rem 0 calc(0.25rem + (var(--tree-depth) * 0.72rem));
+  max-width: 100%;
+  padding: 0.16rem 0.22rem 0.16rem calc(0.25rem + (var(--tree-depth) * 0.72rem));
   border-radius: 7px;
+  overflow: hidden;
 }
 
 .blog-tree-row:hover,
@@ -1441,6 +1443,7 @@ body.is-away-locked {
   display: inline-grid;
   width: 1rem;
   height: 1.45rem;
+  margin-top: 0.02rem;
   place-items: center;
   color: #8aa0b2;
   font-size: 0.76rem;
@@ -1455,23 +1458,32 @@ body.is-away-locked {
   align-items: center;
   gap: 0.28rem;
   min-width: 0;
-  min-height: 1.6rem;
+  width: 100%;
+  min-height: 1.45rem;
   padding: 0;
   color: #40586d;
   font-size: 0.76rem;
   font-weight: 700;
   text-align: left;
+  line-height: 1.28;
+  white-space: normal;
 }
 
 .blog-tree-label span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 .blog-tree-node-actions {
   display: inline-flex;
-  gap: 0.1rem;
+  flex: 0 0 auto;
+  gap: 0.06rem;
+  max-width: 2.35rem;
+  margin-top: 0.01rem;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease;
@@ -1485,11 +1497,12 @@ body.is-away-locked {
 
 .blog-tree-node-actions button {
   display: inline-grid;
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 1.08rem;
+  height: 1.08rem;
   place-items: center;
   border-radius: 5px;
   color: #6f8497;
+  padding: 0;
 }
 
 .blog-tree-node-actions button:hover,
@@ -1501,8 +1514,8 @@ body.is-away-locked {
 .tree-action-icon {
   position: relative;
   display: inline-block;
-  width: 0.86rem;
-  height: 0.86rem;
+  width: 0.68rem;
+  height: 0.68rem;
   color: currentColor;
 }
 
