@@ -2194,6 +2194,28 @@ body.is-away-locked {
   cursor: pointer;
 }
 
+.blog-folder-row {
+  background: linear-gradient(90deg, rgba(240, 249, 255, 0.86), rgba(255, 255, 255, 0.96));
+}
+
+.blog-folder-row .blog-post-title {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.blog-folder-row .blog-post-title::before {
+  display: inline-block;
+  width: 0.56rem;
+  height: 0.42rem;
+  margin-right: 0.42rem;
+  border: 1px solid rgba(56, 189, 248, 0.58);
+  border-radius: 2px;
+  background: rgba(224, 242, 254, 0.9);
+  content: "";
+  vertical-align: 0.02rem;
+}
+
 .blog-feature-card:focus-visible {
   outline: 2px solid rgba(56, 189, 248, 0.38);
   outline-offset: 3px;

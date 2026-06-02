@@ -537,22 +537,25 @@ function normalizeActiveNodeId() {
 
 function getActiveTreeMeta() {
   if (state.activeNodeId === ALL_NODE_ID) {
-    return { title: "전체보기", posts: state.posts };
+    return { title: "전체보기", posts: state.posts, folders: [] };
   }
 
   const found = findNode(state.tree, state.activeNodeId);
-  if (!found) return { title: "전체보기", posts: state.posts };
+  if (!found) return { title: "전체보기", posts: state.posts, folders: [] };
+  const folders = (found.node.children || []).filter((node) => node.type === "folder");
 
   if (found.node.type === "category") {
     const category = found.node.filterCategory || found.node.label;
     return {
       title: found.node.label,
+      folders,
       posts: state.posts.filter((post) => (post.category || "전체") === category),
     };
   }
 
   return {
     title: found.node.label,
+    folders,
     posts: state.posts.filter((post) => post.folder_id === found.node.id),
   };
 }
@@ -983,8 +986,15 @@ function renderActivePosts() {
   resetPostPages();
   clearPostSelection();
   const meta = getActiveTreeMeta();
+  if (state.activeNodeId !== ALL_NODE_ID) {
+    setPostListOpen(true);
+  }
   syncWriteButtonHref();
   if (els.boardTitle) els.boardTitle.textContent = meta.title;
+  if (meta.folders?.length > 0) {
+    renderFolderRows(meta.folders, meta.title);
+    return;
+  }
   renderFeatureArea(meta.posts, meta.title);
   renderPosts(meta.posts);
 }
@@ -1665,6 +1675,62 @@ function renderPosts(posts = []) {
   syncPostBulkButtons();
 }
 
+function renderFolderRows(folders = [], scopeTitle = "") {
+  setPostListOpen(true);
+  state.currentScopePosts = [];
+  state.currentScopeTitle = scopeTitle;
+  state.featurePostId = "";
+  syncTitleSortButton();
+  if (els.count) els.count.textContent = `${folders.length}개의 폴더`;
+  if (els.visitorTotalPosts) els.visitorTotalPosts.textContent = String(state.posts.length);
+  if (els.visitorVisiblePosts) els.visitorVisiblePosts.textContent = "0";
+  if (els.featureCard) {
+    els.featureCard.hidden = true;
+    els.featureCard.innerHTML = "";
+    els.featureCard.removeAttribute("data-feature-post-id");
+    els.featureCard.removeAttribute("role");
+    els.featureCard.removeAttribute("tabindex");
+    els.featureCard.removeAttribute("aria-label");
+  }
+  if (els.miniList) {
+    els.miniList.hidden = true;
+    els.miniList.innerHTML = "";
+  }
+  if (!els.postList) return;
+
+  if (folders.length === 0) {
+    els.postList.innerHTML = `
+      <div class="blog-empty-row">
+        <span>표시할 폴더가 없습니다.</span>
+        <span>0</span>
+        <span>-</span>
+        <span aria-hidden="true"></span>
+      </div>
+    `;
+    syncPostBulkButtons();
+    return;
+  }
+
+  els.postList.innerHTML = folders
+    .map((folder) => {
+      const postCount = getPostsForNode(folder).length;
+      const hasChildFolders = (folder.children || []).some((child) => child.type === "folder");
+      return `
+        <div class="blog-post-row blog-folder-row" data-folder-row="${escapeHtml(folder.id)}" role="button" tabindex="0" aria-label="${escapeHtml(folder.label)} 폴더로 이동">
+          <span class="blog-post-title-cell">
+            <span class="blog-post-title">${escapeHtml(folder.label || "폴더")}</span>
+            <small>${hasChildFolders ? "하위 폴더 있음" : `${postCount}개의 글`}</small>
+          </span>
+          <span>${postCount}</span>
+          <span>폴더</span>
+          <span aria-hidden="true"></span>
+        </div>
+      `;
+    })
+    .join("");
+  syncPostBulkButtons();
+}
+
 async function fetchUserPosts(session, id) {
   const rows = await requestRest(
     "posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=100",
@@ -1687,7 +1753,6 @@ if (listToggle && blogBoard) {
 
   listToggle.addEventListener("click", () => {
     setPostListOpen(!isPostListOpen());
-    renderPosts(state.currentScopePosts);
   });
 }
 
@@ -1700,6 +1765,14 @@ function selectFeaturePost(postId) {
   syncPagesToPost(postId);
   renderFeatureArea(state.currentScopePosts, state.currentScopeTitle);
   renderPosts(state.currentScopePosts);
+}
+
+function openFolderNode(folderId) {
+  if (!folderId || !findNode(state.tree, folderId)) return;
+  state.activeNodeId = folderId;
+  if (els.searchInput) els.searchInput.value = "";
+  renderActivePosts();
+  syncTreeSelectionState();
 }
 
 function openFeaturePost() {
@@ -1727,6 +1800,13 @@ els.featureCard?.addEventListener("keydown", (event) => {
 });
 
 els.postList?.addEventListener("click", (event) => {
+  const folderRow = event.target.closest("[data-folder-row]");
+  if (folderRow) {
+    event.preventDefault();
+    openFolderNode(folderRow.dataset.folderRow);
+    return;
+  }
+
   const pageButton = event.target.closest("[data-post-page]");
   if (pageButton) {
     event.preventDefault();
@@ -1761,6 +1841,13 @@ els.postList?.addEventListener("change", (event) => {
 });
 
 els.postList?.addEventListener("keydown", (event) => {
+  const folderRow = event.target.closest("[data-folder-row]");
+  if (folderRow && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    openFolderNode(folderRow.dataset.folderRow);
+    return;
+  }
+
   const row = event.target.closest("[data-post-row]");
   if (!row || (event.key !== "Enter" && event.key !== " ")) return;
   event.preventDefault();
