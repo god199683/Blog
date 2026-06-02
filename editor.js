@@ -38,7 +38,6 @@ const els = {
   title: document.querySelector("[data-editor-title]"),
   category: document.querySelector("[data-editor-category]"),
   folder: document.querySelector("[data-editor-folder]"),
-  folderSecondary: document.querySelector("[data-editor-folder-secondary]"),
   content: document.querySelector("[data-editor-content]"),
   toolbar: document.querySelector("[data-editor-toolbar]"),
   fontFamily: document.querySelector("[data-editor-font-family]"),
@@ -1010,7 +1009,39 @@ function folderMatchesCategory(folder, category = "") {
   return getCategoryKey(folder?.category) === categoryKey;
 }
 
-function renderEditorFolderOptions(selectedFolderId = "", selectedSecondaryFolderId = "") {
+function getFolderPathParts(folder) {
+  const parts = String(folder?.path || folder?.label || "")
+    .split(" / ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const categoryKey = getCategoryKey(folder?.category);
+  if (parts.length > 1 && categoryKey && getCategoryKey(parts[0]) === categoryKey) {
+    parts.shift();
+  }
+  return parts.length ? parts : [folder?.label || ""].filter(Boolean);
+}
+
+function getFolderDropdownLabel(folder) {
+  const depth = Math.max(0, getFolderPathParts(folder).length - 1);
+  return depth ? `${"\u00a0\u00a0".repeat(depth)}- ${folder.label}` : folder.label;
+}
+
+function renderEditorFolderDropdownLabels() {
+  const folderMap = new Map(collectFolderOptions().map((folder) => [folder.id, folder]));
+  Array.from(els.folder.options).forEach((option) => {
+    if (!option.value) return;
+    const folder = folderMap.get(option.value);
+    if (folder) option.textContent = getFolderDropdownLabel(folder);
+  });
+}
+
+function renderEditorFolderSelectedLabel() {
+  const folder = getFolderMeta(els.folder.value);
+  const selectedOption = folder ? Array.from(els.folder.options).find((option) => option.value === folder.id) : null;
+  if (selectedOption) selectedOption.textContent = folder.label;
+}
+
+function renderEditorFolderOptions(selectedFolderId = "", { compactSelected = true } = {}) {
   const category = els.category.value;
   const seenFolders = new Set();
   const allFolders = collectFolderOptions();
@@ -1024,40 +1055,32 @@ function renderEditorFolderOptions(selectedFolderId = "", selectedSecondaryFolde
     });
   const selectedFolder = allFolders.find((folder) => folder.id === selectedFolderId);
   const selected = selectedFolder && folderMatchesCategory(selectedFolder, category) ? selectedFolder.id : "";
-  const selectedSecondaryFolder = allFolders.find((folder) => folder.id === selectedSecondaryFolderId);
-  const selectedSecondary =
-    selectedSecondaryFolder && folderMatchesCategory(selectedSecondaryFolder, category) ? selectedSecondaryFolder.id : "";
 
   els.folder.innerHTML = [
     `<option value="">폴더 없음</option>`,
     ...folders.map(
       (folder) => `
         <option value="${escapeHtml(folder.id)}" ${folder.id === selected ? "selected" : ""}>
-          ${escapeHtml(folder.path || folder.label)}
+          ${escapeHtml(folder.id === selected && compactSelected ? folder.label : getFolderDropdownLabel(folder))}
         </option>
       `
     ),
   ].join("");
 
   els.folder.value = selected;
-  if (els.folderSecondary) {
-    els.folderSecondary.innerHTML = els.folder.innerHTML;
-    els.folderSecondary.value = selectedSecondary;
-  }
   return selected;
 }
 
-function setEditorLocationFields({ category = "", folderId = "", secondaryFolderId = "" } = {}) {
+function setEditorLocationFields({ category = "", folderId = "" } = {}) {
   const folder = getFolderMeta(folderId);
-  const secondaryFolder = getFolderMeta(secondaryFolderId);
-  const nextCategory = secondaryFolder?.category || folder?.category || category || "";
+  const nextCategory = folder?.category || category || "";
   renderEditorCategoryOptions(nextCategory);
   els.category.value = resolveEditorCategoryValue(nextCategory);
-  renderEditorFolderOptions(folder?.id || "", secondaryFolder?.id || "");
+  renderEditorFolderOptions(folder?.id || "");
 }
 
 function getSelectedEditorFolderId() {
-  return els.folderSecondary?.value || els.folder.value || "";
+  return els.folder.value || "";
 }
 
 function getSelectedEditorFolderMeta() {
@@ -2241,7 +2264,6 @@ function saveEditorDraft() {
     title: els.title.value,
     category: els.category.value,
     folder_id: getSelectedEditorFolderId(),
-    folder_secondary_id: els.folderSecondary?.value || "",
     body: els.content.innerHTML,
     published: els.published.checked,
     saved_at: new Date().toISOString(),
@@ -3632,7 +3654,6 @@ async function initEditor() {
   setEditorLocationFields({
     category: source?.category || defaults.category,
     folderId: source?.folder_id || defaults.folderId,
-    secondaryFolderId: source?.folder_secondary_id || "",
   });
   els.content.innerHTML = source?.body || "";
   syncActiveLineHeightFromContent();
@@ -3672,38 +3693,31 @@ document.addEventListener("selectionchange", saveCurrentSelection);
 
 els.category.addEventListener("change", () => {
   const selectedFolder = getFolderMeta(els.folder.value);
-  const selectedSecondaryFolder = getFolderMeta(els.folderSecondary?.value || "");
   const nextFolderId = selectedFolder && folderMatchesCategory(selectedFolder, els.category.value) ? selectedFolder.id : "";
-  const nextSecondaryFolderId =
-    selectedSecondaryFolder && folderMatchesCategory(selectedSecondaryFolder, els.category.value)
-      ? selectedSecondaryFolder.id
-      : "";
-  renderEditorFolderOptions(nextFolderId, nextSecondaryFolderId);
+  renderEditorFolderOptions(nextFolderId);
   markEditorDirty();
 });
 
 els.folder.addEventListener("change", () => {
   const selectedFolder = getFolderMeta(els.folder.value);
   if (selectedFolder) {
-    const selectedSecondaryFolder = getFolderMeta(els.folderSecondary?.value || "");
-    const secondaryFolderId =
-      selectedSecondaryFolder && folderMatchesCategory(selectedSecondaryFolder, selectedFolder.category)
-        ? selectedSecondaryFolder.id
-        : "";
-    setEditorLocationFields({ folderId: selectedFolder.id, secondaryFolderId });
+    setEditorLocationFields({ folderId: selectedFolder.id });
+  } else {
+    renderEditorFolderSelectedLabel();
   }
   markEditorDirty();
 });
 
-els.folderSecondary?.addEventListener("change", () => {
-  const selectedSecondaryFolder = getFolderMeta(els.folderSecondary.value);
-  if (selectedSecondaryFolder) {
-    const selectedFolder = getFolderMeta(els.folder.value);
-    const folderId =
-      selectedFolder && folderMatchesCategory(selectedFolder, selectedSecondaryFolder.category) ? selectedFolder.id : "";
-    setEditorLocationFields({ category: selectedSecondaryFolder.category, folderId, secondaryFolderId: selectedSecondaryFolder.id });
-  }
-  markEditorDirty();
+els.folder.addEventListener("pointerdown", () => {
+  renderEditorFolderDropdownLabels();
+});
+
+els.folder.addEventListener("focus", () => {
+  renderEditorFolderDropdownLabels();
+});
+
+els.folder.addEventListener("blur", () => {
+  renderEditorFolderSelectedLabel();
 });
 
 els.visibilityButtons.forEach((button) => {
