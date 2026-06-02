@@ -7,6 +7,7 @@ const BLOG_PAGE_SIZE_OPTIONS = Object.freeze([5, 10, 20, 30, 40, 50]);
 const BLOG_DEFAULT_PAGE_SIZE = 5;
 const BLOG_PARAMS = new URLSearchParams(window.location.search);
 const PUBLIC_BLOG_ID = String(BLOG_PARAMS.get("user") || "").trim();
+const INITIAL_BLOG_NODE_ID = String(BLOG_PARAMS.get("node") || ALL_NODE_ID).trim() || ALL_NODE_ID;
 
 const state = {
   session: null,
@@ -15,7 +16,7 @@ const state = {
   posts: [],
   tree: [],
   trashItems: [],
-  activeNodeId: ALL_NODE_ID,
+  activeNodeId: INITIAL_BLOG_NODE_ID,
   selectionMode: false,
   selectedNodeIds: new Set(),
   collapsedNodeIds: new Set(),
@@ -65,6 +66,7 @@ const els = {
   postSelectAll: document.querySelector("[data-post-select-all]"),
   postVisibilityToggle: document.querySelector("[data-post-visibility-toggle]"),
   postDeleteSelected: document.querySelector("[data-post-delete-selected]"),
+  writeButton: document.querySelector(".blog-write-button"),
   importLocationDialog: document.querySelector("[data-import-location-dialog]"),
   importLocationOptions: document.querySelector("[data-import-location-options]"),
   importLocationConfirm: document.querySelector("[data-import-location-confirm]"),
@@ -90,6 +92,30 @@ function syncPostBoardToolbar() {
   [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected].forEach((button) => {
     if (button) button.hidden = !isOpen;
   });
+}
+
+function getCurrentBlogReturnHref() {
+  const params = new URLSearchParams();
+  if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
+    params.set("node", state.activeNodeId);
+  }
+  const query = params.toString();
+  return `./my-blog.html${query ? `?${query}` : ""}`;
+}
+
+function getWriteEditorHref() {
+  const params = new URLSearchParams();
+  params.set("mode", "new");
+  if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
+    params.set("node", state.activeNodeId);
+  }
+  params.set("return", getCurrentBlogReturnHref());
+  return `./editor.html?${params.toString()}`;
+}
+
+function syncWriteButtonHref() {
+  if (!els.writeButton || state.publicMode) return;
+  els.writeButton.href = getWriteEditorHref();
 }
 
 function setPostListOpen(isOpen) {
@@ -138,7 +164,7 @@ function setOwnerControlsVisible(visible) {
   const toolsPanel = document.querySelector("[data-tree-tools]");
   if (!visible && toolsPanel) toolsPanel.hidden = true;
   [
-    document.querySelector(".blog-write-button"),
+    els.writeButton,
     document.querySelector("[data-owner-only-link]"),
     document.querySelector(".blog-profile-tool"),
     document.querySelector("[data-file-import]"),
@@ -502,6 +528,13 @@ function findParentCategory(path = []) {
   return [...path].reverse().find((node) => node.type === "category") || null;
 }
 
+function normalizeActiveNodeId() {
+  if (state.activeNodeId === ALL_NODE_ID) return;
+  if (!findNode(state.tree, state.activeNodeId)) {
+    state.activeNodeId = ALL_NODE_ID;
+  }
+}
+
 function getActiveTreeMeta() {
   if (state.activeNodeId === ALL_NODE_ID) {
     return { title: "전체보기", posts: state.posts };
@@ -753,6 +786,7 @@ async function moveSelectedPostsToTrash() {
 }
 
 function syncTreeSelectionState() {
+  syncWriteButtonHref();
   if (els.all) {
     if (state.activeNodeId === ALL_NODE_ID) {
       els.all.setAttribute("aria-current", "page");
@@ -949,6 +983,7 @@ function renderActivePosts() {
   resetPostPages();
   clearPostSelection();
   const meta = getActiveTreeMeta();
+  syncWriteButtonHref();
   if (els.boardTitle) els.boardTitle.textContent = meta.title;
   renderFeatureArea(meta.posts, meta.title);
   renderPosts(meta.posts);
@@ -2009,6 +2044,7 @@ window.blogSession?.ready.then(async (session) => {
   } catch {
     state.tree = [];
   }
+  normalizeActiveNodeId();
   renderTree();
 
   try {

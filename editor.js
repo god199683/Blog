@@ -3678,9 +3678,33 @@ async function publishEditorMaterial() {
   }
 }
 
+function getEditorFallbackReturnHref() {
+  const base = isMaterialEditor() ? "./materials.html" : "./my-blog.html";
+  if (!state.activeNodeId || state.activeNodeId === ALL_FILTER) return base;
+  const params = new URLSearchParams();
+  params.set("node", state.activeNodeId);
+  return `${base}?${params.toString()}`;
+}
+
+function getEditorReturnHref() {
+  const fallback = getEditorFallbackReturnHref();
+  const rawReturn = EDITOR_PARAMS.get("return") || "";
+  if (!rawReturn) return fallback;
+
+  try {
+    const url = new URL(rawReturn, window.location.href);
+    const expectedPage = isMaterialEditor() ? "materials.html" : "my-blog.html";
+    const sameOrigin = url.origin === window.location.origin;
+    const allowedPage = url.pathname.endsWith(`/${expectedPage}`) || url.pathname.endsWith(expectedPage);
+    return sameOrigin && allowedPage ? url.href : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function returnToBlog() {
   if (state.editorSaving) return;
-  window.location.href = isMaterialEditor() ? "./materials.html" : "./my-blog.html";
+  window.location.href = getEditorReturnHref();
 }
 
 async function handleEditorSubmit(event) {
@@ -3708,7 +3732,7 @@ async function handleEditorSubmit(event) {
     clearEditorDraft();
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료 수정이 완료되었습니다." : "자료가 저장되었습니다.") : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
     window.setTimeout(() => {
-      window.location.href = isMaterialEditor() ? "./materials.html" : "./my-blog.html";
+      window.location.href = getEditorReturnHref();
     }, 450);
   } catch (error) {
     setEditorMessage(error.message, "error");
