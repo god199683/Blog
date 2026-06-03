@@ -5,7 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="심플한 공용 블로그 홈">
     <title>블로그 홈</title>
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=20260603-visible">
+    <style>
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+      }
+
+      .site-header,
+      .home-main,
+      .home-hero,
+      .feed-section,
+      .feed-list,
+      .site-footer {
+        display: revert;
+        visibility: visible !important;
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+      }
+
+      .site-header {
+        display: flex !important;
+      }
+
+      .home-main,
+      .site-footer {
+        display: block !important;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
   </head>
   <body>
     <header class="site-header">
@@ -52,7 +89,7 @@
     <footer class="site-footer">
       <p>천천히 읽기 좋은 블로그.</p>
     </footer>
-    <script src="./session.js" defer></script>
-    <script src="./app.js" defer></script>
+    <script src="./session.js?v=20260603-visible" defer></script>
+    <script src="./app.js?v=20260603-visible" defer></script>
   </body>
 </html>
