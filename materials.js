@@ -15,6 +15,9 @@ const SECTION_LABELS = {
 };
 
 const MATERIAL_ALL_NODE_ID = "materials-all";
+const MATERIAL_PARAMS = new URLSearchParams(window.location.search);
+const INITIAL_MATERIAL_NODE_ID = String(MATERIAL_PARAMS.get("node") || MATERIAL_ALL_NODE_ID).trim() || MATERIAL_ALL_NODE_ID;
+const INITIAL_MATERIAL_ID = String(MATERIAL_PARAMS.get("material") || "").trim();
 
 const state = {
   session: null,
@@ -23,11 +26,11 @@ const state = {
   materialTree: [],
   materialError: "",
   activeSection: "materials",
-  activeMaterialNodeId: MATERIAL_ALL_NODE_ID,
+  activeMaterialNodeId: INITIAL_MATERIAL_NODE_ID,
   collapsedMaterialNodeIds: new Set(),
   activeFilter: "all",
   searchQuery: "",
-  selectedMaterialId: "",
+  selectedMaterialId: INITIAL_MATERIAL_ID,
   selectedMaterialIds: new Set(),
   selectedNodeIds: new Set(),
   selectionMode: false,
