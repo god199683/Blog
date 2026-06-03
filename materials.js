@@ -15,9 +15,6 @@ const SECTION_LABELS = {
 };
 
 const MATERIAL_ALL_NODE_ID = "materials-all";
-const MATERIAL_PARAMS = new URLSearchParams(window.location.search);
-const INITIAL_MATERIAL_NODE_ID = String(MATERIAL_PARAMS.get("node") || MATERIAL_ALL_NODE_ID).trim() || MATERIAL_ALL_NODE_ID;
-const INITIAL_MATERIAL_ID = String(MATERIAL_PARAMS.get("material") || "").trim();
 
 const state = {
   session: null,
@@ -26,11 +23,11 @@ const state = {
   materialTree: [],
   materialError: "",
   activeSection: "materials",
-  activeMaterialNodeId: INITIAL_MATERIAL_NODE_ID,
+  activeMaterialNodeId: MATERIAL_ALL_NODE_ID,
   collapsedMaterialNodeIds: new Set(),
   activeFilter: "all",
   searchQuery: "",
-  selectedMaterialId: INITIAL_MATERIAL_ID,
+  selectedMaterialId: "",
   selectedMaterialIds: new Set(),
   selectedNodeIds: new Set(),
   selectionMode: false,
@@ -1560,24 +1557,29 @@ window.blogSession?.ready.then(async (session) => {
   renderBlog(id);
   renderDashboard();
 
-  const profilePromise = loadBlogProfile(session).catch(() => null);
-  const treePromise = loadMaterialTree(session).catch(() => ({
-    tree: [],
-    collapsedIds: [],
-  }));
-  const materialsPromise = loadMaterials(session)
-    .then((materials) => ({ materials, error: "" }))
-    .catch((error) => ({
-      materials: [],
-      error: error.message || "자료실을 불러오지 못했습니다.",
-    }));
+  try {
+    const profile = await loadBlogProfile(session);
+    renderBlog(id, profile);
+  } catch {
+    renderBlog(id);
+  }
 
-  const [profile, treeState, materialState] = await Promise.all([profilePromise, treePromise, materialsPromise]);
-  renderBlog(id, profile);
-  state.materialTree = treeState.tree;
-  state.collapsedMaterialNodeIds = new Set(treeState.collapsedIds);
-  state.materials = materialState.materials;
-  state.materialError = materialState.error;
+  try {
+    const treeState = await loadMaterialTree(session);
+    state.materialTree = treeState.tree;
+    state.collapsedMaterialNodeIds = new Set(treeState.collapsedIds);
+  } catch {
+    state.materialTree = [];
+    state.collapsedMaterialNodeIds = new Set();
+  }
+
+  try {
+    state.materials = await loadMaterials(session);
+    state.materialError = "";
+  } catch (error) {
+    state.materials = [];
+    state.materialError = error.message || "자료실을 불러오지 못했습니다.";
+  }
 
   renderDashboard();
 });

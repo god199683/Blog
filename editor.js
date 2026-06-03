@@ -3712,32 +3712,19 @@ function getEditorFallbackReturnHref() {
   return `${base}?${params.toString()}`;
 }
 
-function applySavedEditorReturnParams(href, savedItem = null) {
-  const savedId = String(savedItem?.id || (isMaterialEditor() ? state.editMaterialId : state.editPostId) || "").trim();
-  if (!savedId) return href;
-
-  try {
-    const url = new URL(href, window.location.href);
-    url.searchParams.set(isMaterialEditor() ? "material" : "post", savedId);
-    return url.href;
-  } catch {
-    return href;
-  }
-}
-
-function getEditorReturnHref(savedItem = null) {
+function getEditorReturnHref() {
   const fallback = getEditorFallbackReturnHref();
   const rawReturn = EDITOR_PARAMS.get("return") || "";
-  if (!rawReturn) return applySavedEditorReturnParams(fallback, savedItem);
+  if (!rawReturn) return fallback;
 
   try {
     const url = new URL(rawReturn, window.location.href);
     const expectedPage = isMaterialEditor() ? "materials.html" : "my-blog.html";
     const sameOrigin = url.origin === window.location.origin;
     const allowedPage = url.pathname.endsWith(`/${expectedPage}`) || url.pathname.endsWith(expectedPage);
-    return applySavedEditorReturnParams(sameOrigin && allowedPage ? url.href : fallback, savedItem);
+    return sameOrigin && allowedPage ? url.href : fallback;
   } catch {
-    return applySavedEditorReturnParams(fallback, savedItem);
+    return fallback;
   }
 }
 
@@ -3763,12 +3750,15 @@ async function handleEditorSubmit(event) {
 
     setEditorBusy(true);
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료를 수정 중입니다..." : "자료를 저장 중입니다...") : state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
-    const savedItem = isMaterialEditor() ? await publishEditorMaterial() : await publishEditorPost();
-    const returnHref = getEditorReturnHref(savedItem);
+    if (isMaterialEditor()) {
+      await publishEditorMaterial();
+    } else {
+      await publishEditorPost();
+    }
     clearEditorDraft();
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료 수정이 완료되었습니다." : "자료가 저장되었습니다.") : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
     window.setTimeout(() => {
-      window.location.href = returnHref;
+      window.location.href = getEditorReturnHref();
     }, 450);
   } catch (error) {
     setEditorMessage(error.message, "error");
