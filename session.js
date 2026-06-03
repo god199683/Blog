@@ -2,10 +2,7 @@
   const SESSION_KEY = "blog.auth.session";
   const SUPABASE_URL = "https://ipylqxcmajrwtvvmrvfy.supabase.co";
   const SUPABASE_ANON_KEY =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
-  const REFRESH_WINDOW_MS = 60 * 1000;
-  const AWAY_LOCK_KEY = "blog.away.locked";
-  const APK_DOWNLOAD_PATH = "./Blog.apk?v=1.0.4";
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpydHZ2bXJ2ZnkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3Nzk5MzY4MywiZXhwIjoyMDkzNTY5NjgzfQ.fake";
 
   function readSession() {
     try {
@@ -15,19 +12,12 @@
     }
   }
 
-  function writeSession(session) {
-    if (!session?.access_token) return null;
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    return session;
-  }
-
   function clearSession() {
-    localStorage.removeItem(SESSION_KEY);
-  }
-
-  function logout() {
-    clearSession();
-    window.location.href = "./";
+    try {
+      localStorage.removeItem(SESSION_KEY);
+    } catch {
+      // ignore storage errors
+    }
   }
 
   function getId(session) {
@@ -39,18 +29,9 @@
     );
   }
 
-  function isPublicHome() {
-    const path = window.location.pathname.replace(/\/+$/, "");
-    return path === "" || path.endsWith("/Blog") || path.endsWith("/index.html");
-  }
-
-  function isAndroidAppWebView() {
-    const ua = navigator.userAgent || "";
-    return /Android/i.test(ua) || /\bwv\b/i.test(ua) || /; wv\)/i.test(ua) || /BlogAndroidApp/i.test(ua);
-  }
-
-  function markAppEnvironment() {
-    document.documentElement.classList.toggle("is-android-app-view", isAndroidAppWebView());
+  function logout() {
+    clearSession();
+    window.location.href = "./";
   }
 
   function ensureTopNav() {
@@ -63,370 +44,40 @@
       nav = document.createElement("nav");
       nav.className = "top-nav";
       nav.setAttribute("aria-label", "상단 메뉴");
-
       const homeLink = document.createElement("a");
       homeLink.href = "./";
       homeLink.textContent = "홈";
       nav.append(homeLink);
       header.insertBefore(nav, actions);
     }
-
     return nav;
-  }
-
-  function ensureAppDownloadButton() {
-    const header = document.querySelector(".site-header");
-    const actions = document.querySelector("[data-auth-actions]");
-    const existingButton = header?.querySelector("[data-apk-download]");
-    if (isAndroidAppWebView()) {
-      existingButton?.remove();
-      return;
-    }
-    if (!header || !actions || existingButton) return;
-
-    const link = document.createElement("a");
-    link.className = "auth-button app-download-button";
-    link.href = APK_DOWNLOAD_PATH;
-    link.download = "Blog.apk";
-    link.dataset.apkDownload = "true";
-    link.textContent = "APK";
-    link.title = "앱 파일 다운로드";
-    link.setAttribute("aria-label", "APK 앱 파일 다운로드");
-
-    header.insertBefore(link, actions);
   }
 
   function syncMyBlogNavLink(session) {
     const nav = ensureTopNav();
     if (!nav) return;
 
-    let link =
-      nav.querySelector("[data-my-blog-link]") ||
-      [...nav.querySelectorAll("a")].find((item) =>
-        (item.getAttribute("href") || "").includes("my-blog.html")
-      );
+    let link = nav.querySelector("[data-my-blog-link]");
     if (!link) {
       link = document.createElement("a");
+      link.dataset.myBlogLink = "true";
       link.textContent = "내 블로그";
       nav.append(link);
     }
-
-    link.dataset.myBlogLink = "true";
     link.href = "./my-blog.html";
-    if (window.location.pathname.endsWith("/my-blog.html")) {
-      link.setAttribute("aria-current", "page");
-    } else {
-      link.removeAttribute("aria-current");
-    }
-
     if (!getId(session)) {
       link.onclick = (event) => {
         event.preventDefault();
         window.alert("로그인 하세요.");
       };
-      return;
-    }
-
-    link.onclick = null;
-  }
-
-  async function requestRest(path, token, options = {}) {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-      ...options,
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-    });
-
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(payload?.message || "요청을 처리하지 못했습니다.");
-    return payload;
-  }
-
-  async function hashAwayPassword(userId, password) {
-    const data = new TextEncoder().encode(`${userId}:away:${password}`);
-    const digest = await crypto.subtle.digest("SHA-256", data);
-    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-
-  async function refreshSession(session) {
-    if (!session?.refresh_token) return session;
-
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ refresh_token: session.refresh_token }),
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.access_token) {
-      if (response.status >= 400 && response.status < 500) clearSession();
-      return null;
-    }
-
-    return writeSession({
-      access_token: payload.access_token,
-      refresh_token: payload.refresh_token || session.refresh_token,
-      expires_at:
-        payload.expires_at ||
-        (payload.expires_in ? Math.floor(Date.now() / 1000) + Number(payload.expires_in) : session.expires_at),
-      user: payload.user || session.user,
-      id: session.id || getId({ user: payload.user || session.user }),
-    });
-  }
-
-  async function getFreshSession() {
-    const session = readSession();
-    if (!session) return null;
-
-    if (session.expires_at && Date.now() >= session.expires_at * 1000 && !session.refresh_token) {
-      clearSession();
-      return null;
-    }
-
-    if (session.expires_at && Date.now() >= session.expires_at * 1000 - REFRESH_WINDOW_MS) {
-      return refreshSession(session);
-    }
-
-    return session;
-  }
-
-  function setupPasswordVisibilityToggles(root = document) {
-    const scope = root?.nodeType === Node.ELEMENT_NODE ? root : document;
-    const directMatches = scope.matches?.('input[type="password"], input[data-password-toggle-ready="true"]')
-      ? [scope]
-      : [];
-    const nestedMatches = scope.querySelectorAll
-      ? [...scope.querySelectorAll('input[type="password"], input[data-password-toggle-ready="true"]')]
-      : [];
-    const inputs = [...directMatches, ...nestedMatches];
-
-    inputs.forEach((input) => {
-      if (!(input instanceof HTMLInputElement) || input.dataset.passwordToggleReady === "true") return;
-      input.dataset.passwordToggleReady = "true";
-      input.dataset.passwordOriginalType = input.type || "password";
-
-      const wrapper = document.createElement("span");
-      wrapper.className = "password-visibility-wrap";
-      wrapper.dataset.passwordVisible = "false";
-      input.classList.add("has-password-visibility-toggle");
-      input.parentNode?.insertBefore(wrapper, input);
-      wrapper.append(input);
-
-      const button = document.createElement("button");
-      button.className = "password-visibility-toggle";
-      button.type = "button";
-      button.title = "비밀번호 표시";
-      button.setAttribute("aria-label", "비밀번호 표시");
-      button.setAttribute("aria-pressed", "false");
-      button.innerHTML = '<span class="password-eye-icon" aria-hidden="true"></span>';
-
-      button.addEventListener("mousedown", (event) => {
-        event.preventDefault();
-      });
-
-      button.addEventListener("click", () => {
-        const selectionStart = input.selectionStart;
-        const selectionEnd = input.selectionEnd;
-        const nextVisible = input.type !== "text";
-        input.type = nextVisible ? "text" : "password";
-        wrapper.dataset.passwordVisible = String(nextVisible);
-        button.title = nextVisible ? "비밀번호 숨김" : "비밀번호 표시";
-        button.setAttribute("aria-label", button.title);
-        button.setAttribute("aria-pressed", String(nextVisible));
-        input.focus({ preventScroll: true });
-        if (selectionStart !== null && selectionEnd !== null) {
-          window.requestAnimationFrame(() => {
-            try {
-              input.setSelectionRange(selectionStart, selectionEnd);
-            } catch {
-              try {
-                input.setSelectionRange(input.value.length, input.value.length);
-              } catch {
-                // Some browser-managed password fields can reject selection changes.
-              }
-            }
-          });
-        }
-      });
-
-      wrapper.append(button);
-    });
-  }
-
-  function observePasswordInputs() {
-    setupPasswordVisibilityToggles();
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => setupPasswordVisibilityToggles(node));
-      });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  function setupCollapsibleSidebars() {
-    document.querySelectorAll("[data-sidebar-toggle]").forEach((button) => {
-      const panel = button.closest(".blog-side-panel");
-      const layout = panel?.closest(".blog-body-layout");
-      if (!panel || !layout || button.dataset.sidebarToggleReady === "true") return;
-
-      button.dataset.sidebarToggleReady = "true";
-      const storageKey = `blog.sidebarCollapsed:${window.location.pathname.split("/").pop() || "home"}`;
-
-      function setCollapsed(collapsed) {
-        panel.classList.toggle("is-sidebar-collapsed", collapsed);
-        layout.classList.toggle("is-sidebar-collapsed", collapsed);
-        button.setAttribute("aria-expanded", String(!collapsed));
-        button.setAttribute("aria-label", collapsed ? "사이드바 펼치기" : "사이드바 접기");
-        button.title = collapsed ? "사이드바 펼치기" : "사이드바 접기";
-        try {
-          localStorage.setItem(storageKey, collapsed ? "1" : "0");
-        } catch {
-          // Sidebar state is a convenience only.
-        }
-      }
-
-      let isCollapsed = false;
-      try {
-        isCollapsed = localStorage.getItem(storageKey) === "1";
-      } catch {
-        isCollapsed = false;
-      }
-      setCollapsed(isCollapsed);
-
-      button.addEventListener("click", () => {
-        setCollapsed(!panel.classList.contains("is-sidebar-collapsed"));
-      });
-    });
-  }
-
-  function ensureScrollJumpButtons() {
-    let jump = document.querySelector(".blog-scroll-jump");
-    if (!jump) {
-      jump = document.createElement("div");
-      jump.className = "blog-scroll-jump";
-      jump.setAttribute("aria-label", "빠른 이동");
-      jump.innerHTML = `
-        <button type="button" data-scroll-top title="최상단으로" aria-label="최상단으로">
-          <span class="scroll-jump-icon scroll-jump-up" aria-hidden="true"></span>
-        </button>
-        <button type="button" data-scroll-bottom title="최하단으로" aria-label="최하단으로">
-          <span class="scroll-jump-icon scroll-jump-down" aria-hidden="true"></span>
-        </button>
-      `;
-      document.body.append(jump);
-    }
-
-    if (jump.dataset.scrollJumpReady === "true") return;
-    jump.dataset.scrollJumpReady = "true";
-
-    const scrollTopButton = jump.querySelector("[data-scroll-top]");
-    const scrollBottomButton = jump.querySelector("[data-scroll-bottom]");
-    const getScrollMax = () =>
-      Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) - window.innerHeight;
-    const syncVisible = () => {
-      jump.hidden = getScrollMax() <= 24;
-    };
-
-    scrollTopButton?.addEventListener("click", () => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-    scrollBottomButton?.addEventListener("click", () => {
-      window.scrollTo({ top: Math.max(0, getScrollMax()), behavior: "smooth" });
-    });
-
-    window.addEventListener("resize", syncVisible);
-    window.addEventListener("load", syncVisible);
-    new MutationObserver(syncVisible).observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-    });
-    syncVisible();
-  }
-
-  async function getAwayPasswordHash(session) {
-    if (!session?.access_token || !session.user?.id) return "";
-    const rows = await requestRest(
-      `account_security?select=away_password_hash&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
-      session.access_token
-    );
-    return Array.isArray(rows) ? rows[0]?.away_password_hash || "" : "";
-  }
-
-  function closeAwayOverlay() {
-    document.querySelector("[data-away-lock]")?.remove();
-    document.body.classList.remove("is-away-locked");
-    sessionStorage.removeItem(AWAY_LOCK_KEY);
-  }
-
-  function showAwayOverlay(session, storedHash) {
-    document.querySelector("[data-away-lock]")?.remove();
-
-    const overlay = document.createElement("div");
-    overlay.className = "away-lock";
-    overlay.dataset.awayLock = "true";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.innerHTML = `
-      <form class="away-lock-card" data-away-unlock-form>
-        <p class="eyebrow">자리비움</p>
-        <h2>화면 잠금</h2>
-        <p>계정 관리에서 정한 자리비움 패스워드를 입력해주세요.</p>
-        <input type="password" autocomplete="off" aria-label="자리비움 패스워드" data-away-password required>
-        <button class="auth-submit" type="submit">돌아가기</button>
-        <p class="auth-message" data-away-error role="status" aria-live="polite"></p>
-      </form>
-    `;
-
-    const form = overlay.querySelector("[data-away-unlock-form]");
-    const input = overlay.querySelector("[data-away-password]");
-    const error = overlay.querySelector("[data-away-error]");
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const enteredHash = await hashAwayPassword(session.user.id, input.value);
-      if (enteredHash === storedHash) {
-        closeAwayOverlay();
-        return;
-      }
-      input.value = "";
-      error.textContent = "자리비움 패스워드가 맞지 않습니다.";
-      error.dataset.type = "error";
-      input.focus();
-    });
-
-    document.body.append(overlay);
-    document.body.classList.add("is-away-locked");
-    setupPasswordVisibilityToggles(overlay);
-    window.setTimeout(() => input.focus(), 0);
-  }
-
-  async function lockAway(session, persist = true) {
-    try {
-      const storedHash = await getAwayPasswordHash(session);
-      if (!storedHash) {
-        window.alert("계정 관리 페이지에서 자리비움 패스워드를 먼저 만들어주세요.");
-        return;
-      }
-      if (persist) sessionStorage.setItem(AWAY_LOCK_KEY, "1");
-      showAwayOverlay(session, storedHash);
-    } catch {
-      window.alert("자리비움 잠금을 불러오지 못했습니다.");
+    } else {
+      link.onclick = null;
     }
   }
 
   function renderHeader(session) {
     const actions = document.querySelector("[data-auth-actions]");
     if (!actions) return;
-
     const id = getId(session);
     if (!id) return;
 
@@ -436,8 +87,6 @@
     const accountButton = document.createElement("button");
     accountButton.className = "account-menu-button";
     accountButton.type = "button";
-    accountButton.setAttribute("aria-haspopup", "true");
-    accountButton.setAttribute("aria-expanded", "false");
     accountButton.textContent = id;
 
     const dropdown = document.createElement("div");
@@ -448,69 +97,67 @@
     accountLink.href = "./account.html";
     accountLink.textContent = "계정 관리";
 
-    const awayButton = document.createElement("button");
-    awayButton.type = "button";
-    awayButton.textContent = "자리비움";
-    awayButton.addEventListener("click", () => {
-      closeDropdown();
-      lockAway(session);
-    });
-
     const logoutButton = document.createElement("button");
     logoutButton.type = "button";
     logoutButton.textContent = "로그아웃";
     logoutButton.addEventListener("click", logout);
 
-    dropdown.append(accountLink);
-    if (!isPublicHome()) dropdown.append(awayButton);
-    dropdown.append(logoutButton);
+    dropdown.append(accountLink, logoutButton);
     account.append(accountButton, dropdown);
-
-    function closeDropdown() {
-      dropdown.hidden = true;
-      accountButton.setAttribute("aria-expanded", "false");
-    }
+    actions.replaceChildren(account);
 
     accountButton.addEventListener("click", (event) => {
       event.stopPropagation();
-      const willOpen = dropdown.hidden;
-      dropdown.hidden = !willOpen;
-      accountButton.setAttribute("aria-expanded", String(willOpen));
+      dropdown.hidden = !dropdown.hidden;
     });
 
     document.addEventListener("click", (event) => {
-      if (!account.contains(event.target)) closeDropdown();
+      if (!account.contains(event.target)) dropdown.hidden = true;
     });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeDropdown();
-    });
-
-    actions.replaceChildren(account);
   }
 
-  markAppEnvironment();
-  observePasswordInputs();
-  setupCollapsibleSidebars();
-  ensureScrollJumpButtons();
-  ensureAppDownloadButton();
+  async function getFreshSession() {
+    return readSession();
+  }
 
-  const ready = getFreshSession().then((session) => {
-    syncMyBlogNavLink(session);
-    renderHeader(session);
-    if (session && sessionStorage.getItem(AWAY_LOCK_KEY) === "1") {
-      lockAway(session, false);
+  function init() {
+    try {
+      const ready = Promise.resolve(getFreshSession()).then((session) => {
+        try {
+          syncMyBlogNavLink(session);
+          renderHeader(session);
+        } catch (error) {
+          console.warn("session header skipped", error);
+        }
+        return session;
+      });
+
+      window.blogSession = {
+        ready,
+        read: readSession,
+        refresh: getFreshSession,
+        clear: clearSession,
+        logout,
+        lockAway: () => window.alert("자리비움 기능은 임시로 비활성화되었습니다."),
+        getId,
+      };
+    } catch (error) {
+      console.warn("session init skipped", error);
+      window.blogSession = {
+        ready: Promise.resolve(null),
+        read: readSession,
+        refresh: getFreshSession,
+        clear: clearSession,
+        logout,
+        lockAway: () => {},
+        getId,
+      };
     }
-    return session;
-  });
+  }
 
-  window.blogSession = {
-    ready,
-    read: readSession,
-    refresh: getFreshSession,
-    clear: clearSession,
-    logout,
-    lockAway,
-    getId,
-  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
 })();
