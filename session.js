@@ -1,8 +1,6 @@
 (() => {
   const SESSION_KEY = "blog.auth.session";
-  const SUPABASE_URL = "https://ipylqxcmajrwtvvmrvfy.supabase.co";
-  const SUPABASE_ANON_KEY =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpydHZ2bXJ2ZnkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3Nzk5MzY4MywiZXhwIjoyMDkzNTY5NjgzfQ.fake";
+  const APK_DOWNLOAD_PATH = "./Blog.apk?v=1.0.4";
 
   function readSession() {
     try {
@@ -16,7 +14,7 @@
     try {
       localStorage.removeItem(SESSION_KEY);
     } catch {
-      // ignore storage errors
+      // Storage can be blocked in some WebViews.
     }
   }
 
@@ -34,6 +32,19 @@
     window.location.href = "./";
   }
 
+  function isAndroidAppWebView() {
+    const ua = navigator.userAgent || "";
+    return /BlogAndroidApp/i.test(ua) || /; wv\)/i.test(ua) || /\bwv\b/i.test(ua);
+  }
+
+  function markAppEnvironment() {
+    try {
+      document.documentElement.classList.toggle("is-android-app-view", isAndroidAppWebView());
+    } catch {
+      // Ignore environment marker failures.
+    }
+  }
+
   function ensureTopNav() {
     const header = document.querySelector(".site-header");
     const actions = document.querySelector("[data-auth-actions]");
@@ -44,12 +55,20 @@
       nav = document.createElement("nav");
       nav.className = "top-nav";
       nav.setAttribute("aria-label", "상단 메뉴");
-      const homeLink = document.createElement("a");
-      homeLink.href = "./";
-      homeLink.textContent = "홈";
-      nav.append(homeLink);
       header.insertBefore(nav, actions);
     }
+
+    let homeLink = [...nav.querySelectorAll("a")].find((item) => {
+      const href = item.getAttribute("href") || "";
+      return href === "./" || href.endsWith("index.html");
+    });
+    if (!homeLink) {
+      homeLink = document.createElement("a");
+      homeLink.href = "./";
+      homeLink.textContent = "홈";
+      nav.prepend(homeLink);
+    }
+
     return nav;
   }
 
@@ -57,14 +76,28 @@
     const nav = ensureTopNav();
     if (!nav) return;
 
-    let link = nav.querySelector("[data-my-blog-link]");
+    const allMyBlogLinks = [...nav.querySelectorAll("a")].filter((item) => {
+      const href = item.getAttribute("href") || "";
+      return item.dataset.myBlogLink === "true" || href.includes("my-blog.html") || item.textContent.trim() === "내 블로그";
+    });
+
+    let link = allMyBlogLinks[0];
+    allMyBlogLinks.slice(1).forEach((item) => item.remove());
+
     if (!link) {
       link = document.createElement("a");
-      link.dataset.myBlogLink = "true";
       link.textContent = "내 블로그";
       nav.append(link);
     }
+
+    link.dataset.myBlogLink = "true";
     link.href = "./my-blog.html";
+    if (window.location.pathname.endsWith("/my-blog.html")) {
+      link.setAttribute("aria-current", "page");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+
     if (!getId(session)) {
       link.onclick = (event) => {
         event.preventDefault();
@@ -75,9 +108,33 @@
     }
   }
 
+  function ensureAppDownloadButton() {
+    const header = document.querySelector(".site-header");
+    const actions = document.querySelector("[data-auth-actions]");
+    if (!header || !actions) return;
+
+    const existingButton = header.querySelector("[data-apk-download]");
+    if (isAndroidAppWebView()) {
+      existingButton?.remove();
+      return;
+    }
+    if (existingButton) return;
+
+    const link = document.createElement("a");
+    link.className = "auth-button app-download-button";
+    link.href = APK_DOWNLOAD_PATH;
+    link.download = "Blog.apk";
+    link.dataset.apkDownload = "true";
+    link.textContent = "APK";
+    link.title = "앱 파일 다운로드";
+    link.setAttribute("aria-label", "APK 앱 파일 다운로드");
+    header.insertBefore(link, actions);
+  }
+
   function renderHeader(session) {
     const actions = document.querySelector("[data-auth-actions]");
     if (!actions) return;
+
     const id = getId(session);
     if (!id) return;
 
@@ -87,6 +144,8 @@
     const accountButton = document.createElement("button");
     accountButton.className = "account-menu-button";
     accountButton.type = "button";
+    accountButton.setAttribute("aria-haspopup", "true");
+    accountButton.setAttribute("aria-expanded", "false");
     accountButton.textContent = id;
 
     const dropdown = document.createElement("div");
@@ -106,13 +165,23 @@
     account.append(accountButton, dropdown);
     actions.replaceChildren(account);
 
+    function closeDropdown() {
+      dropdown.hidden = true;
+      accountButton.setAttribute("aria-expanded", "false");
+    }
+
     accountButton.addEventListener("click", (event) => {
       event.stopPropagation();
-      dropdown.hidden = !dropdown.hidden;
+      const willOpen = dropdown.hidden;
+      dropdown.hidden = !willOpen;
+      accountButton.setAttribute("aria-expanded", String(willOpen));
     });
 
     document.addEventListener("click", (event) => {
-      if (!account.contains(event.target)) dropdown.hidden = true;
+      if (!account.contains(event.target)) closeDropdown();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDropdown();
     });
   }
 
@@ -121,38 +190,27 @@
   }
 
   function init() {
-    try {
-      const ready = Promise.resolve(getFreshSession()).then((session) => {
-        try {
-          syncMyBlogNavLink(session);
-          renderHeader(session);
-        } catch (error) {
-          console.warn("session header skipped", error);
-        }
-        return session;
-      });
+    markAppEnvironment();
+    const ready = Promise.resolve(getFreshSession()).then((session) => {
+      try {
+        syncMyBlogNavLink(session);
+        ensureAppDownloadButton();
+        renderHeader(session);
+      } catch (error) {
+        console.warn("session header skipped", error);
+      }
+      return session;
+    });
 
-      window.blogSession = {
-        ready,
-        read: readSession,
-        refresh: getFreshSession,
-        clear: clearSession,
-        logout,
-        lockAway: () => window.alert("자리비움 기능은 임시로 비활성화되었습니다."),
-        getId,
-      };
-    } catch (error) {
-      console.warn("session init skipped", error);
-      window.blogSession = {
-        ready: Promise.resolve(null),
-        read: readSession,
-        refresh: getFreshSession,
-        clear: clearSession,
-        logout,
-        lockAway: () => {},
-        getId,
-      };
-    }
+    window.blogSession = {
+      ready,
+      read: readSession,
+      refresh: getFreshSession,
+      clear: clearSession,
+      logout,
+      lockAway: () => window.alert("자리비움 기능은 임시로 비활성화되었습니다."),
+      getId,
+    };
   }
 
   if (document.readyState === "loading") {
