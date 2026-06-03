@@ -6,6 +6,7 @@
     <meta name="description" content="블로그 계정 관리">
     <title>계정 관리 | 블로그 홈</title>
     <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./password-toggle.css">
   </head>
   <body>
     <header class="site-header">
@@ -38,15 +39,30 @@
           <form class="account-form" data-password-form>
             <div class="form-field">
               <label for="current-password">현재 비밀번호</label>
-              <input id="current-password" name="current-password" type="password" autocomplete="current-password" required>
+              <div class="password-toggle-wrap">
+                <input id="current-password" name="current-password" type="password" autocomplete="current-password" required>
+                <button class="password-toggle-button" type="button" data-password-toggle="current-password" aria-label="비밀번호 표시" aria-pressed="false">
+                  <span class="password-toggle-icon" aria-hidden="true"></span>
+                </button>
+              </div>
             </div>
             <div class="form-field">
               <label for="new-password">새 비밀번호</label>
-              <input id="new-password" name="new-password" type="password" autocomplete="new-password" required>
+              <div class="password-toggle-wrap">
+                <input id="new-password" name="new-password" type="password" autocomplete="new-password" required>
+                <button class="password-toggle-button" type="button" data-password-toggle="new-password" aria-label="비밀번호 표시" aria-pressed="false">
+                  <span class="password-toggle-icon" aria-hidden="true"></span>
+                </button>
+              </div>
             </div>
             <div class="form-field">
               <label for="new-password-confirm">새 비밀번호 확인</label>
-              <input id="new-password-confirm" name="new-password-confirm" type="password" autocomplete="new-password" required>
+              <div class="password-toggle-wrap">
+                <input id="new-password-confirm" name="new-password-confirm" type="password" autocomplete="new-password" required>
+                <button class="password-toggle-button" type="button" data-password-toggle="new-password-confirm" aria-label="비밀번호 표시" aria-pressed="false">
+                  <span class="password-toggle-icon" aria-hidden="true"></span>
+                </button>
+              </div>
             </div>
             <button class="auth-submit" type="submit">비밀번호 변경</button>
             <p class="auth-message" data-password-message role="status" aria-live="polite"></p>
@@ -58,11 +74,21 @@
           <form class="account-form" data-away-form>
             <div class="form-field">
               <label for="away-password">자리비움 패스워드</label>
-              <input id="away-password" name="away-password" type="password" autocomplete="new-password" required>
+              <div class="password-toggle-wrap">
+                <input id="away-password" name="away-password" type="password" autocomplete="new-password" required>
+                <button class="password-toggle-button" type="button" data-password-toggle="away-password" aria-label="비밀번호 표시" aria-pressed="false">
+                  <span class="password-toggle-icon" aria-hidden="true"></span>
+                </button>
+              </div>
             </div>
             <div class="form-field">
               <label for="away-password-confirm">자리비움 패스워드 확인</label>
-              <input id="away-password-confirm" name="away-password-confirm" type="password" autocomplete="new-password" required>
+              <div class="password-toggle-wrap">
+                <input id="away-password-confirm" name="away-password-confirm" type="password" autocomplete="new-password" required>
+                <button class="password-toggle-button" type="button" data-password-toggle="away-password-confirm" aria-label="비밀번호 표시" aria-pressed="false">
+                  <span class="password-toggle-icon" aria-hidden="true"></span>
+                </button>
+              </div>
               <p class="field-help">상단바의 자리비움 버튼을 눌렀을 때 화면 잠금을 푸는 용도로 사용됩니다.</p>
             </div>
             <button class="auth-submit" type="submit">자리비움 패스워드 저장</button>
@@ -82,5 +108,19 @@
 
     <script src="./session.js" defer></script>
     <script src="./account.js" defer></script>
+    <script src="./scroll-jump.js" defer></script>
+    <script>
+      document.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-password-toggle]');
+        if (!button) return;
+        const input = document.getElementById(button.dataset.passwordToggle);
+        if (!input) return;
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        button.classList.toggle('is-visible', show);
+        button.setAttribute('aria-pressed', String(show));
+        button.setAttribute('aria-label', show ? '비밀번호 숨김' : '비밀번호 표시');
+      });
+    </script>
   </body>
 </html>
