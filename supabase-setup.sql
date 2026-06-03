@@ -233,6 +233,79 @@ begin
     select 1
     from pg_policies
     where schemaname = 'public'
+      and tablename = 'posts'
+      and policyname = 'Authenticated users can read own posts'
+  ) then
+    create policy "Authenticated users can read own posts"
+    on public.posts
+    for select
+    to authenticated
+    using ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'posts'
+      and policyname = 'Authenticated users can create own posts'
+  ) then
+    create policy "Authenticated users can create own posts"
+    on public.posts
+    for insert
+    to authenticated
+    with check ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'posts'
+      and policyname = 'Authenticated users can update own posts'
+  ) then
+    create policy "Authenticated users can update own posts"
+    on public.posts
+    for update
+    to authenticated
+    using ((select auth.uid()) = user_id)
+    with check ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'posts'
+      and policyname = 'Authenticated users can delete own posts'
+  ) then
+    create policy "Authenticated users can delete own posts"
+    on public.posts
+    for delete
+    to authenticated
+    using ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
       and tablename = 'material_trees'
       and policyname = 'Authenticated users can read own material tree'
   ) then
@@ -296,482 +369,6 @@ begin
     for delete
     to authenticated
     using ((select auth.uid()) = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_materials'
-      and policyname = 'Authenticated users can read own materials'
-  ) then
-    create policy "Authenticated users can read own materials"
-    on public.blog_materials
-    for select
-    to authenticated
-    using ((select auth.uid()) = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_materials'
-      and policyname = 'Authenticated users can create own materials'
-  ) then
-    create policy "Authenticated users can create own materials"
-    on public.blog_materials
-    for insert
-    to authenticated
-    with check ((select auth.uid()) = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_materials'
-      and policyname = 'Authenticated users can update own materials'
-  ) then
-    create policy "Authenticated users can update own materials"
-    on public.blog_materials
-    for update
-    to authenticated
-    using ((select auth.uid()) = user_id)
-    with check ((select auth.uid()) = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_materials'
-      and policyname = 'Authenticated users can delete own materials'
-  ) then
-    create policy "Authenticated users can delete own materials"
-    on public.blog_materials
-    for delete
-    to authenticated
-    using ((select auth.uid()) = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_profiles'
-      and policyname = 'Anyone can read blog profiles'
-  ) then
-    create policy "Anyone can read blog profiles"
-    on public.blog_profiles
-    for select
-    to anon, authenticated
-    using (true);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_profiles'
-      and policyname = 'Authenticated users can read own blog profile'
-  ) then
-    create policy "Authenticated users can read own blog profile"
-    on public.blog_profiles
-    for select
-    to authenticated
-    using (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-create schema if not exists private;
-
-grant usage on schema private to authenticated;
-
-create or replace function private.delete_current_user_account()
-returns jsonb
-language plpgsql
-security definer
-set search_path = public, auth, pg_temp
-as $$
-declare
-  v_user_id uuid := auth.uid();
-  v_result jsonb;
-begin
-  if v_user_id is null then
-    raise exception '로그인이 필요합니다.' using errcode = '28000';
-  end if;
-
-  with
-    deleted_materials as (
-      delete from public.blog_materials where user_id = v_user_id returning 1
-    ),
-    deleted_posts as (
-      delete from public.posts where user_id = v_user_id returning 1
-    ),
-    deleted_blog_trees as (
-      delete from public.blog_trees where user_id = v_user_id returning 1
-    ),
-    deleted_material_trees as (
-      delete from public.material_trees where user_id = v_user_id returning 1
-    ),
-    deleted_hints as (
-      delete from public.password_hints where user_id = v_user_id returning 1
-    ),
-    deleted_security as (
-      delete from public.account_security where user_id = v_user_id returning 1
-    ),
-    deleted_profiles as (
-      delete from public.blog_profiles where user_id = v_user_id returning 1
-    )
-  select jsonb_build_object(
-    'ok', true,
-    'posts', (select count(*) from deleted_posts),
-    'materials', (select count(*) from deleted_materials),
-    'blogTrees', (select count(*) from deleted_blog_trees),
-    'materialTrees', (select count(*) from deleted_material_trees),
-    'passwordHints', (select count(*) from deleted_hints),
-    'accountSecurity', (select count(*) from deleted_security),
-    'profiles', (select count(*) from deleted_profiles)
-  ) into v_result;
-
-  delete from auth.users where id = v_user_id;
-
-  return v_result;
-end;
-$$;
-
-revoke all on function private.delete_current_user_account() from public, anon;
-grant execute on function private.delete_current_user_account() to authenticated;
-
-create or replace function public.delete_current_user_account()
-returns jsonb
-language plpgsql
-security invoker
-set search_path = public, private, pg_temp
-as $$
-begin
-  return private.delete_current_user_account();
-end;
-$$;
-
-revoke all on function public.delete_current_user_account() from public, anon;
-grant execute on function public.delete_current_user_account() to authenticated;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_profiles'
-      and policyname = 'Authenticated users can create own blog profile'
-  ) then
-    create policy "Authenticated users can create own blog profile"
-    on public.blog_profiles
-    for insert
-    to authenticated
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_profiles'
-      and policyname = 'Authenticated users can update own blog profile'
-  ) then
-    create policy "Authenticated users can update own blog profile"
-    on public.blog_profiles
-    for update
-    to authenticated
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'account_security'
-      and policyname = 'Authenticated users can read own account security'
-  ) then
-    create policy "Authenticated users can read own account security"
-    on public.account_security
-    for select
-    to authenticated
-    using (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'account_security'
-      and policyname = 'Authenticated users can create own account security'
-  ) then
-    create policy "Authenticated users can create own account security"
-    on public.account_security
-    for insert
-    to authenticated
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'account_security'
-      and policyname = 'Authenticated users can update own account security'
-  ) then
-    create policy "Authenticated users can update own account security"
-    on public.account_security
-    for update
-    to authenticated
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_trees'
-      and policyname = 'Authenticated users can read own tree'
-  ) then
-    create policy "Authenticated users can read own tree"
-    on public.blog_trees
-    for select
-    to authenticated
-    using (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'password_hints'
-      and policyname = 'Anyone can read password hints'
-  ) then
-    create policy "Anyone can read password hints"
-    on public.password_hints
-    for select
-    to anon, authenticated
-    using (true);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'password_hints'
-      and policyname = 'Authenticated users can create own password hint'
-  ) then
-    create policy "Authenticated users can create own password hint"
-    on public.password_hints
-    for insert
-    to authenticated
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'password_hints'
-      and policyname = 'Authenticated users can update own password hint'
-  ) then
-    create policy "Authenticated users can update own password hint"
-    on public.password_hints
-    for update
-    to authenticated
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_trees'
-      and policyname = 'Authenticated users can create own tree'
-  ) then
-    create policy "Authenticated users can create own tree"
-    on public.blog_trees
-    for insert
-    to authenticated
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_trees'
-      and policyname = 'Authenticated users can update own tree'
-  ) then
-    create policy "Authenticated users can update own tree"
-    on public.blog_trees
-    for update
-    to authenticated
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'blog_trees'
-      and policyname = 'Authenticated users can delete own tree'
-  ) then
-    create policy "Authenticated users can delete own tree"
-    on public.blog_trees
-    for delete
-    to authenticated
-    using (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'posts'
-      and policyname = 'Authenticated users can read own posts'
-  ) then
-    create policy "Authenticated users can read own posts"
-    on public.posts
-    for select
-    to authenticated
-    using (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'posts'
-      and policyname = 'Authenticated users can create own posts'
-  ) then
-    create policy "Authenticated users can create own posts"
-    on public.posts
-    for insert
-    to authenticated
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'posts'
-      and policyname = 'Authenticated users can update own posts'
-  ) then
-    create policy "Authenticated users can update own posts"
-    on public.posts
-    for update
-    to authenticated
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-  end if;
-end
-$$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = 'posts'
-      and policyname = 'Authenticated users can delete own posts'
-  ) then
-    create policy "Authenticated users can delete own posts"
-    on public.posts
-    for delete
-    to authenticated
-    using (auth.uid() = user_id);
   end if;
 end
 $$;
