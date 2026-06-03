@@ -193,7 +193,8 @@ function buildViewerUrl(nextPostId, useBookMode = bookMode, pageTarget = "") {
   if (viewerSource) nextParams.set("from", viewerSource);
   if (viewerUser) nextParams.set("user", viewerUser);
   if (viewerNode) nextParams.set("node", viewerNode);
-  if (viewerReturn) nextParams.set("return", viewerReturn);
+  const listReturn = getViewerListReturnHref(nextPostId);
+  if (listReturn) nextParams.set("return", listReturn);
   return `./viewer.html?${nextParams.toString()}`;
 }
 
@@ -202,6 +203,49 @@ function syncBookModeUrl() {
   const pageTarget = bookMode && bookPageIndex > 0 ? String(bookPageIndex + 1) : "";
   const nextUrl = buildViewerUrl(postId, bookMode, pageTarget);
   window.history.replaceState(null, "", nextUrl);
+}
+
+function getAllowedViewerReturnUrl() {
+  if (!viewerReturn) return null;
+
+  try {
+    const url = new URL(viewerReturn, window.location.href);
+    const pageName = url.pathname.split("/").pop() || "index.html";
+    const allowedPages = new Set(["index.html", "my-blog.html", "materials.html"]);
+    if (url.origin !== window.location.origin || !allowedPages.has(pageName)) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+function toViewerRelativePageHref(url) {
+  const pageName = url.pathname.split("/").pop() || "index.html";
+  const query = url.searchParams.toString();
+  return `./${pageName}${query ? `?${query}` : ""}`;
+}
+
+function getViewerListReturnHref(targetPostId = postId) {
+  const fallback = getViewerFallbackBackHref();
+  const url = getAllowedViewerReturnUrl();
+  if (!url) {
+    if (!targetPostId || viewerTarget === "materials" || viewerSource === "home") return fallback;
+    const fallbackUrl = new URL(fallback, window.location.href);
+    if ((fallbackUrl.pathname.split("/").pop() || "index.html") === "my-blog.html") {
+      fallbackUrl.searchParams.set("post", targetPostId);
+      return toViewerRelativePageHref(fallbackUrl);
+    }
+    return fallback;
+  }
+
+  const pageName = url.pathname.split("/").pop() || "index.html";
+  if (targetPostId && pageName === "my-blog.html") {
+    url.searchParams.set("post", targetPostId);
+  }
+  if (viewerTarget === "materials" && targetPostId && pageName === "materials.html") {
+    url.searchParams.set("material", targetPostId);
+  }
+  return toViewerRelativePageHref(url);
 }
 
 function clampReaderFontSize(size) {
@@ -516,18 +560,8 @@ function getViewerFallbackBackHref() {
 }
 
 function getViewerBackHref() {
-  const fallback = getViewerFallbackBackHref();
-  if (!viewerReturn) return fallback;
-
-  try {
-    const url = new URL(viewerReturn, window.location.href);
-    const pageName = url.pathname.split("/").pop() || "index.html";
-    const allowedPages = new Set(["index.html", "my-blog.html", "materials.html"]);
-    if (url.origin !== window.location.origin || !allowedPages.has(pageName)) return fallback;
-    return viewerReturn;
-  } catch {
-    return fallback;
-  }
+  if (bookMode && viewerTarget !== "materials") return buildViewerUrl(postId, false);
+  return getViewerListReturnHref(postId);
 }
 
 function getViewerEditHref() {
@@ -539,7 +573,7 @@ function getViewerEditHref() {
     nextParams.set("post", postId);
   }
   if (viewerNode) nextParams.set("node", viewerNode);
-  nextParams.set("return", getViewerBackHref());
+  nextParams.set("return", bookMode ? buildViewerUrl(postId, true, bookPageIndex > 0 ? String(bookPageIndex + 1) : "") : buildViewerUrl(postId, false));
   return `./editor.html?${nextParams.toString()}`;
 }
 

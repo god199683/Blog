@@ -8,6 +8,7 @@ const BLOG_DEFAULT_PAGE_SIZE = 5;
 const BLOG_PARAMS = new URLSearchParams(window.location.search);
 const PUBLIC_BLOG_ID = String(BLOG_PARAMS.get("user") || "").trim();
 const INITIAL_BLOG_NODE_ID = String(BLOG_PARAMS.get("node") || ALL_NODE_ID).trim() || ALL_NODE_ID;
+const INITIAL_BLOG_POST_ID = String(BLOG_PARAMS.get("post") || "").trim();
 
 const state = {
   session: null,
@@ -21,7 +22,7 @@ const state = {
   selectedNodeIds: new Set(),
   collapsedNodeIds: new Set(),
   titleSortDirection: "asc",
-  featurePostId: "",
+  featurePostId: INITIAL_BLOG_POST_ID,
   currentScopePosts: [],
   currentScopeTitle: "전체보기",
   listPage: 1,
@@ -96,13 +97,16 @@ function syncPostBoardToolbar() {
   });
 }
 
-function getCurrentBlogReturnHref() {
+function getCurrentBlogReturnHref({ postId = "" } = {}) {
   const params = new URLSearchParams();
   if (state.publicMode && state.id) {
     params.set("user", state.id);
   }
   if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
     params.set("node", state.activeNodeId);
+  }
+  if (postId) {
+    params.set("post", postId);
   }
   const query = params.toString();
   return `./my-blog.html${query ? `?${query}` : ""}`;
@@ -302,7 +306,7 @@ function getPostViewHref(post = {}) {
   if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
     params.set("node", state.activeNodeId);
   }
-  params.set("return", getCurrentBlogReturnHref());
+  params.set("return", getCurrentBlogReturnHref({ postId: post.id || "" }));
   return `./viewer.html?${params.toString()}`;
 }
 
@@ -945,6 +949,9 @@ function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
   state.currentScopePosts = posts;
   state.currentScopeTitle = scopeTitle;
   state.featurePostId = selectedPost ? getPostId(selectedPost) : "";
+  if (selectedPost) {
+    syncPagesToPost(getPostId(selectedPost));
+  }
 
   renderMiniList(visiblePosts, scopeTitle);
   if (!els.featureCard) return;
@@ -1772,8 +1779,6 @@ function renderPosts(posts = []) {
 function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
   setPostListOpen(true);
   const visiblePosts = getTitleSortedPosts(posts);
-  const pageMeta = getPagedPosts(visiblePosts, state.listPage, state.listPageSize);
-  state.listPage = pageMeta.page;
   state.currentScopePosts = posts;
   state.currentScopeTitle = scopeTitle;
   syncTitleSortButton();
@@ -1799,6 +1804,9 @@ function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
     }
   }
   if (!els.postList) return;
+
+  const pageMeta = getPagedPosts(visiblePosts, state.listPage, state.listPageSize);
+  state.listPage = pageMeta.page;
 
   if (folders.length === 0 && visiblePosts.length === 0) {
     els.postList.innerHTML = `

@@ -958,6 +958,10 @@ body.is-away-locked {
   transform: translateY(-50%);
 }
 
+.blog-scroll-jump[hidden] {
+  display: none;
+}
+
 .blog-scroll-jump button {
   display: inline-grid;
   width: 1.85rem;
@@ -6036,7 +6040,7 @@ body {
 }
 
 .editor-surface {
-  font-family: var(--font-reading);
+  font-family: "a시네마L", var(--font-reading);
   font-size: 15px;
   line-height: 1.74;
 }

@@ -1570,6 +1570,24 @@ function cleanEditorHtml(html = "") {
   return template.innerHTML.replace(/\u200b/g, "").trim();
 }
 
+function applyDefaultEditorFontHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const defaultFont = formatFontFamilyValue(DEFAULT_EDITOR_FONT);
+  if (!defaultFont) return html;
+
+  const blocks = [...template.content.querySelectorAll(EDITOR_BLOCK_SELECTOR)];
+  const targets = blocks.length ? blocks : [...template.content.children];
+  targets.forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    if (!node.textContent.replace(/\u200b/g, "").trim()) return;
+    if (node.style.getPropertyValue("font-family")) return;
+    node.style.setProperty("font-family", defaultFont);
+  });
+
+  return template.innerHTML.trim();
+}
+
 function getPlainTextWeight(text = "") {
   return String(text || "").replace(/\u200b/g, "").replace(/\s+/g, "").length;
 }
@@ -2273,14 +2291,20 @@ function getClipboardPayload(event) {
   return { html, text, imageFiles };
 }
 
-function handleEditorPaste(event) {
+async function handleEditorPaste(event) {
   if (!nodeIsInEditor(event.target)) return;
   const payload = getClipboardPayload(event);
   if (!payload) return;
 
   event.preventDefault();
   saveCurrentSelection();
-  showPasteMenu(event, payload);
+  closePasteMenu({ finalizeNative: false });
+  try {
+    const html = await buildPasteHtml("text", payload);
+    insertEditorHtml(html);
+  } catch (error) {
+    window.alert(error.message || "붙여넣기를 처리하지 못했습니다.");
+  }
 }
 
 function getReadingTimeLabel(text = "") {
@@ -2290,7 +2314,7 @@ function getReadingTimeLabel(text = "") {
 }
 
 function collectEditorValues() {
-  const body = cleanEditorHtml(els.content.innerHTML);
+  const body = cleanEditorHtml(applyDefaultEditorFontHtml(cleanEditorHtml(els.content.innerHTML)));
   const plainText = getPlainTextFromHtml(body);
   const characterCounts = getCharacterCounts(body);
   const folder = getSelectedEditorFolderMeta();

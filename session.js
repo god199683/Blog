@@ -307,6 +307,51 @@
     });
   }
 
+  function ensureScrollJumpButtons() {
+    let jump = document.querySelector(".blog-scroll-jump");
+    if (!jump) {
+      jump = document.createElement("div");
+      jump.className = "blog-scroll-jump";
+      jump.setAttribute("aria-label", "빠른 이동");
+      jump.innerHTML = `
+        <button type="button" data-scroll-top title="최상단으로" aria-label="최상단으로">
+          <span class="scroll-jump-icon scroll-jump-up" aria-hidden="true"></span>
+        </button>
+        <button type="button" data-scroll-bottom title="최하단으로" aria-label="최하단으로">
+          <span class="scroll-jump-icon scroll-jump-down" aria-hidden="true"></span>
+        </button>
+      `;
+      document.body.append(jump);
+    }
+
+    if (jump.dataset.scrollJumpReady === "true") return;
+    jump.dataset.scrollJumpReady = "true";
+
+    const scrollTopButton = jump.querySelector("[data-scroll-top]");
+    const scrollBottomButton = jump.querySelector("[data-scroll-bottom]");
+    const getScrollMax = () =>
+      Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) - window.innerHeight;
+    const syncVisible = () => {
+      jump.hidden = getScrollMax() <= 24;
+    };
+
+    scrollTopButton?.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    scrollBottomButton?.addEventListener("click", () => {
+      window.scrollTo({ top: Math.max(0, getScrollMax()), behavior: "smooth" });
+    });
+
+    window.addEventListener("resize", syncVisible);
+    window.addEventListener("load", syncVisible);
+    new MutationObserver(syncVisible).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+    syncVisible();
+  }
+
   async function getAwayPasswordHash(session) {
     if (!session?.access_token || !session.user?.id) return "";
     const rows = await requestRest(
@@ -447,6 +492,7 @@
   markAppEnvironment();
   observePasswordInputs();
   setupCollapsibleSidebars();
+  ensureScrollJumpButtons();
   ensureAppDownloadButton();
 
   const ready = getFreshSession().then((session) => {
