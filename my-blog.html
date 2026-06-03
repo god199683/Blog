@@ -108,6 +108,9 @@
               <button class="blog-board-icon-button" type="button" data-post-delete-selected disabled title="선택 글 삭제" aria-label="선택 글 삭제" hidden>
                 <span class="tree-action-icon tree-action-trash" aria-hidden="true"></span>
               </button>
+              <button class="blog-board-icon-button" type="button" data-post-move-selected disabled title="선택 글 이동" aria-label="선택 글 이동" hidden>
+                <span class="board-action-icon board-action-move" aria-hidden="true"></span>
+              </button>
               <button class="blog-board-toggle" type="button" data-list-toggle aria-expanded="false">목록열기</button>
             </div>
           </div>
@@ -154,7 +157,7 @@
     <div class="editor-location-backdrop" data-import-location-dialog hidden>
       <section class="editor-location-dialog" role="dialog" aria-modal="true" aria-labelledby="import-location-title">
         <header class="editor-location-head">
-          <h2 id="import-location-title">불러올 위치 선택</h2>
+          <h2 id="import-location-title" data-import-location-title>불러올 위치 선택</h2>
           <button type="button" data-import-location-close aria-label="닫기">×</button>
         </header>
         <div class="editor-location-list" data-import-location-options></div>

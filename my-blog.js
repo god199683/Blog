@@ -66,8 +66,10 @@ const els = {
   postSelectAll: document.querySelector("[data-post-select-all]"),
   postVisibilityToggle: document.querySelector("[data-post-visibility-toggle]"),
   postDeleteSelected: document.querySelector("[data-post-delete-selected]"),
+  postMoveSelected: document.querySelector("[data-post-move-selected]"),
   writeButton: document.querySelector(".blog-write-button"),
   importLocationDialog: document.querySelector("[data-import-location-dialog]"),
+  importLocationTitle: document.querySelector("[data-import-location-title]"),
   importLocationOptions: document.querySelector("[data-import-location-options]"),
   importLocationConfirm: document.querySelector("[data-import-location-confirm]"),
   importLocationCancel: document.querySelector("[data-import-location-cancel]"),
@@ -89,7 +91,7 @@ function syncPostBoardToolbar() {
     listToggle.setAttribute("aria-expanded", String(isOpen));
   }
 
-  [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected].forEach((button) => {
+  [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected, els.postMoveSelected].forEach((button) => {
     if (button) button.hidden = !isOpen;
   });
 }
@@ -148,6 +150,15 @@ async function requestRest(path, token, options = {}) {
   return payload;
 }
 
+async function getFreshBlogSession() {
+  const fresh = await window.blogSession?.refresh?.();
+  if (fresh?.access_token) {
+    state.session = fresh;
+    return fresh;
+  }
+  return state.session;
+}
+
 function renderBlog(id, profile = null) {
   const title = profile?.blog_title || `${id}'s Blog`;
   if (els.title) els.title.textContent = title;
@@ -181,7 +192,7 @@ function setOwnerControlsVisible(visible) {
   if (visible) {
     syncPostBoardToolbar();
   } else {
-    [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected].forEach((button) => {
+    [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected, els.postMoveSelected].forEach((button) => {
       if (button) button.hidden = true;
     });
   }
@@ -561,10 +572,14 @@ function getActiveTreeMeta() {
 
   if (found.node.type === "category") {
     const category = found.node.filterCategory || found.node.label;
+    const childFolderIds = new Set();
+    folders.forEach((folder) => collectNodeFolderIds(folder, childFolderIds));
     return {
       title: found.node.label,
       folders,
-      posts: state.posts.filter((post) => (post.category || "전체") === category),
+      posts: state.posts.filter(
+        (post) => (post.category || "전체") === category && (!post.folder_id || !childFolderIds.has(post.folder_id))
+      ),
     };
   }
 
@@ -703,6 +718,9 @@ function syncPostBulkButtons() {
   if (els.postDeleteSelected) {
     els.postDeleteSelected.disabled = !state.postSelectionMode || !hasSelectedPosts || state.postBulkBusy;
   }
+  if (els.postMoveSelected) {
+    els.postMoveSelected.disabled = !state.postSelectionMode || !hasSelectedPosts || state.postBulkBusy;
+  }
 }
 
 function togglePostSelection(postId, forceValue = null) {
@@ -715,7 +733,7 @@ function togglePostSelection(postId, forceValue = null) {
   } else {
     state.selectedPostIds.delete(key);
   }
-  renderPosts(state.currentScopePosts);
+  if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
 }
 
 function toggleCurrentPagePostSelection() {
@@ -731,7 +749,7 @@ function toggleCurrentPagePostSelection() {
       state.selectedPostIds.delete(id);
     }
   });
-  renderPosts(state.currentScopePosts);
+  if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
 }
 
 async function updatePostVisibility(postId, published) {
@@ -797,6 +815,62 @@ async function moveSelectedPostsToTrash() {
     }
   } catch (error) {
     window.alert(error.message || "선택한 글을 삭제하지 못했습니다.");
+  } finally {
+    state.postBulkBusy = false;
+    syncPostBulkButtons();
+  }
+}
+
+function buildPostLocationPatch(location) {
+  return {
+    category: location?.category || "전체",
+    folder: location?.folder?.label || null,
+    folder_id: location?.folder?.id || null,
+    folder_name: location?.folder?.label || null,
+    folder_path: location?.folder?.path || null,
+  };
+}
+
+async function moveSelectedPostsToLocation() {
+  if (!state.postSelectionMode || state.selectedPostIds.size === 0) return;
+  const selectedIds = [...state.selectedPostIds];
+  const selectedPosts = state.posts.filter((post) => selectedIds.includes(getPostId(post)));
+  if (selectedPosts.length === 0) return;
+
+  const location = await openImportLocationDialog({
+    title: "이동할 위치 선택",
+    confirmLabel: "선택 후 이동",
+  });
+  if (!location) return;
+
+  const session = await getFreshBlogSession();
+  if (!session?.access_token) {
+    window.alert("로그인이 필요합니다.");
+    return;
+  }
+
+  const patch = buildPostLocationPatch(location);
+  state.postBulkBusy = true;
+  syncPostBulkButtons();
+
+  try {
+    await Promise.all(
+      selectedIds.map((id) =>
+        requestRest(`posts?id=eq.${encodeURIComponent(id)}`, session.access_token, {
+          method: "PATCH",
+          headers: {
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(patch),
+        })
+      )
+    );
+    state.posts = state.posts.map((post) => (selectedIds.includes(getPostId(post)) ? { ...post, ...patch } : post));
+    state.selectedPostIds.clear();
+    state.postSelectionMode = false;
+    renderActivePosts();
+  } catch (error) {
+    window.alert(error.message || "선택한 글을 이동하지 못했습니다.");
   } finally {
     state.postBulkBusy = false;
     syncPostBulkButtons();
@@ -1007,7 +1081,7 @@ function renderActivePosts() {
   syncWriteButtonHref();
   if (els.boardTitle) els.boardTitle.textContent = meta.title;
   if (meta.folders?.length > 0) {
-    renderFolderRows(meta.folders, meta.title);
+    renderFolderRows(meta.folders, meta.title, meta.posts);
     return;
   }
   renderFeatureArea(meta.posts, meta.title);
@@ -1429,12 +1503,17 @@ function closeImportLocationDialog(result = null) {
   }
 }
 
-function openImportLocationDialog() {
+function openImportLocationDialog({
+  title = "불러올 위치 선택",
+  confirmLabel = "선택 후 불러오기",
+} = {}) {
   if (!els.importLocationDialog || !els.importLocationOptions) {
     return Promise.resolve(getActiveLocationMeta());
   }
 
   renderImportLocationOptions(getImportLocationKeyFromActiveNode());
+  if (els.importLocationTitle) els.importLocationTitle.textContent = title;
+  if (els.importLocationConfirm) els.importLocationConfirm.textContent = confirmLabel;
   els.importLocationDialog.hidden = false;
 
   return new Promise((resolve) => {
@@ -1690,33 +1769,41 @@ function renderPosts(posts = []) {
   syncPostBulkButtons();
 }
 
-function renderFolderRows(folders = [], scopeTitle = "") {
+function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
   setPostListOpen(true);
-  state.currentScopePosts = [];
+  const visiblePosts = getTitleSortedPosts(posts);
+  const pageMeta = getPagedPosts(visiblePosts, state.listPage, state.listPageSize);
+  state.listPage = pageMeta.page;
+  state.currentScopePosts = posts;
   state.currentScopeTitle = scopeTitle;
-  state.featurePostId = "";
   syncTitleSortButton();
-  if (els.count) els.count.textContent = `${folders.length}개의 폴더`;
+  if (els.count) {
+    els.count.textContent = `${folders.length}개의 폴더${posts.length ? ` · ${posts.length}개의 글` : ""}`;
+  }
   if (els.visitorTotalPosts) els.visitorTotalPosts.textContent = String(state.posts.length);
-  if (els.visitorVisiblePosts) els.visitorVisiblePosts.textContent = "0";
-  if (els.featureCard) {
+  if (els.visitorVisiblePosts) els.visitorVisiblePosts.textContent = String(posts.length);
+
+  if (posts.length > 0) {
+    renderFeatureArea(posts, scopeTitle);
+  } else if (els.featureCard) {
+    state.featurePostId = "";
     els.featureCard.hidden = true;
     els.featureCard.innerHTML = "";
     els.featureCard.removeAttribute("data-feature-post-id");
     els.featureCard.removeAttribute("role");
     els.featureCard.removeAttribute("tabindex");
     els.featureCard.removeAttribute("aria-label");
-  }
-  if (els.miniList) {
-    els.miniList.hidden = true;
-    els.miniList.innerHTML = "";
+    if (els.miniList) {
+      els.miniList.hidden = true;
+      els.miniList.innerHTML = "";
+    }
   }
   if (!els.postList) return;
 
-  if (folders.length === 0) {
+  if (folders.length === 0 && visiblePosts.length === 0) {
     els.postList.innerHTML = `
       <div class="blog-empty-row">
-        <span>표시할 폴더가 없습니다.</span>
+        <span>표시할 폴더나 글이 없습니다.</span>
         <span>0</span>
         <span>-</span>
         <span aria-hidden="true"></span>
@@ -1726,7 +1813,7 @@ function renderFolderRows(folders = [], scopeTitle = "") {
     return;
   }
 
-  els.postList.innerHTML = folders
+  const folderRows = folders
     .map((folder) => {
       const postCount = getPostsForNode(folder).length;
       const hasChildFolders = (folder.children || []).some((child) => child.type === "folder");
@@ -1743,6 +1830,52 @@ function renderFolderRows(folders = [], scopeTitle = "") {
       `;
     })
     .join("");
+
+  const postRows = pageMeta.posts
+    .map((post) => {
+      const visibility = post.published === false ? "비공개" : "공개";
+      const postId = getPostId(post);
+      const isSelected = postId && postId === state.featurePostId;
+      const isPostSelected = postId && state.selectedPostIds.has(postId);
+      return `
+        <div class="blog-post-row ${isSelected ? "is-selected" : ""} ${isPostSelected ? "is-post-selected" : ""}" data-post-row="${escapeHtml(postId)}" role="button" tabindex="0" aria-pressed="${state.postSelectionMode ? String(isPostSelected) : String(isSelected)}">
+          <span class="blog-post-title-cell">
+            ${
+              state.postSelectionMode
+                ? `<input class="blog-post-check" type="checkbox" data-post-check="${escapeHtml(postId)}" ${isPostSelected ? "checked" : ""} aria-label="${escapeHtml(post.title || "제목 없는 글")} 선택">`
+                : ""
+            }
+            <span class="blog-post-title">
+              ${escapeHtml(post.title || "제목 없는 글")}
+            </span>
+            <small>${escapeHtml(getPostLocationLabel(post))} · ${visibility}</small>
+          </span>
+          <span>0</span>
+          <span>${formatDate(post.published_at || post.created_at)}</span>
+          <span aria-hidden="true"></span>
+        </div>
+      `;
+    })
+    .join("");
+
+  const footer =
+    visiblePosts.length > 0
+      ? `
+      <div class="blog-list-footer">
+        <button type="button" data-post-page="prev" ${pageMeta.page <= 1 ? "disabled" : ""}>이전</button>
+        <span class="blog-page-state">${pageMeta.page} / ${pageMeta.totalPages}</span>
+        <button type="button" data-post-page="next" ${pageMeta.page >= pageMeta.totalPages ? "disabled" : ""}>다음</button>
+        <label class="blog-page-size-control">
+          <span class="sr-only">표시 개수</span>
+          <select data-post-page-size aria-label="표시 개수">
+            ${renderBlogPageSizeOptions(state.listPageSize)}
+          </select>
+        </label>
+      </div>
+    `
+      : "";
+
+  els.postList.innerHTML = `${folderRows}${postRows}${footer}`;
   syncPostBulkButtons();
 }
 
@@ -1771,6 +1904,15 @@ if (listToggle && blogBoard) {
   });
 }
 
+function renderCurrentFolderAndPostRowsIfNeeded() {
+  if (els.searchInput?.value.trim()) return false;
+  const meta = getActiveTreeMeta();
+  if (!meta.folders?.length) return false;
+  if (els.boardTitle) els.boardTitle.textContent = meta.title;
+  renderFolderRows(meta.folders, meta.title, meta.posts);
+  return true;
+}
+
 function selectFeaturePost(postId) {
   if (!postId) return;
   const exists = state.currentScopePosts.some((post) => getPostId(post) === String(postId));
@@ -1778,6 +1920,7 @@ function selectFeaturePost(postId) {
 
   state.featurePostId = String(postId);
   syncPagesToPost(postId);
+  if (renderCurrentFolderAndPostRowsIfNeeded()) return;
   renderFeatureArea(state.currentScopePosts, state.currentScopeTitle);
   renderPosts(state.currentScopePosts);
 }
@@ -1826,7 +1969,7 @@ els.postList?.addEventListener("click", (event) => {
   if (pageButton) {
     event.preventDefault();
     state.listPage += pageButton.dataset.postPage === "next" ? 1 : -1;
-    renderPosts(state.currentScopePosts);
+    if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
     return;
   }
 
@@ -1852,7 +1995,7 @@ els.postList?.addEventListener("change", (event) => {
   if (!sizeSelect) return;
   state.listPageSize = normalizeBlogPageSize(sizeSelect.value);
   state.listPage = 1;
-  renderPosts(state.currentScopePosts);
+  if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
 });
 
 els.postList?.addEventListener("keydown", (event) => {
@@ -1937,7 +2080,7 @@ els.latestSort?.addEventListener("click", () => {
 els.postSelectMode?.addEventListener("click", () => {
   state.postSelectionMode = !state.postSelectionMode;
   clearPostSelection();
-  renderPosts(state.currentScopePosts);
+  if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
 });
 
 els.postSelectAll?.addEventListener("click", () => {
@@ -1950,6 +2093,10 @@ els.postVisibilityToggle?.addEventListener("click", () => {
 
 els.postDeleteSelected?.addEventListener("click", () => {
   moveSelectedPostsToTrash();
+});
+
+els.postMoveSelected?.addEventListener("click", () => {
+  moveSelectedPostsToLocation();
 });
 
 els.toolsToggle?.addEventListener("click", () => {

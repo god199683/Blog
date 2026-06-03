@@ -1837,6 +1837,29 @@ body.is-away-locked {
   transform: translate(-50%, -50%);
 }
 
+.board-action-move::before,
+.board-action-move::after {
+  position: absolute;
+  content: "";
+}
+
+.board-action-move::before {
+  left: 0.1rem;
+  top: 0.38rem;
+  width: 0.58rem;
+  border-top: 1.8px solid currentColor;
+}
+
+.board-action-move::after {
+  right: 0.08rem;
+  top: 0.25rem;
+  width: 0.28rem;
+  height: 0.28rem;
+  border-top: 1.8px solid currentColor;
+  border-right: 1.8px solid currentColor;
+  transform: rotate(45deg);
+}
+
 .board-action-latest::before,
 .board-action-latest::after {
   position: absolute;
@@ -3107,7 +3130,7 @@ body.is-away-locked {
   border-radius: 8px;
   background: #fff;
   color: #1f3144;
-  font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-family: "a시네마L", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   font-size: 16px;
   line-height: 1.68;
   outline: none;

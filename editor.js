@@ -11,6 +11,7 @@ const EDITOR_HISTORY_LIMIT = 120;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
 const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th";
+const DEFAULT_EDITOR_FONT = "a시네마L";
 const EDITOR_MIDDLE_ELLIPSIS = "⋯";
 const EDITOR_ELLIPSIS_BACKSPACE_TEXT = "....";
 
@@ -76,6 +77,7 @@ let pendingPastePayload = null;
 let pasteMenu = null;
 
 const BUILTIN_EDITOR_FONTS = [
+  DEFAULT_EDITOR_FONT,
   "Noto Sans KR",
   "Malgun Gothic",
   "Gulim",
@@ -937,7 +939,7 @@ function getEditorFonts() {
 }
 
 function renderEditorFontOptions(selectedFont = "") {
-  const selected = selectedFont || els.fontFamily.value || BUILTIN_EDITOR_FONTS[0];
+  const selected = selectedFont || DEFAULT_EDITOR_FONT;
   els.fontFamily.innerHTML = getEditorFonts()
     .map((font) => `<option value="${escapeHtml(font)}" ${font === selected ? "selected" : ""}>${escapeHtml(font)}</option>`)
     .join("");
@@ -963,8 +965,8 @@ function removeEditorFont() {
 
   const nextFonts = getStoredEditorFonts().filter((font) => font !== name);
   saveStoredEditorFonts(nextFonts);
-  renderEditorFontOptions(BUILTIN_EDITOR_FONTS[0]);
-  applyFontFamily(BUILTIN_EDITOR_FONTS[0]);
+  renderEditorFontOptions(DEFAULT_EDITOR_FONT);
+  applyFontFamily(DEFAULT_EDITOR_FONT);
 }
 
 function getCategoryOptions() {
