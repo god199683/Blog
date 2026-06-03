@@ -766,17 +766,21 @@ function renderDashboard() {
   renderMaterialRows(materials);
   renderMiniList(materials);
   const sortLabel = getTitleSortLabel();
-  if (els.titleSort) {
-    els.titleSort.dataset.sortDirection = state.titleSortDirection;
-    els.titleSort.setAttribute("aria-label", sortLabel);
-    els.titleSort.setAttribute("title", sortLabel);
-  }
+  [els.titleSort, ...document.querySelectorAll("[data-mini-material-title-sort]")]
+    .filter(Boolean)
+    .forEach((button) => {
+      button.dataset.sortDirection = state.titleSortDirection;
+      button.setAttribute("aria-label", sortLabel);
+      button.setAttribute("title", sortLabel);
+    });
   const latestLabel = getLatestSortLabel();
-  if (els.latestSort) {
-    els.latestSort.classList.toggle("is-active", state.titleSortDirection === "none");
-    els.latestSort.setAttribute("aria-label", latestLabel);
-    els.latestSort.setAttribute("title", latestLabel);
-  }
+  [els.latestSort, ...document.querySelectorAll("[data-mini-material-latest-sort]")]
+    .filter(Boolean)
+    .forEach((button) => {
+      button.classList.toggle("is-active", state.titleSortDirection === "none");
+      button.setAttribute("aria-label", latestLabel);
+      button.setAttribute("title", latestLabel);
+    });
 }
 
 async function loadBlogProfile(session) {

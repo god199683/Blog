@@ -343,8 +343,22 @@ function getPostMediaSource(post = {}) {
   return post.cover_image || getFirstImageFromHtml(post.body || "");
 }
 
+function getPostSortTime(post = {}) {
+  const time = Date.parse(post.published_at || post.created_at || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
 function getTitleSortedPosts(posts = []) {
-  if (!state.titleSortDirection) return posts;
+  if (state.titleSortDirection !== "asc" && state.titleSortDirection !== "desc") {
+    return posts
+      .map((post, index) => ({ post, index }))
+      .sort((a, b) => {
+        const timeDiff = getPostSortTime(b.post) - getPostSortTime(a.post);
+        return timeDiff || a.index - b.index;
+      })
+      .map((item) => item.post);
+  }
+
   const direction = state.titleSortDirection === "desc" ? -1 : 1;
   return posts
     .map((post, index) => ({ post, index }))
@@ -416,6 +430,10 @@ function getTitleSortLabel() {
   return state.titleSortDirection === "asc" ? "제목 내림차순 정렬" : "제목 오름차순 정렬";
 }
 
+function getLatestSortLabel() {
+  return state.titleSortDirection === "none" ? "최신글 정렬 적용됨" : "최신글 정렬";
+}
+
 function syncTitleSortButton() {
   const direction = state.titleSortDirection || "none";
   const label = getTitleSortLabel();
@@ -426,12 +444,14 @@ function syncTitleSortButton() {
       button.setAttribute("aria-label", label);
       button.title = label;
     });
-  if (els.latestSort) {
-    const latestLabel = direction === "none" ? "최신글 정렬 적용됨" : "최신글 정렬";
-    els.latestSort.classList.toggle("is-active", direction === "none");
-    els.latestSort.setAttribute("aria-label", latestLabel);
-    els.latestSort.title = latestLabel;
-  }
+  const latestLabel = getLatestSortLabel();
+  [els.latestSort, ...document.querySelectorAll("[data-mini-latest-sort]")]
+    .filter(Boolean)
+    .forEach((button) => {
+      button.classList.toggle("is-active", direction === "none");
+      button.setAttribute("aria-label", latestLabel);
+      button.title = latestLabel;
+    });
 }
 
 function toggleTitleSort() {
@@ -444,7 +464,7 @@ function toggleTitleSort() {
 }
 
 function setLatestSort() {
-  state.titleSortDirection = "";
+  state.titleSortDirection = "none";
   if (els.searchInput?.value.trim()) {
     applyBlogSearch(els.searchInput.value);
   } else {
@@ -1039,7 +1059,7 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
     <div class="blog-mini-list-head">
       <strong>이 블로그 ${escapeHtml(title)} 글</strong>
       <span class="blog-mini-sort-actions">
-        <button class="blog-title-sort blog-mini-title-sort blog-latest-sort ${state.titleSortDirection ? "" : "is-active"}" type="button" data-mini-latest-sort aria-label="최신글 정렬" title="최신글 정렬">
+        <button class="blog-title-sort blog-mini-title-sort blog-latest-sort ${state.titleSortDirection === "none" ? "is-active" : ""}" type="button" data-mini-latest-sort aria-label="최신글 정렬" title="최신글 정렬">
           <span class="board-action-icon board-action-latest" aria-hidden="true"></span>
         </button>
         <button class="blog-title-sort blog-mini-title-sort" type="button" data-mini-title-sort data-sort-direction="${escapeHtml(state.titleSortDirection || "none")}" aria-label="${escapeHtml(sortLabel)}" title="${escapeHtml(sortLabel)}">
