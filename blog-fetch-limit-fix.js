@@ -3,6 +3,7 @@
   if (typeof originalFetch !== "function") return;
 
   const TREE_CACHE_KEY = "blog.cached.tree.response";
+  const POSTS_CACHE_KEY = "blog.cached.posts.response";
 
   function patchPostsUrl(value) {
     const raw = String(value || "");
@@ -27,27 +28,53 @@
     return raw.includes("/rest/v1/blog_trees");
   }
 
-  function getCachedTreeResponse() {
+  function isPostsRequest(value) {
+    const raw = String(value || "");
+    return raw.includes("/rest/v1/posts");
+  }
+
+  function readCache(key) {
     try {
-      const cached = JSON.parse(sessionStorage.getItem(TREE_CACHE_KEY) || localStorage.getItem(TREE_CACHE_KEY) || "null");
-      if (Array.isArray(cached) && cached[0]?.tree && Array.isArray(cached[0].tree) && cached[0].tree.length > 0) {
-        return cached;
-      }
+      return JSON.parse(sessionStorage.getItem(key) || localStorage.getItem(key) || "null");
     } catch {
       return null;
+    }
+  }
+
+  function writeCache(key, payload) {
+    try {
+      const text = JSON.stringify(payload);
+      sessionStorage.setItem(key, text);
+      localStorage.setItem(key, text);
+    } catch {
+      // Ignore blocked storage.
+    }
+  }
+
+  function getCachedTreeResponse() {
+    const cached = readCache(TREE_CACHE_KEY);
+    if (Array.isArray(cached) && cached[0]?.tree && Array.isArray(cached[0].tree) && cached[0].tree.length > 0) {
+      return cached;
     }
     return null;
   }
 
   function saveTreeResponse(payload) {
-    try {
-      if (!Array.isArray(payload) || !Array.isArray(payload[0]?.tree) || payload[0].tree.length === 0) return;
-      const text = JSON.stringify(payload);
-      sessionStorage.setItem(TREE_CACHE_KEY, text);
-      localStorage.setItem(TREE_CACHE_KEY, text);
-    } catch {
-      // Ignore blocked storage.
-    }
+    if (!Array.isArray(payload) || !Array.isArray(payload[0]?.tree) || payload[0].tree.length === 0) return;
+    writeCache(TREE_CACHE_KEY, payload);
+  }
+
+  function getCachedPostsResponse() {
+    const cached = readCache(POSTS_CACHE_KEY);
+    if (Array.isArray(cached) && cached.length > 0) return cached;
+    return null;
+  }
+
+  function savePostsResponse(payload) {
+    if (!Array.isArray(payload) || payload.length === 0) return;
+    const hasRealPost = payload.some((post) => post && (post.id || post.title || post.created_at));
+    if (!hasRealPost) return;
+    writeCache(POSTS_CACHE_KEY, payload);
   }
 
   function makeJsonResponse(payload, sourceResponse = null) {
@@ -88,6 +115,37 @@
     return response;
   }
 
+  async function protectPostsResponse(response, sourceUrl) {
+    if (!isPostsRequest(sourceUrl)) return response;
+
+    if (!response.ok) {
+      const cached = getCachedPostsResponse();
+      if (cached) return makeJsonResponse(cached, response);
+      return response;
+    }
+
+    try {
+      const clone = response.clone();
+      const payload = await clone.json();
+      if (Array.isArray(payload) && payload.length > 0) {
+        savePostsResponse(payload);
+        return response;
+      }
+      const cached = getCachedPostsResponse();
+      if (cached) return makeJsonResponse(cached, response);
+    } catch {
+      const cached = getCachedPostsResponse();
+      if (cached) return makeJsonResponse(cached, response);
+    }
+
+    return response;
+  }
+
+  async function protectBlogResponse(response, sourceUrl) {
+    const treeProtected = await protectTreeResponse(response, sourceUrl);
+    return protectPostsResponse(treeProtected, sourceUrl);
+  }
+
   window.fetch = function patchedBlogFetch(input, init) {
     const sourceUrl = typeof input === "string" ? input : input?.url;
 
@@ -95,12 +153,12 @@
       const nextUrl = patchPostsUrl(sourceUrl);
       if (sourceUrl && nextUrl !== sourceUrl) {
         const request = typeof input === "string" ? nextUrl : new Request(nextUrl, input);
-        return originalFetch.call(this, request, init).then((response) => protectTreeResponse(response, nextUrl));
+        return originalFetch.call(this, request, init).then((response) => protectBlogResponse(response, nextUrl));
       }
     } catch (error) {
       console.warn("blog fetch patch skipped", error);
     }
 
-    return originalFetch.call(this, input, init).then((response) => protectTreeResponse(response, sourceUrl));
+    return originalFetch.call(this, input, init).then((response) => protectBlogResponse(response, sourceUrl));
   };
 })();
