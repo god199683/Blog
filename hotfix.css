@@ -1,0 +1,102 @@
+/* Hotfix: keep pages visible while preserving the main theme. */
+html,
+body {
+  min-height: 100%;
+}
+
+body:not(.is-book-mode) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+body > .site-header,
+body > main,
+body > footer {
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+body > .site-header {
+  display: flex !important;
+}
+
+body > main {
+  display: block !important;
+}
+
+body > footer {
+  display: block !important;
+}
+
+.home-main,
+.auth-main,
+.blog-main,
+.account-main,
+.editor-main,
+.viewer-main,
+.trash-page-main,
+.materials-main {
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.home-hero,
+.feed-section,
+.auth-shell,
+.auth-copy,
+.auth-card,
+.blog-cover,
+.blog-body-layout,
+.blog-side-panel,
+.blog-board,
+.account-shell,
+.editor-shell,
+.viewer-shell,
+.trash-page-shell,
+.materials-shell {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .site-header {
+    position: sticky !important;
+    top: 0 !important;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .brand,
+  .top-nav,
+  .auth-actions {
+    min-width: 0;
+  }
+
+  .home-main,
+  .auth-main,
+  .blog-main,
+  .account-main,
+  .materials-main,
+  .trash-page-main,
+  .viewer-main,
+  .editor-main {
+    width: min(100% - 1.2rem, 1080px) !important;
+    margin-right: auto !important;
+    margin-left: auto !important;
+  }
+
+  .home-hero,
+  .auth-shell,
+  .blog-body-layout,
+  .account-shell,
+  .editor-shell {
+    max-width: 100% !important;
+  }
+}
