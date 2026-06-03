@@ -3712,17 +3712,6 @@ function getEditorFallbackReturnHref() {
   return `${base}?${params.toString()}`;
 }
 
-function getSavedReturnNodeId(savedItem = {}) {
-  const folderId = savedItem?.folder_id || getSelectedEditorFolderId();
-  if (folderId) return folderId;
-
-  const locationKey = getCurrentLocationKey();
-  if (locationKey.startsWith("category:")) {
-    return locationKey.slice("category:".length);
-  }
-  return "";
-}
-
 function applySavedEditorReturnParams(href, savedItem = null) {
   const savedId = String(savedItem?.id || (isMaterialEditor() ? state.editMaterialId : state.editPostId) || "").trim();
   if (!savedId) return href;
@@ -3730,14 +3719,6 @@ function applySavedEditorReturnParams(href, savedItem = null) {
   try {
     const url = new URL(href, window.location.href);
     url.searchParams.set(isMaterialEditor() ? "material" : "post", savedId);
-
-    const nodeId = getSavedReturnNodeId(savedItem || {});
-    if (nodeId) {
-      url.searchParams.set("node", nodeId);
-    } else {
-      url.searchParams.delete("node");
-    }
-
     return url.href;
   } catch {
     return href;
