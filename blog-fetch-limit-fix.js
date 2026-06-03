@@ -2,6 +2,8 @@
   const originalFetch = window.fetch;
   if (typeof originalFetch !== "function") return;
 
+  const TREE_CACHE_KEY = "blog.cached.tree.response";
+
   function patchPostsUrl(value) {
     const raw = String(value || "");
     if (!raw.includes("/rest/v1/posts")) return raw;
@@ -20,20 +22,85 @@
     }
   }
 
-  window.fetch = function patchedBlogFetch(input, init) {
+  function isBlogTreeRequest(value) {
+    const raw = String(value || "");
+    return raw.includes("/rest/v1/blog_trees");
+  }
+
+  function getCachedTreeResponse() {
     try {
-      const sourceUrl = typeof input === "string" ? input : input?.url;
+      const cached = JSON.parse(sessionStorage.getItem(TREE_CACHE_KEY) || localStorage.getItem(TREE_CACHE_KEY) || "null");
+      if (Array.isArray(cached) && cached[0]?.tree && Array.isArray(cached[0].tree) && cached[0].tree.length > 0) {
+        return cached;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  function saveTreeResponse(payload) {
+    try {
+      if (!Array.isArray(payload) || !Array.isArray(payload[0]?.tree) || payload[0].tree.length === 0) return;
+      const text = JSON.stringify(payload);
+      sessionStorage.setItem(TREE_CACHE_KEY, text);
+      localStorage.setItem(TREE_CACHE_KEY, text);
+    } catch {
+      // Ignore blocked storage.
+    }
+  }
+
+  function makeJsonResponse(payload, sourceResponse = null) {
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      statusText: "OK",
+      headers: {
+        "Content-Type": "application/json",
+        ...(sourceResponse ? Object.fromEntries(sourceResponse.headers.entries()) : {}),
+      },
+    });
+  }
+
+  async function protectTreeResponse(response, sourceUrl) {
+    if (!isBlogTreeRequest(sourceUrl)) return response;
+
+    if (!response.ok) {
+      const cached = getCachedTreeResponse();
+      if (cached) return makeJsonResponse(cached, response);
+      return response;
+    }
+
+    try {
+      const clone = response.clone();
+      const payload = await clone.json();
+      const hasTree = Array.isArray(payload) && Array.isArray(payload[0]?.tree) && payload[0].tree.length > 0;
+      if (hasTree) {
+        saveTreeResponse(payload);
+        return response;
+      }
+      const cached = getCachedTreeResponse();
+      if (cached) return makeJsonResponse(cached, response);
+    } catch {
+      const cached = getCachedTreeResponse();
+      if (cached) return makeJsonResponse(cached, response);
+    }
+
+    return response;
+  }
+
+  window.fetch = function patchedBlogFetch(input, init) {
+    const sourceUrl = typeof input === "string" ? input : input?.url;
+
+    try {
       const nextUrl = patchPostsUrl(sourceUrl);
       if (sourceUrl && nextUrl !== sourceUrl) {
-        console.info("blog posts limit patched", sourceUrl, "=>", nextUrl);
-        if (typeof input === "string") {
-          return originalFetch.call(this, nextUrl, init);
-        }
-        return originalFetch.call(this, new Request(nextUrl, input), init);
+        const request = typeof input === "string" ? nextUrl : new Request(nextUrl, input);
+        return originalFetch.call(this, request, init).then((response) => protectTreeResponse(response, nextUrl));
       }
     } catch (error) {
-      console.warn("blog fetch limit patch skipped", error);
+      console.warn("blog fetch patch skipped", error);
     }
-    return originalFetch.call(this, input, init);
+
+    return originalFetch.call(this, input, init).then((response) => protectTreeResponse(response, sourceUrl));
   };
 })();
