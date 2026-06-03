@@ -1907,13 +1907,14 @@ function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
   syncPostBulkButtons();
 }
 
-async function fetchUserPosts(session, id) {
+async function fetchUserPosts(session, id, options = {}) {
+  const shouldFilterTrash = options.filterTrash !== false;
   const rows = await requestRest(
     "posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=100",
     session.access_token
   );
   const posts = Array.isArray(rows) ? rows.filter((post) => belongsToUser(post, session, id)) : [];
-  return filterPostsOutsideTrash(posts);
+  return shouldFilterTrash ? filterPostsOutsideTrash(posts) : posts;
 }
 
 async function fetchPublicBlogPosts(id) {
@@ -2309,25 +2310,15 @@ window.blogSession?.ready.then(async (session) => {
   renderBlog(id);
   renderTree();
   renderActivePosts();
-  try {
-    const profile = await ensureBlogProfile(session, id);
-    renderBlog(id, profile);
-  } catch {
-    renderBlog(id);
-  }
+  const profilePromise = ensureBlogProfile(session, id).catch(() => null);
+  const treePromise = loadTree(session).catch(() => []);
+  const postsPromise = fetchUserPosts(session, id, { filterTrash: false }).catch(() => []);
 
-  try {
-    state.tree = await loadTree(session);
-  } catch {
-    state.tree = [];
-  }
+  const [profile, tree, posts] = await Promise.all([profilePromise, treePromise, postsPromise]);
+  renderBlog(id, profile);
+  state.tree = tree;
   normalizeActiveNodeId();
   renderTree();
-
-  try {
-    state.posts = await fetchUserPosts(session, id);
-  } catch {
-    state.posts = [];
-  }
+  state.posts = filterPostsOutsideTrash(posts);
   renderActivePosts();
 });

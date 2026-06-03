@@ -1560,29 +1560,24 @@ window.blogSession?.ready.then(async (session) => {
   renderBlog(id);
   renderDashboard();
 
-  try {
-    const profile = await loadBlogProfile(session);
-    renderBlog(id, profile);
-  } catch {
-    renderBlog(id);
-  }
+  const profilePromise = loadBlogProfile(session).catch(() => null);
+  const treePromise = loadMaterialTree(session).catch(() => ({
+    tree: [],
+    collapsedIds: [],
+  }));
+  const materialsPromise = loadMaterials(session)
+    .then((materials) => ({ materials, error: "" }))
+    .catch((error) => ({
+      materials: [],
+      error: error.message || "자료실을 불러오지 못했습니다.",
+    }));
 
-  try {
-    const treeState = await loadMaterialTree(session);
-    state.materialTree = treeState.tree;
-    state.collapsedMaterialNodeIds = new Set(treeState.collapsedIds);
-  } catch {
-    state.materialTree = [];
-    state.collapsedMaterialNodeIds = new Set();
-  }
-
-  try {
-    state.materials = await loadMaterials(session);
-    state.materialError = "";
-  } catch (error) {
-    state.materials = [];
-    state.materialError = error.message || "자료실을 불러오지 못했습니다.";
-  }
+  const [profile, treeState, materialState] = await Promise.all([profilePromise, treePromise, materialsPromise]);
+  renderBlog(id, profile);
+  state.materialTree = treeState.tree;
+  state.collapsedMaterialNodeIds = new Set(treeState.collapsedIds);
+  state.materials = materialState.materials;
+  state.materialError = materialState.error;
 
   renderDashboard();
 });
