@@ -96,6 +96,9 @@ function syncPostBoardToolbar() {
 
 function getCurrentBlogReturnHref() {
   const params = new URLSearchParams();
+  if (state.publicMode && state.id) {
+    params.set("user", state.id);
+  }
   if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
     params.set("node", state.activeNodeId);
   }
@@ -282,7 +285,13 @@ function getPostViewHref(post = {}) {
   if (state.publicMode && state.id) {
     params.set("from", "public-blog");
     params.set("user", state.id);
+  } else {
+    params.set("from", "my-blog");
   }
+  if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
+    params.set("node", state.activeNodeId);
+  }
+  params.set("return", getCurrentBlogReturnHref());
   return `./viewer.html?${params.toString()}`;
 }
 
@@ -291,7 +300,13 @@ function getPostId(post = {}) {
 }
 
 function getPostEditHref(post = {}) {
-  return `./editor.html?post=${encodeURIComponent(post.id || "")}`;
+  const params = new URLSearchParams();
+  params.set("post", post.id || "");
+  if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
+    params.set("node", state.activeNodeId);
+  }
+  params.set("return", getCurrentBlogReturnHref());
+  return `./editor.html?${params.toString()}`;
 }
 
 function getFirstImageFromHtml(html = "") {

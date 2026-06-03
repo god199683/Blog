@@ -8,6 +8,8 @@ const materialId = params.get("material") || (viewerTarget === "materials" ? par
 const postId = viewerTarget === "materials" ? materialId : params.get("id") || "";
 const viewerSource = params.get("from") || "";
 const viewerUser = params.get("user") || "";
+const viewerNode = params.get("node") || "";
+const viewerReturn = params.get("return") || "";
 let bookMode = params.get("book") === "1";
 let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize") || "18", 10);
 let readerTheme = localStorage.getItem("blog.readerTheme") || "sky";
@@ -190,6 +192,8 @@ function buildViewerUrl(nextPostId, useBookMode = bookMode, pageTarget = "") {
   }
   if (viewerSource) nextParams.set("from", viewerSource);
   if (viewerUser) nextParams.set("user", viewerUser);
+  if (viewerNode) nextParams.set("node", viewerNode);
+  if (viewerReturn) nextParams.set("return", viewerReturn);
   return `./viewer.html?${nextParams.toString()}`;
 }
 
@@ -497,13 +501,46 @@ function goToBookPost(targetPostId, pageTarget = "") {
   window.location.href = buildViewerUrl(targetPostId, bookMode, pageTarget);
 }
 
-function getViewerBackHref() {
+function getViewerFallbackBackHref() {
   if (viewerTarget === "materials") return "./materials.html";
   if (viewerSource === "home") return "./";
+  const backParams = new URLSearchParams();
   if (viewerSource === "public-blog" && viewerUser) {
-    return `./my-blog.html?user=${encodeURIComponent(viewerUser)}`;
+    backParams.set("user", viewerUser);
   }
-  return "./my-blog.html";
+  if (viewerNode) {
+    backParams.set("node", viewerNode);
+  }
+  const query = backParams.toString();
+  return `./my-blog.html${query ? `?${query}` : ""}`;
+}
+
+function getViewerBackHref() {
+  const fallback = getViewerFallbackBackHref();
+  if (!viewerReturn) return fallback;
+
+  try {
+    const url = new URL(viewerReturn, window.location.href);
+    const pageName = url.pathname.split("/").pop() || "index.html";
+    const allowedPages = new Set(["index.html", "my-blog.html", "materials.html"]);
+    if (url.origin !== window.location.origin || !allowedPages.has(pageName)) return fallback;
+    return viewerReturn;
+  } catch {
+    return fallback;
+  }
+}
+
+function getViewerEditHref() {
+  const nextParams = new URLSearchParams();
+  if (viewerTarget === "materials") {
+    nextParams.set("target", "materials");
+    nextParams.set("material", postId);
+  } else {
+    nextParams.set("post", postId);
+  }
+  if (viewerNode) nextParams.set("node", viewerNode);
+  nextParams.set("return", getViewerBackHref());
+  return `./editor.html?${nextParams.toString()}`;
 }
 
 async function fetchPost() {
@@ -652,10 +689,7 @@ els.back.addEventListener("click", () => {
 
 els.edit.addEventListener("click", () => {
   if (!postId) return;
-  window.location.href =
-    viewerTarget === "materials"
-      ? `./editor.html?target=materials&material=${encodeURIComponent(postId)}`
-      : `./editor.html?post=${encodeURIComponent(postId)}`;
+  window.location.href = getViewerEditHref();
 });
 
 els.bookToggle.addEventListener("click", () => {
