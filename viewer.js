@@ -67,6 +67,19 @@ function getSession() {
   return window.blogSession?.read?.() || null;
 }
 
+async function getFreshViewerSession() {
+  try {
+    return (await window.blogSession?.refresh?.()) || getSession();
+  } catch {
+    return getSession();
+  }
+}
+
+async function getViewerToken() {
+  const session = await getFreshViewerSession();
+  return session?.access_token || SUPABASE_ANON_KEY;
+}
+
 function getSessionId(session) {
   return window.blogSession?.getId?.(session) || "";
 }
@@ -584,8 +597,7 @@ async function fetchPost() {
     throw new Error("글 주소가 올바르지 않습니다.");
   }
 
-  const session = getSession();
-  const token = session?.access_token || SUPABASE_ANON_KEY;
+  const token = await getViewerToken();
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
   endpoint.searchParams.set("select", "*");
   endpoint.searchParams.set("id", `eq.${postId}`);
@@ -614,8 +626,7 @@ async function fetchMaterial() {
     throw new Error("자료 주소가 올바르지 않습니다.");
   }
 
-  const session = getSession();
-  const token = session?.access_token || SUPABASE_ANON_KEY;
+  const token = await getViewerToken();
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
   endpoint.searchParams.set("select", "*");
   endpoint.searchParams.set("id", `eq.${materialId}`);
@@ -652,8 +663,7 @@ async function fetchMaterial() {
 async function fetchSameFolderPosts(post) {
   if (viewerTarget === "materials") return [post];
 
-  const session = getSession();
-  const token = session?.access_token || SUPABASE_ANON_KEY;
+  const token = await getViewerToken();
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
   endpoint.searchParams.set(
     "select",
