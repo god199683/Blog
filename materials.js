@@ -522,16 +522,25 @@ function renderMaterialTreeNode(node, depth = 0) {
   const isCollapsed = state.collapsedMaterialNodeIds.has(node.id);
   const isChecked = state.selectedNodeIds.has(node.id);
   const children = hasChildren && !isCollapsed ? node.children.map((child) => renderMaterialTreeNode(child, depth + 1)).join("") : "";
+  const rowClasses = [
+    "blog-tree-row",
+    node.id === state.activeMaterialNodeId ? "is-active" : "",
+    state.selectionMode ? "has-check" : "",
+    hasChildren ? "has-children" : "",
+    isCollapsed ? "is-collapsed" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return `
     <li>
-      <div class="blog-tree-row ${node.id === state.activeMaterialNodeId ? "is-active" : ""}" data-material-tree-node="${escapeHtml(node.id)}" style="--tree-depth:${depth}">
+      <div class="${rowClasses}" data-material-tree-node="${escapeHtml(node.id)}" style="--tree-depth:${depth}">
         ${
           state.selectionMode
             ? `<input class="blog-tree-check" type="checkbox" data-material-tree-check="${escapeHtml(node.id)}" ${isChecked ? "checked" : ""} aria-label="${escapeHtml(node.label)} 선택">`
             : ""
         }
-        <button class="blog-tree-expander" type="button" data-material-tree-toggle="${escapeHtml(node.id)}" ${hasChildren ? "" : "disabled"} aria-label="${escapeHtml(node.label)} 접기 펼치기">
+        <button class="blog-tree-expander" type="button" data-material-tree-toggle="${escapeHtml(node.id)}" ${hasChildren ? `aria-expanded="${isCollapsed ? "false" : "true"}"` : "disabled"} aria-label="${escapeHtml(node.label)} 접기 펼치기">
           <span aria-hidden="true">${hasChildren ? (isCollapsed ? "+" : "-") : ""}</span>
         </button>
         <button class="blog-tree-label" type="button" data-material-tree-select="${escapeHtml(node.id)}">
