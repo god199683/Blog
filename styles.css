@@ -1696,6 +1696,7 @@ body.is-away-locked {
 
 .blog-board-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -1706,6 +1707,7 @@ body.is-away-locked {
 
 .blog-board-head h2 {
   display: inline-flex;
+  flex: 1 1 auto;
   align-items: center;
   min-width: 0;
   min-height: 1.75rem;
@@ -1723,11 +1725,13 @@ body.is-away-locked {
 
 .blog-board-actions {
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.34rem;
   min-width: 0;
+  max-width: 100%;
 }
 
 .blog-board-toggle {
@@ -1742,6 +1746,7 @@ body.is-away-locked {
   color: #557085;
   font-size: 0.76rem;
   font-weight: 690;
+  white-space: nowrap;
 }
 
 .blog-board-toggle:hover,
@@ -2022,7 +2027,7 @@ body.is-away-locked {
   align-items: center;
   gap: 0.6rem;
   min-height: 2.7rem;
-  padding: 0 0.9rem;
+  padding: 0.38rem 0.9rem;
   border-bottom: 1px solid rgba(216, 234, 251, 0.68);
   color: #6f8497;
   cursor: pointer;
@@ -2077,12 +2082,15 @@ body.is-away-locked {
 
 .blog-post-row small {
   display: block;
-  margin-top: 0.08rem;
-  overflow: hidden;
+  max-width: 100%;
+  margin-top: 0.1rem;
+  overflow: visible;
   color: #9aacbb;
   font-size: 0.72rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  white-space: normal;
 }
 
 .materials-row-actions {
@@ -2112,6 +2120,8 @@ body.is-away-locked {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   column-gap: 0.42rem;
+  min-width: 0;
+  padding-block: 0.05rem;
 }
 
 .blog-post-title-cell .blog-post-title,

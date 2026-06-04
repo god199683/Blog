@@ -49,6 +49,9 @@ const els = {
   typeHeading: document.querySelector("[data-material-type-heading]"),
   table: document.querySelector("[data-material-table]"),
   listToggle: document.querySelector("[data-material-list-toggle]"),
+  sidebarToggle: document.querySelector("[data-sidebar-toggle]"),
+  blogLayout: document.querySelector(".blog-body-layout"),
+  sidePanel: document.querySelector(".blog-side-panel"),
   list: document.querySelector("[data-material-list]"),
   featureCard: document.querySelector("[data-material-feature-card]"),
   miniList: document.querySelector("[data-material-mini-list]"),
@@ -89,6 +92,14 @@ function syncMaterialBoardToolbar() {
   [els.materialSelectMode, els.materialSelectAll, els.materialDeleteSelected].forEach((button) => {
     if (button) button.hidden = !isOpen;
   });
+}
+
+function setSidebarCollapsed(isCollapsed) {
+  if (!els.blogLayout || !els.sidePanel || !els.sidebarToggle) return;
+  els.blogLayout.classList.toggle("is-sidebar-collapsed", isCollapsed);
+  els.sidePanel.classList.toggle("is-sidebar-collapsed", isCollapsed);
+  els.sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  els.sidebarToggle.setAttribute("aria-label", isCollapsed ? "사이드바 펼치기" : "사이드바 접기");
 }
 
 function setActiveSection(section, shouldSyncUrl = true) {
@@ -1389,6 +1400,11 @@ els.materialSelectMode?.addEventListener("click", () => {
 
 els.materialSelectAll?.addEventListener("click", toggleVisibleMaterialSelection);
 els.materialDeleteSelected?.addEventListener("click", deleteSelectedMaterials);
+
+els.sidebarToggle?.addEventListener("click", () => {
+  const isCollapsed = els.sidePanel?.classList.contains("is-sidebar-collapsed") || false;
+  setSidebarCollapsed(!isCollapsed);
+});
 
 els.toolsToggle?.addEventListener("click", () => {
   const willOpen = els.tools?.hidden;

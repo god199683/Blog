@@ -81,6 +81,9 @@ const els = {
 let importLocationResolver = null;
 const listToggle = document.querySelector("[data-list-toggle]");
 const blogBoard = document.querySelector("[data-blog-board]");
+const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
+const blogLayout = document.querySelector(".blog-body-layout");
+const sidePanel = document.querySelector(".blog-side-panel");
 
 function isPostListOpen() {
   return Boolean(blogBoard && !blogBoard.classList.contains("is-list-collapsed"));
@@ -137,6 +140,14 @@ function setPostListOpen(isOpen) {
   }
   syncPostBoardToolbar();
   syncPostBulkButtons();
+}
+
+function setSidebarCollapsed(isCollapsed) {
+  if (!blogLayout || !sidePanel || !sidebarToggle) return;
+  blogLayout.classList.toggle("is-sidebar-collapsed", isCollapsed);
+  sidePanel.classList.toggle("is-sidebar-collapsed", isCollapsed);
+  sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  sidebarToggle.setAttribute("aria-label", isCollapsed ? "사이드바 펼치기" : "사이드바 접기");
 }
 
 async function requestRest(path, token, options = {}) {
@@ -2189,6 +2200,11 @@ els.postDeleteSelected?.addEventListener("click", () => {
 
 els.postMoveSelected?.addEventListener("click", () => {
   moveSelectedPostsToLocation();
+});
+
+sidebarToggle?.addEventListener("click", () => {
+  const isCollapsed = sidePanel?.classList.contains("is-sidebar-collapsed") || false;
+  setSidebarCollapsed(!isCollapsed);
 });
 
 els.toolsToggle?.addEventListener("click", () => {
