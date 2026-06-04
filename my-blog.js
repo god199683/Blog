@@ -306,6 +306,41 @@ function getPostLocationLabel(post = {}) {
   return categoryLabel || "전체";
 }
 
+function normalizeSearchValue(value = "") {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("ko-KR")
+    .replace(/[\\/|·>]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getSearchTokens(keyword = "") {
+  return normalizeSearchValue(keyword).split(" ").filter(Boolean);
+}
+
+function getPostSearchText(post = {}) {
+  return normalizeSearchValue(
+    [
+      post.title,
+      post.excerpt,
+      htmlToPlainText(post.body || ""),
+      getPostLocationLabel(post),
+      post.category,
+      post.folder_name,
+      post.folder_path,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+}
+
+function postMatchesSearch(post = {}, tokens = []) {
+  if (tokens.length === 0) return true;
+  const searchText = getPostSearchText(post);
+  return tokens.every((token) => searchText.includes(token));
+}
+
 function getPostViewHref(post = {}) {
   const params = new URLSearchParams();
   params.set("id", post.id || "");
@@ -1191,21 +1226,19 @@ function renderActivePosts() {
 }
 
 function applyBlogSearch(keyword = "") {
-  const query = keyword.trim().toLowerCase();
-  if (!query) {
+  const trimmedKeyword = keyword.trim();
+  const tokens = getSearchTokens(trimmedKeyword);
+  if (tokens.length === 0) {
     renderActivePosts();
     return;
   }
 
-  const results = state.posts.filter((post) =>
-    [post.title, post.body, post.category, post.folder_name, post.folder_path]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(query))
-  );
+  const results = state.posts.filter((post) => postMatchesSearch(post, tokens));
   resetPostPages();
   clearPostSelection();
-  if (els.boardTitle) els.boardTitle.textContent = `검색: ${keyword.trim()}`;
-  renderFeatureArea(results, `검색 ${keyword.trim()}`);
+  setPostListOpen(true);
+  if (els.boardTitle) els.boardTitle.textContent = `검색: ${trimmedKeyword}`;
+  renderFeatureArea(results, `검색 ${trimmedKeyword}`);
   renderPosts(results);
 }
 
@@ -2287,7 +2320,12 @@ els.searchForm?.addEventListener("submit", (event) => {
 });
 
 els.searchInput?.addEventListener("input", () => {
-  if (!els.searchInput.value.trim()) renderActivePosts();
+  const keyword = els.searchInput.value || "";
+  if (!keyword.trim()) {
+    renderActivePosts();
+    return;
+  }
+  applyBlogSearch(keyword);
 });
 
 els.tree?.addEventListener("change", (event) => {
