@@ -23,6 +23,7 @@ const state = {
   collapsedNodeIds: new Set(),
   titleSortDirection: "asc",
   featurePostId: INITIAL_BLOG_POST_ID,
+  pendingFocusPostId: INITIAL_BLOG_POST_ID,
   currentScopePosts: [],
   currentScopeTitle: "전체보기",
   listPage: 1,
@@ -614,6 +615,61 @@ function getActiveTreeMeta() {
   };
 }
 
+function findCategoryNodeForPost(post = {}) {
+  const category = String(post.category || "전체");
+
+  function walk(nodes = []) {
+    for (const node of nodes) {
+      if (node.type === "category" && String(node.filterCategory || node.label || "전체") === category) {
+        return node;
+      }
+      const found = walk(node.children || []);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  return walk(state.tree);
+}
+
+function resolvePostScopeNodeId(post = {}) {
+  if (post.folder_id && findNode(state.tree, post.folder_id)) {
+    return post.folder_id;
+  }
+
+  const folderMatch = findPostFolderNode(post);
+  if (folderMatch?.node?.id) return folderMatch.node.id;
+
+  const categoryNode = findCategoryNodeForPost(post);
+  if (categoryNode?.id) return categoryNode.id;
+
+  return ALL_NODE_ID;
+}
+
+function focusPendingPostFromUrl() {
+  const targetId = String(state.pendingFocusPostId || "").trim();
+  if (!targetId || state.posts.length === 0) return false;
+
+  const post = state.posts.find((item) => getPostId(item) === targetId);
+  if (!post) {
+    state.pendingFocusPostId = "";
+    return false;
+  }
+
+  const activeMeta = getActiveTreeMeta();
+  const alreadyVisible = activeMeta.posts?.some((item) => getPostId(item) === targetId);
+  if (!alreadyVisible) {
+    state.activeNodeId = resolvePostScopeNodeId(post);
+    normalizeActiveNodeId();
+    renderTree();
+  }
+
+  state.featurePostId = targetId;
+  state.pendingFocusPostId = "";
+  syncWriteButtonHref();
+  return true;
+}
+
 function promptName(message, fallback = "") {
   const value = window.prompt(message, fallback);
   return value ? value.trim().slice(0, 40) : "";
@@ -968,7 +1024,7 @@ function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
 
   state.currentScopePosts = posts;
   state.currentScopeTitle = scopeTitle;
-  state.featurePostId = selectedPost ? getPostId(selectedPost) : "";
+  state.featurePostId = selectedPost ? getPostId(selectedPost) : state.pendingFocusPostId || state.featurePostId || "";
   if (selectedPost) {
     syncPagesToPost(getPostId(selectedPost));
   }
@@ -1811,7 +1867,7 @@ function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
   if (posts.length > 0) {
     renderFeatureArea(posts, scopeTitle);
   } else if (els.featureCard) {
-    state.featurePostId = "";
+    state.featurePostId = state.pendingFocusPostId || state.featurePostId || "";
     els.featureCard.hidden = true;
     els.featureCard.innerHTML = "";
     els.featureCard.removeAttribute("data-feature-post-id");
@@ -2293,6 +2349,7 @@ window.blogSession?.ready.then(async (session) => {
     } catch {
       state.posts = [];
     }
+    focusPendingPostFromUrl();
     renderActivePosts();
     return;
   }
@@ -2329,5 +2386,6 @@ window.blogSession?.ready.then(async (session) => {
   } catch {
     state.posts = [];
   }
+  focusPendingPostFromUrl();
   renderActivePosts();
 });
