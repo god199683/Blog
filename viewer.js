@@ -134,6 +134,10 @@ function normalizePostId(post) {
   return String(post?.id || "");
 }
 
+function getCurrentViewerItemId() {
+  return normalizePostId(currentPost) || postId;
+}
+
 function getBookContent() {
   return els.body.querySelector("[data-viewer-page-content]");
 }
@@ -241,9 +245,10 @@ function buildViewerUrl(nextPostId, useBookMode = bookMode, pageTarget = "") {
 }
 
 function syncBookModeUrl() {
-  if (!postId) return;
+  const currentId = getCurrentViewerItemId();
+  if (!currentId) return;
   const pageTarget = bookMode && bookPageIndex > 0 ? String(bookPageIndex + 1) : "";
-  const nextUrl = buildViewerUrl(postId, bookMode, pageTarget);
+  const nextUrl = buildViewerUrl(currentId, bookMode, pageTarget);
   window.history.replaceState(null, "", nextUrl);
 }
 
@@ -602,20 +607,22 @@ function getViewerFallbackBackHref() {
 }
 
 function getViewerBackHref() {
-  if (bookMode && viewerTarget !== "materials") return buildViewerUrl(postId, false);
-  return getViewerListReturnHref(postId);
+  const currentId = getCurrentViewerItemId();
+  if (bookMode && viewerTarget !== "materials") return buildViewerUrl(currentId, false);
+  return getViewerListReturnHref(currentId);
 }
 
 function getViewerEditHref() {
+  const currentId = getCurrentViewerItemId();
   const nextParams = new URLSearchParams();
   if (viewerTarget === "materials") {
     nextParams.set("target", "materials");
-    nextParams.set("material", postId);
+    nextParams.set("material", currentId);
   } else {
-    nextParams.set("post", postId);
+    nextParams.set("post", currentId);
   }
   if (viewerNode) nextParams.set("node", viewerNode);
-  nextParams.set("return", bookMode ? buildViewerUrl(postId, true, bookPageIndex > 0 ? String(bookPageIndex + 1) : "") : buildViewerUrl(postId, false));
+  nextParams.set("return", bookMode ? buildViewerUrl(currentId, true, bookPageIndex > 0 ? String(bookPageIndex + 1) : "") : buildViewerUrl(currentId, false));
   return `./editor.html?${nextParams.toString()}`;
 }
 
@@ -762,7 +769,7 @@ els.back.addEventListener("click", () => {
 });
 
 els.edit.addEventListener("click", () => {
-  if (!postId) return;
+  if (!getCurrentViewerItemId()) return;
   window.location.href = getViewerEditHref();
 });
 
