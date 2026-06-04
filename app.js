@@ -236,21 +236,24 @@ function renderPublicPosts(posts = []) {
 }
 
 async function initPublicHome() {
-  const session = await Promise.resolve(window.blogSession?.ready).catch(() => null);
+  const initialSession = window.blogSession?.read?.() || null;
+  const sessionPromise = Promise.resolve(window.blogSession?.ready).catch(() => initialSession);
   try {
     renderEmpty("공개 글을 불러오는 중입니다.");
     const [posts, profiles] = await Promise.all([
       fetchPublicPosts(),
       fetchPublicProfiles().catch(() => []),
     ]);
-    renderPublicProfiles(posts, profiles, session);
+    renderPublicProfiles(posts, profiles, initialSession);
     renderPublicPosts(posts);
+    sessionPromise.then((session) => renderPublicProfiles(posts, profiles, session || initialSession));
   } catch (error) {
     try {
       const profiles = await fetchPublicProfiles();
-      renderPublicProfiles([], profiles, session);
+      renderPublicProfiles([], profiles, initialSession);
+      sessionPromise.then((session) => renderPublicProfiles([], profiles, session || initialSession));
     } catch {
-      renderPublicProfiles([], [], session);
+      renderPublicProfiles([], [], initialSession);
     }
     renderEmpty(error.message || "공개 글을 불러오지 못했습니다.");
   }
