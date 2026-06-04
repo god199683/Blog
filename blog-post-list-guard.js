@@ -1,5 +1,6 @@
 (() => {
   const CACHE_KEY = "blog.guard.postList.snapshot";
+  const EMPTY_TEXT = "아직 작성된 글이 없습니다.";
 
   function readSnapshot() {
     try {
@@ -19,37 +20,71 @@
     }
   }
 
+  function textOf(selector) {
+    return document.querySelector(selector)?.textContent || "";
+  }
+
+  function htmlOf(selector) {
+    return document.querySelector(selector)?.innerHTML || "";
+  }
+
+  function hiddenOf(selector) {
+    return document.querySelector(selector)?.hidden ?? true;
+  }
+
   function hasRealRows(postList) {
     return Boolean(postList?.querySelector("[data-post-row], [data-folder-row]"));
   }
 
-  function isOnlyEmptyState(postList) {
-    return Boolean(postList?.querySelector(".blog-empty-row")) && !hasRealRows(postList);
+  function hasUsefulFeature() {
+    const feature = document.querySelector("[data-feature-card]");
+    return Boolean(feature && !feature.hidden && feature.textContent.trim());
+  }
+
+  function hasUsefulMiniList() {
+    const mini = document.querySelector("[data-blog-mini-list]");
+    return Boolean(mini && !mini.hidden && mini.textContent.trim());
+  }
+
+  function countLooksNonZero() {
+    const countText = textOf("[data-blog-count]");
+    return /[1-9]\d*\s*개의\s*글/.test(countText);
+  }
+
+  function pageLooksUseful() {
+    const postList = document.querySelector("[data-post-list]");
+    return hasRealRows(postList) || hasUsefulFeature() || hasUsefulMiniList() || countLooksNonZero();
+  }
+
+  function pageLooksEmpty() {
+    const postList = document.querySelector("[data-post-list]");
+    const emptyRow = Boolean(postList?.querySelector(".blog-empty-row"));
+    const emptyText = (postList?.textContent || "").includes(EMPTY_TEXT);
+    const countText = textOf("[data-blog-count]");
+    return (emptyRow || emptyText || /(^|\s)0개의\s*글/.test(countText)) && !pageLooksUseful();
   }
 
   function collectSnapshot() {
-    const postList = document.querySelector("[data-post-list]");
-    if (!postList || !hasRealRows(postList)) return null;
+    if (!pageLooksUseful()) return null;
 
     return {
-      postListHtml: postList.innerHTML,
-      countText: document.querySelector("[data-blog-count]")?.textContent || "",
-      boardTitleText: document.querySelector("[data-board-title]")?.textContent || "",
-      featureHtml: document.querySelector("[data-feature-card]")?.innerHTML || "",
-      featureHidden: document.querySelector("[data-feature-card]")?.hidden ?? true,
-      miniHtml: document.querySelector("[data-blog-mini-list]")?.innerHTML || "",
-      miniHidden: document.querySelector("[data-blog-mini-list]")?.hidden ?? true,
+      postListHtml: htmlOf("[data-post-list]"),
+      countText: textOf("[data-blog-count]"),
+      boardTitleText: textOf("[data-board-title]"),
+      featureHtml: htmlOf("[data-feature-card]"),
+      featureHidden: hiddenOf("[data-feature-card]"),
+      miniHtml: htmlOf("[data-blog-mini-list]"),
+      miniHidden: hiddenOf("[data-blog-mini-list]"),
       savedAt: Date.now(),
     };
   }
 
   function restoreSnapshot(snapshot) {
-    if (!snapshot?.postListHtml) return false;
+    if (!snapshot || (!snapshot.postListHtml && !snapshot.featureHtml && !snapshot.miniHtml)) return false;
+    if (!pageLooksEmpty()) return false;
 
     const postList = document.querySelector("[data-post-list]");
-    if (!postList || !isOnlyEmptyState(postList)) return false;
-
-    postList.innerHTML = snapshot.postListHtml;
+    if (postList && snapshot.postListHtml) postList.innerHTML = snapshot.postListHtml;
 
     const count = document.querySelector("[data-blog-count]");
     if (count && snapshot.countText) count.textContent = snapshot.countText;
@@ -69,7 +104,7 @@
       mini.hidden = Boolean(snapshot.miniHidden);
     }
 
-    console.warn("Restored cached blog post list after empty rerender.");
+    console.warn("Restored cached blog post area after empty rerender/resume.");
     return true;
   }
 
@@ -80,22 +115,30 @@
       return;
     }
 
-    const postList = document.querySelector("[data-post-list]");
-    if (!isOnlyEmptyState(postList)) return;
-
     const cached = readSnapshot();
     if (cached) restoreSnapshot(cached);
+  }
+
+  function runSoon() {
+    tick();
+    setTimeout(tick, 150);
+    setTimeout(tick, 600);
+    setTimeout(tick, 1500);
   }
 
   function initGuard() {
     const root = document.querySelector("[data-blog-board]") || document.body;
     const observer = new MutationObserver(() => tick());
-    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["hidden", "class"] });
 
-    tick();
-    window.addEventListener("pageshow", tick);
-    window.addEventListener("focus", tick);
-    setInterval(tick, 2000);
+    runSoon();
+    window.addEventListener("pageshow", runSoon);
+    window.addEventListener("focus", runSoon);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) runSoon();
+    });
+    window.addEventListener("online", runSoon);
+    setInterval(tick, 1000);
   }
 
   if (document.readyState === "loading") {
