@@ -162,26 +162,55 @@ function getReaderCategory(post = {}) {
   return normalizeScopeText(post.category) || "전체";
 }
 
-function getReaderFolderKeys(post = {}) {
+function getReaderFolderScope(post = {}) {
   const category = getReaderCategory(post);
   const folderId = normalizeScopeText(post.folder_id);
   const folderPath = normalizeScopeText(post.folder_path);
   const folderName = normalizeScopeText(post.folder_name || post.folder);
-  return [
-    folderId ? `id:${folderId}` : "",
-    folderPath ? `path:${folderPath}` : "",
-    folderName ? `name:${category}:${folderName}` : "",
-  ].filter(Boolean);
+  return {
+    category,
+    folderId,
+    folderPath,
+    folderName,
+    hasFolder: Boolean(folderId || folderPath || folderName),
+  };
 }
 
 function isSameBookScope(post, sourcePost) {
-  const sourceFolderKeys = getReaderFolderKeys(sourcePost);
-  if (sourceFolderKeys.length > 0) {
-    const postFolderKeys = new Set(getReaderFolderKeys(post));
-    return sourceFolderKeys.some((key) => postFolderKeys.has(key));
+  const source = getReaderFolderScope(sourcePost);
+  const target = getReaderFolderScope(post);
+
+  if (target.category !== source.category) return false;
+  if (!source.hasFolder) return !target.hasFolder;
+  if (!target.hasFolder) return false;
+
+  if (source.folderId && target.folderId) return target.folderId === source.folderId;
+  if (source.folderPath && target.folderPath) return target.folderPath === source.folderPath;
+  if (source.folderName && target.folderName) return target.folderName === source.folderName;
+
+  return false;
+}
+
+function applyBookScopeQuery(endpoint, post = {}) {
+  const scope = getReaderFolderScope(post);
+  const rawCategory = normalizeScopeText(post.category);
+  if (rawCategory) {
+    endpoint.searchParams.set("category", `eq.${rawCategory}`);
   }
 
-  return getReaderCategory(post) === getReaderCategory(sourcePost);
+  if (scope.hasFolder) {
+    if (scope.folderId) {
+      endpoint.searchParams.set("folder_id", `eq.${scope.folderId}`);
+      return;
+    }
+    if (scope.folderPath) {
+      endpoint.searchParams.set("folder_path", `eq.${scope.folderPath}`);
+      return;
+    }
+    if (scope.folderName) {
+      endpoint.searchParams.set("folder_name", `eq.${scope.folderName}`);
+    }
+  }
 }
 
 function getPostOwnerFilter(post) {
@@ -674,6 +703,7 @@ async function fetchSameFolderPosts(post) {
   if (viewerSource === "home" || viewerSource === "public-blog") {
     endpoint.searchParams.set("published", "eq.true");
   }
+  applyBookScopeQuery(endpoint, post);
 
   const ownerFilter = getPostOwnerFilter(post);
   if (ownerFilter) {
