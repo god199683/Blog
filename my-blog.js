@@ -367,7 +367,7 @@ function getPostEditHref(post = {}) {
   if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
     params.set("node", state.activeNodeId);
   }
-  params.set("return", getCurrentBlogReturnHref());
+  params.set("return", getCurrentBlogReturnHref({ postId: post.id || "" }));
   return `./editor.html?${params.toString()}`;
 }
 
