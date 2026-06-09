@@ -53,6 +53,8 @@ const state = {
   miniPageSize: BLOG_DEFAULT_PAGE_SIZE,
   postSelectionMode: false,
   selectedPostIds: new Set(),
+  postRenameQueue: [],
+  renamingPostId: "",
   postBulkBusy: false,
   importLocationOptions: [],
   pendingImportLocationKey: "",
@@ -90,6 +92,7 @@ const els = {
   postVisibilityToggle: document.querySelector("[data-post-visibility-toggle]"),
   postDeleteSelected: document.querySelector("[data-post-delete-selected]"),
   postMoveSelected: document.querySelector("[data-post-move-selected]"),
+  postRenameSelected: document.querySelector("[data-post-rename-selected]"),
   writeButton: document.querySelector(".blog-write-button"),
   importLocationDialog: document.querySelector("[data-import-location-dialog]"),
   importLocationTitle: document.querySelector("[data-import-location-title]"),
@@ -117,7 +120,14 @@ function syncPostBoardToolbar() {
     listToggle.setAttribute("aria-expanded", String(isOpen));
   }
 
-  [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected, els.postMoveSelected].forEach((button) => {
+  [
+    els.postSelectMode,
+    els.postSelectAll,
+    els.postVisibilityToggle,
+    els.postDeleteSelected,
+    els.postMoveSelected,
+    els.postRenameSelected,
+  ].forEach((button) => {
     if (button) button.hidden = !isOpen;
   });
 }
@@ -158,6 +168,7 @@ function setPostListOpen(isOpen) {
   if (!isOpen && state.postSelectionMode) {
     state.postSelectionMode = false;
     state.selectedPostIds.clear();
+    resetPostRenameState();
   }
   syncPostBoardToolbar();
   syncPostBulkButtons();
@@ -229,7 +240,14 @@ function setOwnerControlsVisible(visible) {
   if (visible) {
     syncPostBoardToolbar();
   } else {
-    [els.postSelectMode, els.postSelectAll, els.postVisibilityToggle, els.postDeleteSelected, els.postMoveSelected].forEach((button) => {
+    [
+      els.postSelectMode,
+      els.postSelectAll,
+      els.postVisibilityToggle,
+      els.postDeleteSelected,
+      els.postMoveSelected,
+      els.postRenameSelected,
+    ].forEach((button) => {
       if (button) button.hidden = true;
     });
   }
@@ -837,7 +855,139 @@ async function movePostToTrash(postId) {
 
 function clearPostSelection() {
   state.selectedPostIds.clear();
+  resetPostRenameState();
   syncPostBulkButtons();
+}
+
+function resetPostRenameState() {
+  state.postRenameQueue = [];
+  state.renamingPostId = "";
+}
+
+function getPostById(postId) {
+  const targetId = String(postId || "");
+  return state.posts.find((post) => getPostId(post) === targetId) || null;
+}
+
+function patchPostInLocalState(postId, patch = {}) {
+  const targetId = String(postId || "");
+  if (!targetId) return;
+  state.posts = state.posts.map((post) => (getPostId(post) === targetId ? { ...post, ...patch } : post));
+  state.currentScopePosts = state.currentScopePosts.map((post) =>
+    getPostId(post) === targetId ? { ...post, ...patch } : post
+  );
+}
+
+function renderPostRowsForCurrentContext() {
+  if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
+}
+
+function focusPostTitleEditor() {
+  const targetId = state.renamingPostId;
+  if (!targetId || !els.postList) return;
+
+  window.setTimeout(() => {
+    const input = [...els.postList.querySelectorAll("[data-post-title-edit]")].find(
+      (item) => item.dataset.postTitleEdit === targetId
+    );
+    if (!input) return;
+    input.focus({ preventScroll: true });
+    input.select();
+    input.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, 0);
+}
+
+function getOrderedSelectedPostIds() {
+  const selectedIds = new Set([...state.selectedPostIds].map(String));
+  const ordered = getTitleSortedPosts(state.currentScopePosts)
+    .map(getPostId)
+    .filter((postId) => selectedIds.has(postId));
+  const remaining = [...selectedIds].filter((postId) => !ordered.includes(postId) && getPostById(postId));
+  return [...ordered, ...remaining];
+}
+
+function startNextPostRename() {
+  const nextId = state.postRenameQueue.find((postId) => state.selectedPostIds.has(postId) && getPostById(postId));
+  state.renamingPostId = nextId || "";
+  if (!state.renamingPostId) {
+    resetPostRenameState();
+  } else {
+    syncPagesToPost(state.renamingPostId);
+  }
+  renderPostRowsForCurrentContext();
+  focusPostTitleEditor();
+}
+
+function startSelectedPostRename() {
+  if (!state.postSelectionMode || state.selectedPostIds.size === 0 || state.postBulkBusy) return;
+  state.postRenameQueue = getOrderedSelectedPostIds();
+  startNextPostRename();
+}
+
+function advancePostRenameQueue(postId) {
+  const targetId = String(postId || "");
+  state.postRenameQueue = state.postRenameQueue.filter((id) => id !== targetId);
+  startNextPostRename();
+}
+
+async function updatePostTitle(postId, title) {
+  const session = await getFreshBlogSession();
+  if (!session?.access_token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  return requestRest(`posts?id=eq.${encodeURIComponent(postId)}`, session.access_token, {
+    method: "PATCH",
+    headers: {
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({ title }),
+  });
+}
+
+async function savePostTitleEdit(input) {
+  if (state.postBulkBusy) return;
+  const postId = input?.dataset.postTitleEdit || "";
+  const post = getPostById(postId);
+  if (!post) {
+    advancePostRenameQueue(postId);
+    return;
+  }
+
+  const nextTitle = String(input.value || "").trim();
+  if (!nextTitle) {
+    window.alert("글 제목을 입력해주세요.");
+    input.focus();
+    input.select();
+    return;
+  }
+
+  if (nextTitle === (post.title || "")) {
+    advancePostRenameQueue(postId);
+    return;
+  }
+
+  state.postBulkBusy = true;
+  input.disabled = true;
+  syncPostBulkButtons();
+
+  try {
+    await updatePostTitle(postId, nextTitle);
+    patchPostInLocalState(postId, { title: nextTitle });
+    advancePostRenameQueue(postId);
+  } catch (error) {
+    window.alert(error.message || "글 제목을 변경하지 못했습니다.");
+    state.renamingPostId = postId;
+    renderPostRowsForCurrentContext();
+    focusPostTitleEditor();
+  } finally {
+    state.postBulkBusy = false;
+    syncPostBulkButtons();
+  }
+}
+
+function skipPostTitleEdit(postId) {
+  advancePostRenameQueue(postId);
 }
 
 function syncPostBulkButtons() {
@@ -870,6 +1020,9 @@ function syncPostBulkButtons() {
   if (els.postMoveSelected) {
     els.postMoveSelected.disabled = !state.postSelectionMode || !hasSelectedPosts || state.postBulkBusy;
   }
+  if (els.postRenameSelected) {
+    els.postRenameSelected.disabled = !state.postSelectionMode || !hasSelectedPosts || state.postBulkBusy;
+  }
 }
 
 function togglePostSelection(postId, forceValue = null) {
@@ -881,6 +1034,9 @@ function togglePostSelection(postId, forceValue = null) {
     state.selectedPostIds.add(key);
   } else {
     state.selectedPostIds.delete(key);
+  }
+  if (state.renamingPostId && !state.selectedPostIds.has(state.renamingPostId)) {
+    resetPostRenameState();
   }
   if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
 }
@@ -898,6 +1054,9 @@ function toggleCurrentPagePostSelection() {
       state.selectedPostIds.delete(id);
     }
   });
+  if (state.selectedPostIds.size === 0) {
+    resetPostRenameState();
+  }
   if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
 }
 
@@ -1861,6 +2020,29 @@ function exportActivePosts() {
   window.alert("txt 또는 docx 형식만 입력해주세요.");
 }
 
+function renderPostTitleCell(post, visibility) {
+  const postId = getPostId(post);
+  const title = post.title || "제목 없는 글";
+  const isPostSelected = postId && state.selectedPostIds.has(postId);
+  const isRenaming = postId && postId === state.renamingPostId;
+
+  return `
+    <span class="blog-post-title-cell ${isRenaming ? "is-renaming" : ""}">
+      ${
+        state.postSelectionMode
+          ? `<input class="blog-post-check" type="checkbox" data-post-check="${escapeHtml(postId)}" ${isPostSelected ? "checked" : ""} aria-label="${escapeHtml(title)} 선택">`
+          : ""
+      }
+      ${
+        isRenaming
+          ? `<input class="blog-post-title-edit" type="text" data-post-title-edit="${escapeHtml(postId)}" value="${escapeHtml(title)}" maxlength="120" aria-label="글 제목 수정">`
+          : `<span class="blog-post-title">${escapeHtml(title)}</span>`
+      }
+      <small>${escapeHtml(getPostLocationLabel(post))} · ${visibility}</small>
+    </span>
+  `;
+}
+
 function renderPosts(posts = []) {
   const visiblePosts = getTitleSortedPosts(posts);
   const pageMeta = getPagedPosts(visiblePosts, state.listPage, state.listPageSize);
@@ -1893,17 +2075,7 @@ function renderPosts(posts = []) {
       const isPostSelected = postId && state.selectedPostIds.has(postId);
       return `
         <div class="blog-post-row ${isSelected ? "is-selected" : ""} ${isPostSelected ? "is-post-selected" : ""}" data-post-row="${escapeHtml(postId)}" role="button" tabindex="0" aria-pressed="${state.postSelectionMode ? String(isPostSelected) : String(isSelected)}">
-          <span class="blog-post-title-cell">
-            ${
-              state.postSelectionMode
-                ? `<input class="blog-post-check" type="checkbox" data-post-check="${escapeHtml(postId)}" ${isPostSelected ? "checked" : ""} aria-label="${escapeHtml(post.title || "제목 없는 글")} 선택">`
-                : ""
-            }
-            <span class="blog-post-title">
-              ${escapeHtml(post.title || "제목 없는 글")}
-            </span>
-            <small>${escapeHtml(getPostLocationLabel(post))} · ${visibility}</small>
-          </span>
+          ${renderPostTitleCell(post, visibility)}
           <span>0</span>
           <span>${formatDate(post.published_at || post.created_at)}</span>
           <span aria-hidden="true"></span>
@@ -1998,17 +2170,7 @@ function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
       const isPostSelected = postId && state.selectedPostIds.has(postId);
       return `
         <div class="blog-post-row ${isSelected ? "is-selected" : ""} ${isPostSelected ? "is-post-selected" : ""}" data-post-row="${escapeHtml(postId)}" role="button" tabindex="0" aria-pressed="${state.postSelectionMode ? String(isPostSelected) : String(isSelected)}">
-          <span class="blog-post-title-cell">
-            ${
-              state.postSelectionMode
-                ? `<input class="blog-post-check" type="checkbox" data-post-check="${escapeHtml(postId)}" ${isPostSelected ? "checked" : ""} aria-label="${escapeHtml(post.title || "제목 없는 글")} 선택">`
-                : ""
-            }
-            <span class="blog-post-title">
-              ${escapeHtml(post.title || "제목 없는 글")}
-            </span>
-            <small>${escapeHtml(getPostLocationLabel(post))} · ${visibility}</small>
-          </span>
+          ${renderPostTitleCell(post, visibility)}
           <span>0</span>
           <span>${formatDate(post.published_at || post.created_at)}</span>
           <span aria-hidden="true"></span>
@@ -2117,6 +2279,11 @@ els.featureCard?.addEventListener("keydown", (event) => {
 });
 
 els.postList?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-post-title-edit]")) {
+    event.stopPropagation();
+    return;
+  }
+
   const folderRow = event.target.closest("[data-folder-row]");
   if (folderRow) {
     event.preventDefault();
@@ -2149,6 +2316,17 @@ els.postList?.addEventListener("click", (event) => {
   selectFeaturePost(row.dataset.postRow);
 });
 
+els.postList?.addEventListener("focusout", (event) => {
+  const input = event.target.closest("[data-post-title-edit]");
+  if (!input) return;
+
+  window.setTimeout(() => {
+    if (document.activeElement === input) return;
+    if (input.dataset.postTitleEdit !== state.renamingPostId) return;
+    savePostTitleEdit(input);
+  }, 0);
+});
+
 els.postList?.addEventListener("change", (event) => {
   const sizeSelect = event.target.closest("[data-post-page-size]");
   if (!sizeSelect) return;
@@ -2158,6 +2336,23 @@ els.postList?.addEventListener("change", (event) => {
 });
 
 els.postList?.addEventListener("keydown", (event) => {
+  const titleInput = event.target.closest("[data-post-title-edit]");
+  if (titleInput) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      savePostTitleEdit(titleInput);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      skipPostTitleEdit(titleInput.dataset.postTitleEdit);
+      return;
+    }
+    return;
+  }
+
   const folderRow = event.target.closest("[data-folder-row]");
   if (folderRow && (event.key === "Enter" || event.key === " ")) {
     event.preventDefault();
@@ -2256,6 +2451,10 @@ els.postDeleteSelected?.addEventListener("click", () => {
 
 els.postMoveSelected?.addEventListener("click", () => {
   moveSelectedPostsToLocation();
+});
+
+els.postRenameSelected?.addEventListener("click", () => {
+  startSelectedPostRename();
 });
 
 sidebarToggle?.addEventListener("click", () => {
