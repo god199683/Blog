@@ -5,10 +5,31 @@ const SUPABASE_ANON_KEY =
 const ALL_NODE_ID = "all";
 const BLOG_PAGE_SIZE_OPTIONS = Object.freeze([5, 10, 20, 30, 40, 50]);
 const BLOG_DEFAULT_PAGE_SIZE = 5;
+const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
 const BLOG_PARAMS = new URLSearchParams(window.location.search);
 const PUBLIC_BLOG_ID = String(BLOG_PARAMS.get("user") || "").trim();
 const INITIAL_BLOG_NODE_ID = String(BLOG_PARAMS.get("node") || ALL_NODE_ID).trim() || ALL_NODE_ID;
-const INITIAL_BLOG_POST_ID = String(BLOG_PARAMS.get("post") || "").trim();
+const INITIAL_BLOG_POST_ID = String(BLOG_PARAMS.get("post") || readPendingPostFocus()).trim();
+
+function readPendingPostFocus() {
+  try {
+    const raw = window.sessionStorage?.getItem(BLOG_PENDING_FOCUS_KEY) || "";
+    if (!raw) return "";
+    const payload = JSON.parse(raw);
+    const isFresh = Date.now() - Number(payload?.at || 0) < 5 * 60 * 1000;
+    return isFresh ? String(payload?.postId || "").trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+function clearPendingPostFocus() {
+  try {
+    window.sessionStorage?.removeItem(BLOG_PENDING_FOCUS_KEY);
+  } catch {
+    // Session storage can be unavailable in restricted browser contexts.
+  }
+}
 
 const state = {
   session: null,
@@ -699,6 +720,7 @@ function focusPendingPostFromUrl() {
   const post = state.posts.find((item) => getPostId(item) === targetId);
   if (!post) {
     state.pendingFocusPostId = "";
+    clearPendingPostFocus();
     return false;
   }
 
@@ -712,6 +734,7 @@ function focusPendingPostFromUrl() {
 
   state.featurePostId = targetId;
   state.pendingFocusPostId = "";
+  clearPendingPostFocus();
   syncWriteButtonHref();
   return true;
 }

@@ -7,6 +7,7 @@ const DEFAULT_CATEGORY = "전체";
 const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 const EDITOR_FONT_PREFIX = "blog.editorFonts.";
+const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
 const EDITOR_HISTORY_LIMIT = 120;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
@@ -3712,19 +3713,48 @@ function getEditorFallbackReturnHref() {
   return `${base}?${params.toString()}`;
 }
 
-function getEditorReturnHref() {
+function getSavedEditorItemId(savedItem = null) {
+  return String(savedItem?.id || (isMaterialEditor() ? state.editMaterialId : state.editPostId) || "").trim();
+}
+
+function rememberEditedPostFocus(savedItem = null) {
+  if (isMaterialEditor()) return;
+  const postId = getSavedEditorItemId(savedItem);
+  if (!postId) return;
+
+  try {
+    window.sessionStorage?.setItem(BLOG_PENDING_FOCUS_KEY, JSON.stringify({ postId, at: Date.now() }));
+  } catch {
+    // Session storage can be unavailable in restricted browser contexts.
+  }
+}
+
+function applySavedEditorReturnParams(href, savedItem = null) {
+  const savedId = getSavedEditorItemId(savedItem);
+  if (!savedId) return href;
+
+  try {
+    const url = new URL(href, window.location.href);
+    url.searchParams.set(isMaterialEditor() ? "material" : "post", savedId);
+    return url.href;
+  } catch {
+    return href;
+  }
+}
+
+function getEditorReturnHref(savedItem = null) {
   const fallback = getEditorFallbackReturnHref();
   const rawReturn = EDITOR_PARAMS.get("return") || "";
-  if (!rawReturn) return fallback;
+  if (!rawReturn) return applySavedEditorReturnParams(fallback, savedItem);
 
   try {
     const url = new URL(rawReturn, window.location.href);
     const expectedPage = isMaterialEditor() ? "materials.html" : "my-blog.html";
     const sameOrigin = url.origin === window.location.origin;
     const allowedPage = url.pathname.endsWith(`/${expectedPage}`) || url.pathname.endsWith(expectedPage);
-    return sameOrigin && allowedPage ? url.href : fallback;
+    return applySavedEditorReturnParams(sameOrigin && allowedPage ? url.href : fallback, savedItem);
   } catch {
-    return fallback;
+    return applySavedEditorReturnParams(fallback, savedItem);
   }
 }
 
@@ -3750,15 +3780,13 @@ async function handleEditorSubmit(event) {
 
     setEditorBusy(true);
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료를 수정 중입니다..." : "자료를 저장 중입니다...") : state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
-    if (isMaterialEditor()) {
-      await publishEditorMaterial();
-    } else {
-      await publishEditorPost();
-    }
+    const savedItem = isMaterialEditor() ? await publishEditorMaterial() : await publishEditorPost();
+    rememberEditedPostFocus(savedItem);
+    const returnHref = getEditorReturnHref(savedItem);
     clearEditorDraft();
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료 수정이 완료되었습니다." : "자료가 저장되었습니다.") : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
     window.setTimeout(() => {
-      window.location.href = getEditorReturnHref();
+      window.location.href = returnHref;
     }, 450);
   } catch (error) {
     setEditorMessage(error.message, "error");
