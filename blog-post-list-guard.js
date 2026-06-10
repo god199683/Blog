@@ -1,6 +1,5 @@
 (() => {
   const CACHE_KEY = "blog.guard.postList.snapshot";
-  const EMPTY_TEXT = "아직 작성된 글이 없습니다.";
 
   function readSnapshot() {
     try {
@@ -15,9 +14,7 @@
       const text = JSON.stringify(snapshot);
       sessionStorage.setItem(CACHE_KEY, text);
       localStorage.setItem(CACHE_KEY, text);
-    } catch {
-      // Ignore blocked storage.
-    }
+    } catch {}
   }
 
   function textOf(selector) {
@@ -30,6 +27,10 @@
 
   function hiddenOf(selector) {
     return document.querySelector(selector)?.hidden ?? true;
+  }
+
+  function isIntentionalEmptyScope() {
+    return document.querySelector("[data-blog-board]")?.dataset.intentionalEmptyScope === "true";
   }
 
   function hasRealRows(postList) {
@@ -47,21 +48,21 @@
   }
 
   function countLooksNonZero() {
-    const countText = textOf("[data-blog-count]");
-    return /[1-9]\d*\s*개의\s*글/.test(countText);
+    return /[1-9]\d*/.test(textOf("[data-blog-count]"));
   }
 
   function pageLooksUseful() {
+    if (isIntentionalEmptyScope()) return false;
     const postList = document.querySelector("[data-post-list]");
     return hasRealRows(postList) || hasUsefulFeature() || hasUsefulMiniList() || countLooksNonZero();
   }
 
   function pageLooksEmpty() {
+    if (isIntentionalEmptyScope()) return false;
     const postList = document.querySelector("[data-post-list]");
     const emptyRow = Boolean(postList?.querySelector(".blog-empty-row"));
-    const emptyText = (postList?.textContent || "").includes(EMPTY_TEXT);
-    const countText = textOf("[data-blog-count]");
-    return (emptyRow || emptyText || /(^|\s)0개의\s*글/.test(countText)) && !pageLooksUseful();
+    const countLooksZero = /(^|\D)0(\D|$)/.test(textOf("[data-blog-count]"));
+    return (emptyRow || countLooksZero) && !pageLooksUseful();
   }
 
   function collectSnapshot() {
@@ -80,6 +81,7 @@
   }
 
   function restoreSnapshot(snapshot) {
+    if (isIntentionalEmptyScope()) return false;
     if (!snapshot || (!snapshot.postListHtml && !snapshot.featureHtml && !snapshot.miniHtml)) return false;
     if (!pageLooksEmpty()) return false;
 
@@ -109,6 +111,8 @@
   }
 
   function tick() {
+    if (isIntentionalEmptyScope()) return;
+
     const current = collectSnapshot();
     if (current) {
       writeSnapshot(current);
@@ -129,7 +133,13 @@
   function initGuard() {
     const root = document.querySelector("[data-blog-board]") || document.body;
     const observer = new MutationObserver(() => tick());
-    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["hidden", "class"] });
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["hidden", "class", "data-intentional-empty-scope"],
+    });
 
     runSoon();
     window.addEventListener("pageshow", runSoon);

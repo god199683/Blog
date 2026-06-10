@@ -132,6 +132,11 @@ function syncPostBoardToolbar() {
   });
 }
 
+function setIntentionalEmptyScope(isEmpty) {
+  if (!blogBoard) return;
+  blogBoard.dataset.intentionalEmptyScope = isEmpty ? "true" : "false";
+}
+
 function getCurrentBlogReturnHref({ postId = "" } = {}) {
   const params = new URLSearchParams();
   if (state.publicMode && state.id) {
@@ -2052,6 +2057,7 @@ function renderPosts(posts = []) {
   const visiblePosts = getTitleSortedPosts(posts);
   const pageMeta = getPagedPosts(visiblePosts, state.listPage, state.listPageSize);
   state.listPage = pageMeta.page;
+  setIntentionalEmptyScope(state.activeNodeId !== ALL_NODE_ID && visiblePosts.length === 0);
   syncTitleSortButton();
   if (els.count) els.count.textContent = `${posts.length}개의 글`;
   if (els.visitorTotalPosts) els.visitorTotalPosts.textContent = String(state.posts.length);
@@ -2107,6 +2113,7 @@ function renderPosts(posts = []) {
 function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
   setPostListOpen(true);
   const visiblePosts = getTitleSortedPosts(posts);
+  setIntentionalEmptyScope(state.activeNodeId !== ALL_NODE_ID && folders.length === 0 && visiblePosts.length === 0);
   state.currentScopePosts = posts;
   state.currentScopeTitle = scopeTitle;
   syncTitleSortButton();
