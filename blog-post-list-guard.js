@@ -1,5 +1,7 @@
 (() => {
   const CACHE_KEY = "blog.guard.postList.snapshot";
+  let pendingTick = false;
+  let lastSnapshotText = "";
 
   function readSnapshot() {
     try {
@@ -12,6 +14,8 @@
   function writeSnapshot(snapshot) {
     try {
       const text = JSON.stringify(snapshot);
+      if (text === lastSnapshotText) return;
+      lastSnapshotText = text;
       sessionStorage.setItem(CACHE_KEY, text);
       localStorage.setItem(CACHE_KEY, text);
     } catch {}
@@ -123,16 +127,24 @@
     if (cached) restoreSnapshot(cached);
   }
 
+  function scheduleTick() {
+    if (pendingTick) return;
+    pendingTick = true;
+    window.requestAnimationFrame(() => {
+      pendingTick = false;
+      tick();
+    });
+  }
+
   function runSoon() {
-    tick();
-    setTimeout(tick, 150);
-    setTimeout(tick, 600);
-    setTimeout(tick, 1500);
+    scheduleTick();
+    setTimeout(scheduleTick, 180);
+    setTimeout(scheduleTick, 900);
   }
 
   function initGuard() {
     const root = document.querySelector("[data-blog-board]") || document.body;
-    const observer = new MutationObserver(() => tick());
+    const observer = new MutationObserver(() => scheduleTick());
     observer.observe(root, {
       childList: true,
       subtree: true,
@@ -148,7 +160,7 @@
       if (!document.hidden) runSoon();
     });
     window.addEventListener("online", runSoon);
-    setInterval(tick, 1000);
+    setInterval(scheduleTick, 10000);
   }
 
   if (document.readyState === "loading") {

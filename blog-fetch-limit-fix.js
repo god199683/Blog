@@ -24,13 +24,11 @@
   }
 
   function isBlogTreeRequest(value) {
-    const raw = String(value || "");
-    return raw.includes("/rest/v1/blog_trees");
+    return String(value || "").includes("/rest/v1/blog_trees");
   }
 
   function isPostsRequest(value) {
-    const raw = String(value || "");
-    return raw.includes("/rest/v1/posts");
+    return String(value || "").includes("/rest/v1/posts");
   }
 
   function readCache(key) {
@@ -46,17 +44,17 @@
       const text = JSON.stringify(payload);
       sessionStorage.setItem(key, text);
       localStorage.setItem(key, text);
-    } catch {
-      // Ignore blocked storage.
-    }
+    } catch {}
   }
 
   function getCachedTreeResponse() {
     const cached = readCache(TREE_CACHE_KEY);
-    if (Array.isArray(cached) && cached[0]?.tree && Array.isArray(cached[0].tree) && cached[0].tree.length > 0) {
-      return cached;
-    }
-    return null;
+    return Array.isArray(cached) && Array.isArray(cached[0]?.tree) && cached[0].tree.length > 0 ? cached : null;
+  }
+
+  function getCachedPostsResponse() {
+    const cached = readCache(POSTS_CACHE_KEY);
+    return Array.isArray(cached) && cached.length > 0 ? cached : null;
   }
 
   function saveTreeResponse(payload) {
@@ -64,17 +62,19 @@
     writeCache(TREE_CACHE_KEY, payload);
   }
 
-  function getCachedPostsResponse() {
-    const cached = readCache(POSTS_CACHE_KEY);
-    if (Array.isArray(cached) && cached.length > 0) return cached;
-    return null;
-  }
-
   function savePostsResponse(payload) {
     if (!Array.isArray(payload) || payload.length === 0) return;
     const hasRealPost = payload.some((post) => post && (post.id || post.title || post.created_at));
     if (!hasRealPost) return;
     writeCache(POSTS_CACHE_KEY, payload);
+  }
+
+  function cacheJsonFromResponse(response, savePayload) {
+    response
+      .clone()
+      .json()
+      .then(savePayload)
+      .catch(() => {});
   }
 
   function makeJsonResponse(payload, sourceResponse = null) {
@@ -88,66 +88,45 @@
     });
   }
 
-  async function protectTreeResponse(response, sourceUrl) {
+  function protectTreeResponse(response, sourceUrl) {
     if (!isBlogTreeRequest(sourceUrl)) return response;
 
     if (!response.ok) {
       const cached = getCachedTreeResponse();
-      if (cached) return makeJsonResponse(cached, response);
-      return response;
+      return cached ? makeJsonResponse(cached, response) : response;
     }
 
-    try {
-      const clone = response.clone();
-      const payload = await clone.json();
-      const hasTree = Array.isArray(payload) && Array.isArray(payload[0]?.tree) && payload[0].tree.length > 0;
-      if (hasTree) {
-        saveTreeResponse(payload);
-        return response;
-      }
-      const cached = getCachedTreeResponse();
-      if (cached) return makeJsonResponse(cached, response);
-    } catch {
-      const cached = getCachedTreeResponse();
-      if (cached) return makeJsonResponse(cached, response);
-    }
-
+    cacheJsonFromResponse(response, saveTreeResponse);
     return response;
   }
 
-  async function protectPostsResponse(response, sourceUrl) {
+  function protectPostsResponse(response, sourceUrl) {
     if (!isPostsRequest(sourceUrl)) return response;
 
     if (!response.ok) {
       const cached = getCachedPostsResponse();
-      if (cached) return makeJsonResponse(cached, response);
-      return response;
+      return cached ? makeJsonResponse(cached, response) : response;
     }
 
-    try {
-      const clone = response.clone();
-      const payload = await clone.json();
-      if (Array.isArray(payload) && payload.length > 0) {
-        savePostsResponse(payload);
-        return response;
-      }
-      const cached = getCachedPostsResponse();
-      if (cached) return makeJsonResponse(cached, response);
-    } catch {
-      const cached = getCachedPostsResponse();
-      if (cached) return makeJsonResponse(cached, response);
-    }
-
+    cacheJsonFromResponse(response, savePostsResponse);
     return response;
   }
 
-  async function protectBlogResponse(response, sourceUrl) {
-    const treeProtected = await protectTreeResponse(response, sourceUrl);
-    return protectPostsResponse(treeProtected, sourceUrl);
+  function protectBlogResponse(response, sourceUrl) {
+    return protectPostsResponse(protectTreeResponse(response, sourceUrl), sourceUrl);
+  }
+
+  function getFetchMethod(input, init) {
+    return String(init?.method || input?.method || "GET").toUpperCase();
   }
 
   window.fetch = function patchedBlogFetch(input, init) {
     const sourceUrl = typeof input === "string" ? input : input?.url;
+    const method = getFetchMethod(input, init);
+
+    if (method !== "GET") {
+      return originalFetch.call(this, input, init);
+    }
 
     try {
       const nextUrl = patchPostsUrl(sourceUrl);

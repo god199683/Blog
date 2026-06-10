@@ -2662,18 +2662,10 @@ window.blogSession?.ready.then(async (session) => {
   renderBlog(id);
   renderTree();
   renderActivePosts();
-  try {
-    const profile = await ensureBlogProfile(session, id);
-    renderBlog(id, profile);
-  } catch {
-    renderBlog(id);
-  }
 
-  try {
-    state.tree = await loadTree(session);
-  } catch {
-    state.tree = [];
-  }
+  const [profileResult, treeResult] = await Promise.allSettled([ensureBlogProfile(session, id), loadTree(session)]);
+  renderBlog(id, profileResult.status === "fulfilled" ? profileResult.value : null);
+  state.tree = treeResult.status === "fulfilled" ? treeResult.value : [];
   normalizeActiveNodeId();
   renderTree();
 
