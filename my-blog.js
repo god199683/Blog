@@ -1253,6 +1253,11 @@ function renderTree() {
   syncTreeSelectionState();
 }
 
+function getEmptyScopeFeaturePostId() {
+  const pendingId = String(state.pendingFocusPostId || "").trim();
+  return pendingId && state.posts.length === 0 ? pendingId : "";
+}
+
 function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
   const visiblePosts = getTitleSortedPosts(posts);
   const selectedPost =
@@ -1260,7 +1265,7 @@ function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
 
   state.currentScopePosts = posts;
   state.currentScopeTitle = scopeTitle;
-  state.featurePostId = selectedPost ? getPostId(selectedPost) : state.pendingFocusPostId || state.featurePostId || "";
+  state.featurePostId = selectedPost ? getPostId(selectedPost) : getEmptyScopeFeaturePostId();
   if (selectedPost) {
     syncPagesToPost(getPostId(selectedPost));
   }
@@ -2114,7 +2119,7 @@ function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
   if (posts.length > 0) {
     renderFeatureArea(posts, scopeTitle);
   } else if (els.featureCard) {
-    state.featurePostId = state.pendingFocusPostId || state.featurePostId || "";
+    state.featurePostId = getEmptyScopeFeaturePostId();
     els.featureCard.hidden = true;
     els.featureCard.innerHTML = "";
     els.featureCard.removeAttribute("data-feature-post-id");
