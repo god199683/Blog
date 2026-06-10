@@ -9,17 +9,18 @@ const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
 const BLOG_PARAMS = new URLSearchParams(window.location.search);
 const PUBLIC_BLOG_ID = String(BLOG_PARAMS.get("user") || "").trim();
 const INITIAL_BLOG_NODE_ID = String(BLOG_PARAMS.get("node") || ALL_NODE_ID).trim() || ALL_NODE_ID;
-const INITIAL_BLOG_POST_ID = String(BLOG_PARAMS.get("post") || readPendingPostFocus()).trim();
+const INITIAL_BLOG_PENDING_FOCUS = readPendingPostFocusPayload();
+const INITIAL_BLOG_POST_ID = String(BLOG_PARAMS.get("post") || INITIAL_BLOG_PENDING_FOCUS?.postId || "").trim();
 
-function readPendingPostFocus() {
+function readPendingPostFocusPayload() {
   try {
     const raw = window.sessionStorage?.getItem(BLOG_PENDING_FOCUS_KEY) || "";
-    if (!raw) return "";
+    if (!raw) return null;
     const payload = JSON.parse(raw);
     const isFresh = Date.now() - Number(payload?.at || 0) < 5 * 60 * 1000;
-    return isFresh ? String(payload?.postId || "").trim() : "";
+    return isFresh ? payload : null;
   } catch {
-    return "";
+    return null;
   }
 }
 
@@ -45,6 +46,7 @@ const state = {
   titleSortDirection: "asc",
   featurePostId: INITIAL_BLOG_POST_ID,
   pendingFocusPostId: INITIAL_BLOG_POST_ID,
+  pendingFocusPostSnapshot: INITIAL_BLOG_PENDING_FOCUS?.post || null,
   currentScopePosts: [],
   currentScopeTitle: "전체보기",
   listPage: 1,
@@ -645,6 +647,60 @@ function getTrashPostIdSet(items = state.trashItems) {
 function filterPostsOutsideTrash(posts = []) {
   const trashPostIds = getTrashPostIdSet();
   return posts.filter((post) => !trashPostIds.has(String(post.id)));
+}
+
+function normalizePendingFocusPost(post = {}) {
+  const now = new Date().toISOString();
+  return {
+    id: post.id || state.pendingFocusPostId || "",
+    title: post.title || "제목 없는 글",
+    body: post.body || "",
+    category: post.category || "전체",
+    folder: post.folder || "",
+    folder_id: post.folder_id || "",
+    folder_name: post.folder_name || post.folder || "",
+    folder_path: post.folder_path || "",
+    cover_image: post.cover_image || "",
+    reading_time: post.reading_time || "",
+    author: post.author || state.id,
+    login_id: post.login_id || state.id,
+    user_id: post.user_id || state.session?.user?.id || "",
+    published: post.published !== false,
+    published_at: post.published_at || post.created_at || now,
+    created_at: post.created_at || post.published_at || now,
+  };
+}
+
+function getPendingFocusPostSnapshot() {
+  if (state.publicMode || !state.pendingFocusPostSnapshot) return null;
+  const post = normalizePendingFocusPost(state.pendingFocusPostSnapshot);
+  if (!post.id || !belongsToUser(post, state.session, state.id)) return null;
+  return filterPostsOutsideTrash([post])[0] || null;
+}
+
+function mergePostIntoList(posts = [], pendingPost = null) {
+  if (!pendingPost?.id) return posts;
+  const targetId = String(pendingPost.id);
+  let found = false;
+  const merged = posts.map((post) => {
+    if (String(post.id) !== targetId) return post;
+    found = true;
+    return { ...pendingPost, ...post };
+  });
+  return found ? merged : [pendingPost, ...merged];
+}
+
+function mergePendingFocusPost(posts = state.posts) {
+  return mergePostIntoList(posts, getPendingFocusPostSnapshot());
+}
+
+function renderPendingFocusPostFast() {
+  const merged = mergePendingFocusPost(state.posts);
+  if (merged === state.posts) return false;
+  state.posts = merged;
+  focusPendingPostFromUrl();
+  renderActivePosts();
+  return true;
 }
 
 function normalizeTree(tree) {
@@ -2668,11 +2724,12 @@ window.blogSession?.ready.then(async (session) => {
   state.tree = treeResult.status === "fulfilled" ? treeResult.value : [];
   normalizeActiveNodeId();
   renderTree();
+  renderPendingFocusPostFast();
 
   try {
-    state.posts = await fetchUserPosts(session, id);
+    state.posts = mergePendingFocusPost(await fetchUserPosts(session, id));
   } catch {
-    state.posts = [];
+    state.posts = mergePendingFocusPost([]);
   }
   focusPendingPostFromUrl();
   renderActivePosts();

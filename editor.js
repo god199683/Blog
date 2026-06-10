@@ -3717,13 +3717,38 @@ function getSavedEditorItemId(savedItem = null) {
   return String(savedItem?.id || (isMaterialEditor() ? state.editMaterialId : state.editPostId) || "").trim();
 }
 
+function buildSavedPostSnapshot(savedItem = null) {
+  if (isMaterialEditor() || !savedItem) return null;
+  return {
+    id: savedItem.id || state.editPostId || "",
+    title: savedItem.title || els.title?.value || "",
+    body: savedItem.body || els.content?.innerHTML || "",
+    category: savedItem.category || els.category?.value || DEFAULT_CATEGORY,
+    folder: savedItem.folder || "",
+    folder_id: savedItem.folder_id || "",
+    folder_name: savedItem.folder_name || savedItem.folder || "",
+    folder_path: savedItem.folder_path || "",
+    cover_image: savedItem.cover_image || "",
+    reading_time: savedItem.reading_time || "",
+    author: savedItem.author || state.id,
+    login_id: savedItem.login_id || state.id,
+    user_id: savedItem.user_id || getSession()?.user?.id || "",
+    published: savedItem.published !== false,
+    published_at: savedItem.published_at || savedItem.created_at || new Date().toISOString(),
+    created_at: savedItem.created_at || savedItem.published_at || new Date().toISOString(),
+  };
+}
+
 function rememberEditedPostFocus(savedItem = null) {
   if (isMaterialEditor()) return;
   const postId = getSavedEditorItemId(savedItem);
   if (!postId) return;
 
   try {
-    window.sessionStorage?.setItem(BLOG_PENDING_FOCUS_KEY, JSON.stringify({ postId, at: Date.now() }));
+    window.sessionStorage?.setItem(
+      BLOG_PENDING_FOCUS_KEY,
+      JSON.stringify({ postId, post: buildSavedPostSnapshot(savedItem), at: Date.now() })
+    );
   } catch {
     // Session storage can be unavailable in restricted browser contexts.
   }
@@ -3787,7 +3812,7 @@ async function handleEditorSubmit(event) {
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료 수정이 완료되었습니다." : "자료가 저장되었습니다.") : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
     window.setTimeout(() => {
       window.location.href = returnHref;
-    }, 450);
+    }, 140);
   } catch (error) {
     setEditorMessage(error.message, "error");
   } finally {
