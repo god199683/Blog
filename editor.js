@@ -61,6 +61,9 @@ const els = {
   locationConfirm: document.querySelector("[data-location-confirm]"),
   locationCancel: document.querySelector("[data-location-cancel]"),
   locationClose: document.querySelector("[data-location-close]"),
+  findQuery: document.querySelector("[data-editor-find-query]"),
+  replaceValue: document.querySelector("[data-editor-replace-value]"),
+  findState: document.querySelector("[data-editor-find-state]"),
 };
 
 let savedEditorRange = null;
@@ -76,6 +79,9 @@ let activeEditorLineHeight = "";
 let lastEditorEllipsisReplacement = null;
 let pendingPastePayload = null;
 let pasteMenu = null;
+let editorFindMatches = [];
+let editorFindIndex = -1;
+let editorFindQuery = "";
 
 const BUILTIN_EDITOR_FONTS = [
   DEFAULT_EDITOR_FONT,
@@ -2544,6 +2550,9 @@ function targetNeedsEditorSelectionHold(target) {
         "[data-table-insert]",
         "[data-table-add-row]",
         "[data-table-add-col]",
+        "[data-editor-find-next]",
+        "[data-editor-replace-one]",
+        "[data-editor-replace-all]",
       ].join(", ")
     )
   );
@@ -3218,6 +3227,9 @@ function applyLineHeight(value) {
 function handleEditorContentInput(event) {
   replaceTrailingEditorEllipsis(event);
   syncActiveLineHeightBlocks();
+  if (getEditorFindQuery()) {
+    refreshEditorFindMatches({ preserveIndex: true });
+  }
   pushEditorHistorySnapshot();
   syncEditorToolbarState();
 }
@@ -3269,6 +3281,236 @@ function insertEditorTable() {
 
 function insertEditorDivider() {
   executeEditorCommand("insertHTML", `<hr><p><br></p>`);
+}
+
+function getEditorFindQuery() {
+  return String(els.findQuery?.value || "");
+}
+
+function updateEditorFindState() {
+  if (!els.findState) return;
+  const total = editorFindMatches.length;
+  els.findState.textContent = total > 0 && editorFindIndex >= 0 ? `${editorFindIndex + 1} / ${total}` : `0 / ${total}`;
+}
+
+function getEditorTextIndex() {
+  const parts = [];
+  const textParts = [];
+  const walker = document.createTreeWalker(els.content, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+      if (node.parentElement?.closest?.("[contenteditable='false']")) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  let offset = 0;
+  let node = walker.nextNode();
+  while (node) {
+    const value = node.nodeValue || "";
+    parts.push({
+      node,
+      start: offset,
+      end: offset + value.length,
+    });
+    textParts.push(value);
+    offset += value.length;
+    node = walker.nextNode();
+  }
+
+  return {
+    text: textParts.join(""),
+    parts,
+  };
+}
+
+function findEditorTextMatches(text, query) {
+  const needle = String(query || "");
+  if (!needle) return [];
+
+  const haystack = String(text || "").toLocaleLowerCase();
+  const normalizedNeedle = needle.toLocaleLowerCase();
+  const matches = [];
+  let index = haystack.indexOf(normalizedNeedle);
+
+  while (index >= 0) {
+    matches.push({
+      start: index,
+      end: index + needle.length,
+    });
+    index = haystack.indexOf(normalizedNeedle, index + Math.max(needle.length, 1));
+  }
+
+  return matches;
+}
+
+function resolveEditorTextPosition(parts, offset, preferPrevious = false) {
+  if (parts.length === 0) return null;
+
+  for (const part of parts) {
+    if (offset < part.start) break;
+    if (offset < part.end) {
+      return { node: part.node, offset: offset - part.start };
+    }
+    if (offset === part.end && preferPrevious) {
+      return { node: part.node, offset: part.node.nodeValue.length };
+    }
+  }
+
+  const fallback = preferPrevious ? parts.at(-1) : parts[0];
+  return {
+    node: fallback.node,
+    offset: preferPrevious ? fallback.node.nodeValue.length : 0,
+  };
+}
+
+function createEditorTextRange(match, indexData) {
+  const start = resolveEditorTextPosition(indexData.parts, match.start, false);
+  const end = resolveEditorTextPosition(indexData.parts, match.end, true);
+  if (!start || !end) return null;
+
+  const range = document.createRange();
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset);
+  return range;
+}
+
+function refreshEditorFindMatches({ preserveIndex = true } = {}) {
+  const query = getEditorFindQuery();
+  const indexData = getEditorTextIndex();
+
+  if (query !== editorFindQuery) {
+    editorFindIndex = -1;
+    editorFindQuery = query;
+  }
+
+  editorFindMatches = findEditorTextMatches(indexData.text, query);
+  if (!preserveIndex || editorFindMatches.length === 0) {
+    editorFindIndex = -1;
+  } else if (editorFindIndex >= editorFindMatches.length) {
+    editorFindIndex = editorFindMatches.length - 1;
+  }
+
+  updateEditorFindState();
+  return indexData;
+}
+
+function selectEditorFindMatch(match, indexData) {
+  const range = createEditorTextRange(match, indexData);
+  if (!range) return false;
+
+  els.content.focus({ preventScroll: true });
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  savedEditorRange = range.cloneRange();
+
+  const anchor = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+  anchor?.scrollIntoView?.({ block: "center", inline: "nearest" });
+  updateEditorFindState();
+  return true;
+}
+
+function findNextEditorMatch() {
+  const query = getEditorFindQuery().trim();
+  if (!query) {
+    editorFindMatches = [];
+    editorFindIndex = -1;
+    updateEditorFindState();
+    setEditorMessage("검색어를 입력해주세요.", "error");
+    return;
+  }
+
+  const indexData = refreshEditorFindMatches({ preserveIndex: true });
+  if (editorFindMatches.length === 0) {
+    setEditorMessage("검색 결과가 없습니다.", "error");
+    return;
+  }
+
+  editorFindIndex = (editorFindIndex + 1) % editorFindMatches.length;
+  selectEditorFindMatch(editorFindMatches[editorFindIndex], indexData);
+  setEditorMessage("");
+}
+
+function replaceEditorTextRange(range, replacement, { selectAfter = false } = {}) {
+  range.deleteContents();
+  const textNode = document.createTextNode(replacement);
+  range.insertNode(textNode);
+
+  if (selectAfter) {
+    const nextRange = document.createRange();
+    nextRange.setStartAfter(textNode);
+    nextRange.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(nextRange);
+    savedEditorRange = nextRange.cloneRange();
+  }
+}
+
+function replaceCurrentEditorMatch() {
+  const query = getEditorFindQuery().trim();
+  if (!query) {
+    setEditorMessage("검색어를 입력해주세요.", "error");
+    return;
+  }
+
+  let indexData = refreshEditorFindMatches({ preserveIndex: true });
+  if (editorFindMatches.length === 0) {
+    setEditorMessage("검색 결과가 없습니다.", "error");
+    return;
+  }
+
+  if (editorFindIndex < 0) {
+    editorFindIndex = 0;
+  }
+
+  const replacement = String(els.replaceValue?.value || "");
+  const currentIndex = editorFindIndex;
+  const range = createEditorTextRange(editorFindMatches[currentIndex], indexData);
+  if (!range) return;
+
+  replaceEditorTextRange(range, replacement, { selectAfter: true });
+  pushEditorHistorySnapshot();
+  syncEditorStats();
+  syncEditorToolbarState({ force: true });
+  markEditorDirty();
+
+  indexData = refreshEditorFindMatches({ preserveIndex: true });
+  if (editorFindMatches.length > 0) {
+    editorFindIndex = Math.min(currentIndex, editorFindMatches.length - 1);
+    selectEditorFindMatch(editorFindMatches[editorFindIndex], indexData);
+  }
+  setEditorMessage("1개를 바꿨습니다.", "success");
+}
+
+function replaceAllEditorMatches() {
+  const query = getEditorFindQuery().trim();
+  if (!query) {
+    setEditorMessage("검색어를 입력해주세요.", "error");
+    return;
+  }
+
+  const replacement = String(els.replaceValue?.value || "");
+  const indexData = refreshEditorFindMatches({ preserveIndex: false });
+  const matches = [...editorFindMatches];
+  if (matches.length === 0) {
+    setEditorMessage("검색 결과가 없습니다.", "error");
+    return;
+  }
+
+  [...matches].reverse().forEach((match) => {
+    const range = createEditorTextRange(match, indexData);
+    if (range) replaceEditorTextRange(range, replacement);
+  });
+
+  pushEditorHistorySnapshot();
+  syncEditorStats();
+  syncEditorToolbarState({ force: true });
+  markEditorDirty();
+  editorFindIndex = -1;
+  refreshEditorFindMatches({ preserveIndex: false });
+  setEditorMessage(`${matches.length}개를 바꿨습니다.`, "success");
 }
 
 function getActiveTableCell() {
@@ -4050,6 +4292,24 @@ els.toolbar.addEventListener("mousedown", (event) => {
 });
 
 els.toolbar.addEventListener("click", (event) => {
+  if (event.target.closest("[data-editor-find-next]")) {
+    findNextEditorMatch();
+    closeAllToolbarMenus();
+    return;
+  }
+
+  if (event.target.closest("[data-editor-replace-one]")) {
+    replaceCurrentEditorMatch();
+    closeAllToolbarMenus();
+    return;
+  }
+
+  if (event.target.closest("[data-editor-replace-all]")) {
+    replaceAllEditorMatches();
+    closeAllToolbarMenus();
+    return;
+  }
+
   const colorToggle = event.target.closest("[data-color-menu-toggle]");
   if (colorToggle) {
     const target = colorToggle.dataset.colorMenuToggle;
@@ -4132,11 +4392,29 @@ els.toolbar.addEventListener("click", (event) => {
 });
 
 els.toolbar.addEventListener("keydown", (event) => {
+  if (event.target.closest("[data-editor-find-query]") && event.key === "Enter") {
+    event.preventDefault();
+    findNextEditorMatch();
+    return;
+  }
+
+  if (event.target.closest("[data-editor-replace-value]") && event.key === "Enter") {
+    event.preventDefault();
+    replaceCurrentEditorMatch();
+    return;
+  }
+
   const lineHeightInput = event.target.closest("[data-line-height-custom]");
   if (!lineHeightInput || event.key !== "Enter") return;
   event.preventDefault();
   applyCustomLineHeightFromInput(lineHeightInput);
   closeEditorMiniMenus();
+});
+
+els.findQuery?.addEventListener("input", () => {
+  editorFindQuery = "";
+  editorFindIndex = -1;
+  refreshEditorFindMatches({ preserveIndex: false });
 });
 
 document.addEventListener("click", (event) => {

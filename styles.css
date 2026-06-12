@@ -2932,7 +2932,8 @@ body.is-away-locked {
 
 .editor-add-font-button,
 .editor-tool-button,
-.editor-table-button {
+.editor-table-button,
+.editor-find-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2956,9 +2957,63 @@ body.is-away-locked {
 .editor-tool-button:focus-visible,
 .editor-tool-button.is-active,
 .editor-table-button:hover,
-.editor-table-button:focus-visible {
+.editor-table-button:focus-visible,
+.editor-find-button:hover,
+.editor-find-button:focus-visible {
   border-color: rgba(56, 189, 248, 0.46);
   background: #eaf7ff;
+}
+
+.editor-find-row {
+  padding-top: 0.18rem;
+  border-top: 1px solid rgba(216, 234, 251, 0.72);
+}
+
+.editor-find-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  min-width: min(100%, 13rem);
+  color: #557085;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.editor-find-field input {
+  width: min(100%, 9rem);
+  min-height: 2rem;
+  padding: 0 0.58rem;
+  border: 1px solid rgba(186, 230, 253, 0.92);
+  border-radius: 6px;
+  background: #fff;
+  color: #263d50;
+  font: inherit;
+  font-weight: 650;
+  outline: none;
+}
+
+.editor-find-field input:focus {
+  border-color: rgba(56, 189, 248, 0.56);
+  box-shadow: 0 0 0 3px rgba(186, 230, 253, 0.28);
+}
+
+.editor-find-button {
+  width: auto;
+  min-width: 3.7rem;
+  padding: 0 0.58rem;
+  color: #557085;
+  font-weight: 760;
+}
+
+.editor-find-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.2rem;
+  min-height: 2rem;
+  color: #7f95a8;
+  font-size: 0.74rem;
+  font-weight: 760;
 }
 
 .editor-tool-divider {
