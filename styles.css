@@ -2214,6 +2214,82 @@ body.is-away-locked {
   line-height: 1;
 }
 
+.blog-list-footer .blog-page-icon-button,
+.blog-mini-footer .blog-page-icon-button {
+  width: 1.58rem;
+  min-width: 1.58rem;
+  height: 1.58rem;
+  min-height: 1.58rem;
+  padding: 0;
+}
+
+.blog-page-icon {
+  position: relative;
+  display: inline-block;
+  width: 0.86rem;
+  height: 0.86rem;
+}
+
+.blog-page-icon::before,
+.blog-page-icon::after {
+  position: absolute;
+  content: "";
+}
+
+.blog-page-icon-prev::before,
+.blog-page-icon-first::before {
+  top: 50%;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.blog-page-icon-prev::before {
+  left: 0.3rem;
+}
+
+.blog-page-icon-first::before {
+  left: 0.38rem;
+}
+
+.blog-page-icon-first::after,
+.blog-page-icon-last::after {
+  top: 50%;
+  width: 2px;
+  height: 0.72rem;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+.blog-page-icon-first::after {
+  left: 0.1rem;
+}
+
+.blog-page-icon-next::before,
+.blog-page-icon-last::before {
+  top: 50%;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.blog-page-icon-next::before {
+  right: 0.3rem;
+}
+
+.blog-page-icon-last::before {
+  right: 0.38rem;
+}
+
+.blog-page-icon-last::after {
+  right: 0.1rem;
+}
+
 .blog-list-footer .blog-page-state,
 .blog-mini-footer .blog-page-state {
   min-width: 2.8rem;
@@ -2624,6 +2700,22 @@ body.is-away-locked {
 .blog-mini-footer [data-mini-page="next"]::after {
   margin-left: 0.18rem;
   content: "›";
+}
+
+.blog-list-footer [data-post-page]::before,
+.blog-list-footer [data-post-page]::after,
+.blog-mini-footer [data-mini-page]::before,
+.blog-mini-footer [data-mini-page]::after {
+  margin: 0;
+  content: none;
+}
+
+.blog-mini-footer .blog-page-icon-button:first-child:not(:disabled) {
+  opacity: 1;
+}
+
+.blog-mini-footer .blog-page-icon-button:first-child:disabled {
+  opacity: 0.52;
 }
 
 .blog-mini-footer a {

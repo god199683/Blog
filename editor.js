@@ -3812,7 +3812,7 @@ async function handleEditorSubmit(event) {
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료 수정이 완료되었습니다." : "자료가 저장되었습니다.") : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
     window.setTimeout(() => {
       window.location.href = returnHref;
-    }, 140);
+    }, 70);
   } catch (error) {
     setEditorMessage(error.message, "error");
   } finally {

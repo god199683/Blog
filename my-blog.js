@@ -497,6 +497,45 @@ function getPagedPosts(posts = [], page, pageSize = BLOG_DEFAULT_PAGE_SIZE) {
   };
 }
 
+function getPaginationTargetPage(action, currentPage, totalPages) {
+  const page = Number(currentPage) || 1;
+  const maxPage = Math.max(1, Number(totalPages) || 1);
+  if (action === "first") return 1;
+  if (action === "prev") return Math.max(1, page - 1);
+  if (action === "next") return Math.min(maxPage, page + 1);
+  if (action === "last") return maxPage;
+  return page;
+}
+
+function renderPaginationIconButton(dataAttribute, action, pageMeta) {
+  const labels = {
+    first: "첫 페이지",
+    prev: "이전 페이지",
+    next: "다음 페이지",
+    last: "마지막 페이지",
+  };
+  const disabled =
+    action === "first" || action === "prev"
+      ? pageMeta.page <= 1
+      : pageMeta.page >= pageMeta.totalPages;
+
+  return `
+    <button class="blog-page-icon-button" type="button" ${dataAttribute}="${action}" ${disabled ? "disabled" : ""} aria-label="${labels[action]}" title="${labels[action]}">
+      <span class="blog-page-icon blog-page-icon-${action}" aria-hidden="true"></span>
+    </button>
+  `;
+}
+
+function renderPaginationControls(dataAttribute, pageMeta) {
+  return `
+    ${renderPaginationIconButton(dataAttribute, "first", pageMeta)}
+    ${renderPaginationIconButton(dataAttribute, "prev", pageMeta)}
+    <span class="blog-page-state">${pageMeta.page} / ${pageMeta.totalPages}</span>
+    ${renderPaginationIconButton(dataAttribute, "next", pageMeta)}
+    ${renderPaginationIconButton(dataAttribute, "last", pageMeta)}
+  `;
+}
+
 function resetPostPages() {
   state.listPage = 1;
   state.miniPage = 1;
@@ -1442,9 +1481,7 @@ function renderMiniList(posts = [], scopeTitle = "전체보기") {
         .join("")}
     </div>
     <div class="blog-mini-footer">
-      <button type="button" data-mini-page="prev" ${pageMeta.page <= 1 ? "disabled" : ""}>이전</button>
-      <span class="blog-page-state">${pageMeta.page} / ${pageMeta.totalPages}</span>
-      <button type="button" data-mini-page="next" ${pageMeta.page >= pageMeta.totalPages ? "disabled" : ""}>다음</button>
+      ${renderPaginationControls("data-mini-page", pageMeta)}
       <label class="blog-page-size-control">
         <span class="sr-only">표시 개수</span>
         <select data-mini-page-size aria-label="표시 개수">
@@ -2152,9 +2189,7 @@ function renderPosts(posts = []) {
     .join("") +
     `
       <div class="blog-list-footer">
-        <button type="button" data-post-page="prev" ${pageMeta.page <= 1 ? "disabled" : ""}>이전</button>
-        <span class="blog-page-state">${pageMeta.page} / ${pageMeta.totalPages}</span>
-        <button type="button" data-post-page="next" ${pageMeta.page >= pageMeta.totalPages ? "disabled" : ""}>다음</button>
+        ${renderPaginationControls("data-post-page", pageMeta)}
         <label class="blog-page-size-control">
           <span class="sr-only">표시 개수</span>
           <select data-post-page-size aria-label="표시 개수">
@@ -2251,9 +2286,7 @@ function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
     visiblePosts.length > 0
       ? `
       <div class="blog-list-footer">
-        <button type="button" data-post-page="prev" ${pageMeta.page <= 1 ? "disabled" : ""}>이전</button>
-        <span class="blog-page-state">${pageMeta.page} / ${pageMeta.totalPages}</span>
-        <button type="button" data-post-page="next" ${pageMeta.page >= pageMeta.totalPages ? "disabled" : ""}>다음</button>
+        ${renderPaginationControls("data-post-page", pageMeta)}
         <label class="blog-page-size-control">
           <span class="sr-only">표시 개수</span>
           <select data-post-page-size aria-label="표시 개수">
@@ -2362,7 +2395,8 @@ els.postList?.addEventListener("click", (event) => {
   const pageButton = event.target.closest("[data-post-page]");
   if (pageButton) {
     event.preventDefault();
-    state.listPage += pageButton.dataset.postPage === "next" ? 1 : -1;
+    const pageMeta = getPagedPosts(getCurrentSortedScopePosts(), state.listPage, state.listPageSize);
+    state.listPage = getPaginationTargetPage(pageButton.dataset.postPage, pageMeta.page, pageMeta.totalPages);
     if (!renderCurrentFolderAndPostRowsIfNeeded()) renderPosts(state.currentScopePosts);
     return;
   }
@@ -2442,7 +2476,8 @@ els.miniList?.addEventListener("click", (event) => {
   const pageButton = event.target.closest("[data-mini-page]");
   if (pageButton) {
     event.preventDefault();
-    state.miniPage += pageButton.dataset.miniPage === "next" ? 1 : -1;
+    const pageMeta = getPagedPosts(getCurrentSortedScopePosts(), state.miniPage, state.miniPageSize);
+    state.miniPage = getPaginationTargetPage(pageButton.dataset.miniPage, pageMeta.page, pageMeta.totalPages);
     renderMiniList(getCurrentSortedScopePosts(), state.currentScopeTitle);
     return;
   }
