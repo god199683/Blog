@@ -185,20 +185,9 @@
                     <button type="button" data-table-add-col>열 추가</button>
                   </div>
                 </div>
-              </div>
-              <div class="editor-toolbar-row editor-find-row" data-editor-findbar>
-                <label class="editor-find-field">
-                  <span>검색</span>
-                  <input type="search" data-editor-find-query placeholder="찾을 내용" autocomplete="off">
-                </label>
-                <label class="editor-find-field">
-                  <span>바꾸기</span>
-                  <input type="text" data-editor-replace-value placeholder="바꿀 내용" autocomplete="off">
-                </label>
-                <button class="editor-find-button" type="button" data-editor-find-next>검색</button>
-                <button class="editor-find-button" type="button" data-editor-replace-one>바꾸기</button>
-                <button class="editor-find-button" type="button" data-editor-replace-all>모두 바꾸기</button>
-                <span class="editor-find-state" data-editor-find-state>0 / 0</span>
+                <button class="editor-tool-button editor-find-toggle" type="button" data-editor-find-toggle title="검색/바꾸기" aria-label="검색/바꾸기">
+                  <span class="search-tool-icon" aria-hidden="true"></span>
+                </button>
               </div>
             </div>
 
@@ -211,6 +200,21 @@
               aria-multiline="true"
               data-placeholder="여기에 글을 작성하세요..."
             ></div>
+            <div class="editor-find-popover" data-editor-findbar hidden>
+              <label class="editor-find-field">
+                <span>검색</span>
+                <input type="search" data-editor-find-query placeholder="찾을 내용" autocomplete="off">
+              </label>
+              <label class="editor-find-field">
+                <span>바꾸기</span>
+                <input type="text" data-editor-replace-value placeholder="바꿀 내용" autocomplete="off">
+              </label>
+              <button class="editor-find-button" type="button" data-editor-find-next>검색</button>
+              <button class="editor-find-button" type="button" data-editor-replace-one>바꾸기</button>
+              <button class="editor-find-button" type="button" data-editor-replace-all>모두 바꾸기</button>
+              <span class="editor-find-state" data-editor-find-state>0 / 0</span>
+              <button class="editor-find-close" type="button" data-editor-find-close aria-label="닫기">×</button>
+            </div>
           </section>
 
           <aside class="editor-side-panel">

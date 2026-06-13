@@ -61,6 +61,7 @@ const els = {
   locationConfirm: document.querySelector("[data-location-confirm]"),
   locationCancel: document.querySelector("[data-location-cancel]"),
   locationClose: document.querySelector("[data-location-close]"),
+  findbar: document.querySelector("[data-editor-findbar]"),
   findQuery: document.querySelector("[data-editor-find-query]"),
   replaceValue: document.querySelector("[data-editor-replace-value]"),
   findState: document.querySelector("[data-editor-find-state]"),
@@ -2553,6 +2554,7 @@ function targetNeedsEditorSelectionHold(target) {
         "[data-editor-find-next]",
         "[data-editor-replace-one]",
         "[data-editor-replace-all]",
+        "[data-editor-find-close]",
       ].join(", ")
     )
   );
@@ -2777,6 +2779,7 @@ function handleEditorEllipsisBackspace(event) {
 }
 
 function handleEditorKeydown(event) {
+  if (handleEditorFindShortcut(event)) return;
   if (handleEditorEllipsisBackspace(event)) return;
   handleEditorHistoryShortcut(event);
 }
@@ -3293,6 +3296,83 @@ function updateEditorFindState() {
   els.findState.textContent = total > 0 && editorFindIndex >= 0 ? `${editorFindIndex + 1} / ${total}` : `0 / ${total}`;
 }
 
+function getEditorFindAnchorRect() {
+  const range = rangeIsInEditor(savedEditorRange) ? savedEditorRange.cloneRange() : null;
+  if (range) {
+    const rect = range.getClientRects()[0] || range.getBoundingClientRect();
+    if (rect && (rect.width || rect.height)) return rect;
+
+    const element = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+    const elementRect = element?.getBoundingClientRect?.();
+    if (elementRect && (elementRect.width || elementRect.height)) return elementRect;
+  }
+
+  return els.content.getBoundingClientRect();
+}
+
+function positionEditorFindPopover() {
+  if (!els.findbar || els.findbar.hidden) return;
+
+  const canvas = els.findbar.closest(".editor-canvas") || els.content.parentElement;
+  const canvasRect = canvas.getBoundingClientRect();
+  const anchorRect = getEditorFindAnchorRect();
+  const margin = 10;
+  const popoverWidth = Math.min(els.findbar.offsetWidth || 520, Math.max(240, canvasRect.width - margin * 2));
+  const popoverHeight = els.findbar.offsetHeight || 96;
+  const maxLeft = Math.max(margin, canvasRect.width - popoverWidth - margin);
+  let left = anchorRect.left - canvasRect.left;
+  let top = anchorRect.top - canvasRect.top - popoverHeight - 12;
+
+  if (top < margin) {
+    top = anchorRect.bottom - canvasRect.top + 12;
+  }
+
+  left = Math.min(Math.max(left, margin), maxLeft);
+  top = Math.max(margin, top);
+
+  els.findbar.style.left = `${left}px`;
+  els.findbar.style.top = `${top}px`;
+}
+
+function openEditorFindPopover({ mode = "find" } = {}) {
+  if (!els.findbar) return;
+  saveCurrentSelection();
+  closeAllToolbarMenus();
+  els.findbar.hidden = false;
+  refreshEditorFindMatches({ preserveIndex: true });
+
+  window.requestAnimationFrame(() => {
+    positionEditorFindPopover();
+    const targetInput = mode === "replace" ? els.replaceValue : els.findQuery;
+    targetInput?.focus({ preventScroll: true });
+    targetInput?.select?.();
+  });
+}
+
+function closeEditorFindPopover({ restoreFocus = false } = {}) {
+  if (!els.findbar) return;
+  els.findbar.hidden = true;
+  if (restoreFocus) {
+    restoreEditorSelection();
+    els.content.focus({ preventScroll: true });
+  }
+}
+
+function syncEditorFindPopoverPosition() {
+  if (!els.findbar || els.findbar.hidden) return;
+  window.requestAnimationFrame(positionEditorFindPopover);
+}
+
+function handleEditorFindShortcut(event) {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) return false;
+  const key = event.key.toLowerCase();
+  if (key !== "f" && key !== "h") return false;
+
+  event.preventDefault();
+  openEditorFindPopover({ mode: key === "h" ? "replace" : "find" });
+  return true;
+}
+
 function getEditorTextIndex() {
   const parts = [];
   const textParts = [];
@@ -3408,6 +3488,7 @@ function selectEditorFindMatch(match, indexData) {
   const anchor = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
   anchor?.scrollIntoView?.({ block: "center", inline: "nearest" });
   updateEditorFindState();
+  syncEditorFindPopoverPosition();
   return true;
 }
 
@@ -4173,6 +4254,11 @@ els.content.addEventListener("paste", handleEditorPaste);
 els.content.addEventListener("mouseup", saveCurrentSelection);
 els.content.addEventListener("keyup", saveCurrentSelection);
 document.addEventListener("selectionchange", saveCurrentSelection);
+els.content.addEventListener("mouseup", syncEditorFindPopoverPosition);
+els.content.addEventListener("keyup", syncEditorFindPopoverPosition);
+els.content.addEventListener("scroll", syncEditorFindPopoverPosition);
+document.addEventListener("selectionchange", syncEditorFindPopoverPosition);
+window.addEventListener("resize", syncEditorFindPopoverPosition);
 
 els.category.addEventListener("change", () => {
   const selectedFolder = getFolderMeta(els.folder.value);
@@ -4292,6 +4378,11 @@ els.toolbar.addEventListener("mousedown", (event) => {
 });
 
 els.toolbar.addEventListener("click", (event) => {
+  if (event.target.closest("[data-editor-find-toggle]")) {
+    openEditorFindPopover({ mode: "find" });
+    return;
+  }
+
   if (event.target.closest("[data-editor-find-next]")) {
     findNextEditorMatch();
     closeAllToolbarMenus();
@@ -4391,6 +4482,53 @@ els.toolbar.addEventListener("click", (event) => {
   }
 });
 
+els.findbar?.addEventListener("mousedown", (event) => {
+  saveCurrentSelection();
+  if (!event.target.closest("input")) {
+    event.preventDefault();
+  }
+});
+
+els.findbar?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-editor-find-close]")) {
+    closeEditorFindPopover({ restoreFocus: true });
+    return;
+  }
+
+  if (event.target.closest("[data-editor-find-next]")) {
+    findNextEditorMatch();
+    return;
+  }
+
+  if (event.target.closest("[data-editor-replace-one]")) {
+    replaceCurrentEditorMatch();
+    return;
+  }
+
+  if (event.target.closest("[data-editor-replace-all]")) {
+    replaceAllEditorMatches();
+  }
+});
+
+els.findbar?.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeEditorFindPopover({ restoreFocus: true });
+    return;
+  }
+
+  if (event.target.closest("[data-editor-find-query]") && event.key === "Enter") {
+    event.preventDefault();
+    findNextEditorMatch();
+    return;
+  }
+
+  if (event.target.closest("[data-editor-replace-value]") && event.key === "Enter") {
+    event.preventDefault();
+    replaceCurrentEditorMatch();
+  }
+});
+
 els.toolbar.addEventListener("keydown", (event) => {
   if (event.target.closest("[data-editor-find-query]") && event.key === "Enter") {
     event.preventDefault();
@@ -4427,6 +4565,14 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (!event.defaultPrevented && handleEditorFindShortcut(event)) return;
+
+  if (event.key === "Escape" && els.findbar && !els.findbar.hidden) {
+    event.preventDefault();
+    closeEditorFindPopover({ restoreFocus: true });
+    return;
+  }
+
   if (event.key === "Escape" && pasteMenu) {
     event.preventDefault();
     closePasteMenu();

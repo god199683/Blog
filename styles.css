@@ -2823,6 +2823,7 @@ body.is-away-locked {
 }
 
 .editor-canvas {
+  position: relative;
   min-width: 0;
   padding: 0.85rem;
   border-right: 1px solid rgba(216, 234, 251, 0.9);
@@ -2952,6 +2953,27 @@ body.is-away-locked {
   padding: 0 0.42rem;
 }
 
+.search-tool-icon {
+  position: relative;
+  display: inline-block;
+  width: 0.92rem;
+  height: 0.92rem;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.search-tool-icon::after {
+  position: absolute;
+  right: -0.28rem;
+  bottom: -0.22rem;
+  width: 0.42rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  transform: rotate(45deg);
+}
+
 .editor-add-font-button:hover,
 .editor-tool-button:hover,
 .editor-tool-button:focus-visible,
@@ -2967,6 +2989,39 @@ body.is-away-locked {
 .editor-find-row {
   padding-top: 0.18rem;
   border-top: 1px solid rgba(216, 234, 251, 0.72);
+}
+
+.editor-find-popover {
+  position: absolute;
+  z-index: 80;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.36rem;
+  width: max-content;
+  max-width: calc(100% - 1.2rem);
+  padding: 0.48rem;
+  border: 1px solid rgba(186, 230, 253, 0.98);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 42px rgba(14, 116, 144, 0.18);
+}
+
+.editor-find-popover[hidden] {
+  display: none !important;
+}
+
+.editor-find-popover::after {
+  position: absolute;
+  bottom: -0.42rem;
+  left: 1.1rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-right: 1px solid rgba(186, 230, 253, 0.98);
+  border-bottom: 1px solid rgba(186, 230, 253, 0.98);
+  background: rgba(255, 255, 255, 0.98);
+  content: "";
+  transform: rotate(45deg);
 }
 
 .editor-find-field {
@@ -3014,6 +3069,27 @@ body.is-away-locked {
   color: #7f95a8;
   font-size: 0.74rem;
   font-weight: 760;
+}
+
+.editor-find-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid rgba(216, 234, 251, 0.92);
+  border-radius: 6px;
+  background: #fff;
+  color: #7f95a8;
+  font-size: 1rem;
+  font-weight: 760;
+}
+
+.editor-find-close:hover,
+.editor-find-close:focus-visible {
+  border-color: rgba(56, 189, 248, 0.46);
+  background: #eaf7ff;
+  color: var(--sky-dark);
 }
 
 .editor-tool-divider {
