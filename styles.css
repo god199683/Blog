@@ -11178,3 +11178,8 @@ body.paint-editor-page .paint-workspace {
     padding: 1.2rem;
   }
 }
+
+.editor-surface,
+html.is-android-app-view .editor-surface {
+  line-height: 1.4;
+}

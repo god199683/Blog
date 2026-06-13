@@ -1873,7 +1873,7 @@ function buildPastedContentImage(html = "", text = "") {
     `color: ${activeStyle.color || "#20364a"}`,
     `font-family: ${activeStyle.fontFamily || '"Noto Sans KR", sans-serif'}`,
     `font-size: ${Number.parseInt(activeStyle.fontSize, 10) || 16}px`,
-    `line-height: ${normalizeLineHeightForToolbar(activeStyle) || "1.65"}`,
+    `line-height: ${normalizeLineHeightForToolbar(activeStyle) || "1.4"}`,
     "white-space: normal",
     "overflow-wrap: anywhere",
   ].join("; ");
