@@ -288,6 +288,8 @@ const SOURCE_PASTE_TEXT_LAYOUT_STYLES = [
   "writing-mode",
 ];
 
+const TEXT_PASTE_COLOR_STYLES = ["color", "background-color"];
+
 function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -1741,6 +1743,53 @@ function cleanSourcePasteHtml(html = "") {
   return template.innerHTML.trim();
 }
 
+function getSafeTextPasteColorStyle(node, property) {
+  if (!(node instanceof HTMLElement)) return "";
+  const value = getSafeEditorStyleValue(property, node.style.getPropertyValue(property));
+  if (!value) return "";
+  if (property === "background-color" && /^(transparent|rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\))$/i.test(value)) {
+    return "";
+  }
+  return value;
+}
+
+function textHtmlWithPastedColors(payload = {}) {
+  const html = String(payload.html || "");
+  const text = getPastePlainText(payload);
+  if (!html) return textToEditorHtmlWithCurrentStyle(text);
+  if (sourcePasteShouldUsePlainText(payload)) return textToEditorHtmlWithCurrentStyle(normalizeSourcePlainText(text));
+
+  const template = document.createElement("template");
+  template.innerHTML = cleanSourcePasteHtml(html);
+
+  template.content.querySelectorAll("*").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    const safeStyles = TEXT_PASTE_COLOR_STYLES.map((property) => {
+      const value = getSafeTextPasteColorStyle(node, property);
+      return value ? `${property}: ${value}` : "";
+    }).filter(Boolean);
+
+    [...node.attributes].forEach((attr) => node.removeAttribute(attr.name));
+    if (safeStyles.length > 0) {
+      node.setAttribute("style", safeStyles.join("; "));
+    }
+  });
+
+  template.content.querySelectorAll("font").forEach((node) => {
+    const span = document.createElement("span");
+    if (node.getAttribute("style")) span.setAttribute("style", node.getAttribute("style"));
+    span.append(...node.childNodes);
+    node.replaceWith(span);
+  });
+
+  template.content.querySelectorAll("span").forEach((node) => {
+    if (!node.getAttribute("style")) node.replaceWith(...node.childNodes);
+  });
+
+  const coloredHtml = template.innerHTML.trim();
+  return coloredHtml || textToEditorHtmlWithCurrentStyle(text);
+}
+
 function mergeEditorHtmlWithCurrentStyle(html = "") {
   const template = document.createElement("template");
   template.innerHTML = cleanEditorHtml(html);
@@ -1947,7 +1996,7 @@ async function resolveSourcePastePayload(payload = {}) {
 }
 
 async function buildPasteHtml(mode, payload = {}) {
-  const sourcePayload = mode === "source" || mode === "image" ? await resolveSourcePastePayload(payload) : payload;
+  const sourcePayload = mode === "source" || mode === "image" || mode === "text" ? await resolveSourcePastePayload(payload) : payload;
   const html = sourcePayload.html || "";
   const text = getPastePlainText(sourcePayload);
   const imageFile = payload.imageFiles?.[0] || null;
@@ -1972,7 +2021,7 @@ async function buildPasteHtml(mode, payload = {}) {
   }
 
   if (mode === "text") {
-    return textToEditorHtmlWithCurrentStyle(text);
+    return textHtmlWithPastedColors(sourcePayload);
   }
 
   if (mode === "image") {
