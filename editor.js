@@ -3153,7 +3153,7 @@ function applyStyleToHeldSelection(property, value) {
     const childNodes = [...node.childNodes];
     if (childNodes.length > 0) {
       styleInlineNodes(childNodes, property, value);
-      node.replaceWith(...childNodes);
+      node.replaceWith(...node.childNodes);
     } else {
       node.remove();
     }
