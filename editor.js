@@ -1753,6 +1753,90 @@ function getSafeTextPasteColorStyle(node, property) {
   return value;
 }
 
+function computedPasteColorIsVisible(value = "") {
+  const normalized = String(value || "").trim();
+  return Boolean(
+    normalized &&
+      normalized !== "currentcolor" &&
+      !/^(transparent|rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\))$/i.test(normalized)
+  );
+}
+
+function getComputedPasteTextColor(element) {
+  if (!(element instanceof HTMLElement)) return "";
+  const computed = window.getComputedStyle(element);
+  const textFill = computed.getPropertyValue("-webkit-text-fill-color");
+  const color = computed.getPropertyValue("color");
+  if (computedPasteColorIsVisible(textFill)) return textFill;
+  return computedPasteColorIsVisible(color) ? color : "";
+}
+
+function getComputedPasteBackgroundColor(element, root) {
+  let current = element;
+  while (current && current !== root && current instanceof HTMLElement) {
+    const background = window.getComputedStyle(current).getPropertyValue("background-color");
+    if (computedPasteColorIsVisible(background)) return background;
+    current = current.parentElement;
+  }
+  return "";
+}
+
+function materializeComputedPasteColors(html = "") {
+  if (!html || typeof document === "undefined") return "";
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  template.content.querySelectorAll("script, iframe, object, embed, link, meta").forEach((node) => node.remove());
+  normalizeLegacyPastedFormatting(template.content);
+
+  const host = document.createElement("div");
+  const activeStyle = window.getComputedStyle(getActiveEditorStyleElement() || els.content);
+  host.style.cssText = [
+    "position: fixed",
+    "left: -10000px",
+    "top: 0",
+    "width: 900px",
+    "opacity: 0",
+    "pointer-events: none",
+    "white-space: normal",
+    `color: ${activeStyle.color || "#20364a"}`,
+    `background: ${activeStyle.backgroundColor || "transparent"}`,
+  ].join("; ");
+  host.append(template.content.cloneNode(true));
+  document.body.append(host);
+
+  try {
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) {
+      const textNode = walker.currentNode;
+      if (textNode.textContent && textNode.parentElement && !textNode.parentElement.closest("style")) {
+        textNodes.push(textNode);
+      }
+    }
+
+    textNodes.forEach((textNode) => {
+      const parent = textNode.parentElement;
+      if (!parent || !textNode.textContent.replace(/\s+/g, "")) return;
+
+      const color = getSafeEditorStyleValue("color", getComputedPasteTextColor(parent));
+      const backgroundColor = getSafeEditorStyleValue("background-color", getComputedPasteBackgroundColor(parent, host));
+      if (!color && !backgroundColor) return;
+
+      const span = document.createElement("span");
+      if (color) span.style.color = color;
+      if (backgroundColor) span.style.backgroundColor = backgroundColor;
+      textNode.before(span);
+      span.append(textNode);
+    });
+
+    host.querySelectorAll("style, script, iframe, object, embed, link, meta").forEach((node) => node.remove());
+    return host.innerHTML.trim();
+  } finally {
+    host.remove();
+  }
+}
+
 function textHtmlWithPastedColors(payload = {}) {
   const html = String(payload.html || "");
   const text = getPastePlainText(payload);
@@ -1760,7 +1844,7 @@ function textHtmlWithPastedColors(payload = {}) {
   if (sourcePasteShouldUsePlainText(payload)) return textToEditorHtmlWithCurrentStyle(normalizeSourcePlainText(text));
 
   const template = document.createElement("template");
-  template.innerHTML = cleanSourcePasteHtml(html);
+  template.innerHTML = cleanSourcePasteHtml(materializeComputedPasteColors(html) || html);
 
   template.content.querySelectorAll("*").forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
