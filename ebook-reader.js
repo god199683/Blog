@@ -2,8 +2,6 @@ const SUPABASE_URL = "https://ipylqxcmajrwtvvmrvfy.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
-const params = new URLSearchParams(window.location.search);
-const INITIAL_NODE_ID = String(params.get("node") || "").trim();
 const FONT_SIZE_KEY = "blog.ebookFontSize";
 const BOOKMARK_KEY_PREFIX = "blog.ebookBookmark.";
 const SIDEBAR_COLLAPSED_KEY = "blog.ebookSidebarCollapsed";
@@ -14,7 +12,7 @@ const state = {
   tree: [],
   posts: [],
   folders: [],
-  activeFolderId: INITIAL_NODE_ID,
+  activeFolderId: "",
   activePosts: [],
   postIndex: 0,
   pageIndex: 0,
@@ -414,16 +412,19 @@ function renderFolders() {
     return;
   }
 
-  if (!state.folders.some((folder) => folder.id === state.activeFolderId)) {
-    state.activeFolderId = state.folders[0].id;
+  if (state.activeFolderId && !state.folders.some((folder) => folder.id === state.activeFolderId)) {
+    state.activeFolderId = "";
   }
 
-  els.folderSelect.innerHTML = state.folders
-    .map(
-      (folder) =>
-        `<option value="${escapeHtml(folder.id)}" ${folder.id === state.activeFolderId ? "selected" : ""}>${escapeHtml(folder.path)} (${folder.count})</option>`
-    )
-    .join("");
+  els.folderSelect.innerHTML = `
+    <option value="" ${state.activeFolderId ? "" : "selected"}>폴더를 선택해주세요</option>
+    ${state.folders
+      .map(
+        (folder) =>
+          `<option value="${escapeHtml(folder.id)}" ${folder.id === state.activeFolderId ? "selected" : ""}>${escapeHtml(folder.path)} (${folder.count})</option>`
+      )
+      .join("")}
+  `;
 
   els.folderList.innerHTML = state.folders
     .map(
@@ -441,6 +442,10 @@ function renderFolders() {
 
 function renderPostList() {
   if (!els.postList) return;
+  if (!state.activeFolderId) {
+    els.postList.innerHTML = `<p class="ebook-empty">폴더를 선택하면 글 목록이 표시됩니다.</p>`;
+    return;
+  }
   if (state.activePosts.length === 0) {
     els.postList.innerHTML = `<p class="ebook-empty">선택한 폴더에 글이 없습니다.</p>`;
     return;
@@ -532,7 +537,9 @@ function renderProgress() {
 function renderCurrentPost({ lastPage = false } = {}) {
   const post = state.activePosts[state.postIndex] || null;
   if (!post) {
-    if (els.content) els.content.innerHTML = `<p>선택한 폴더에 표시할 글이 없습니다.</p>`;
+    if (els.content) {
+      els.content.innerHTML = `<p>${state.activeFolderId ? "선택한 폴더에 표시할 글이 없습니다." : "폴더를 선택하면 글을 이어 읽을 수 있습니다."}</p>`;
+    }
     renderProgress();
     return;
   }
@@ -555,8 +562,28 @@ function renderCurrentPost({ lastPage = false } = {}) {
   schedulePagination(true);
 }
 
+function clearFolderSelection({ updateUrl = true } = {}) {
+  state.activeFolderId = "";
+  state.activePosts = [];
+  state.postIndex = 0;
+  state.pendingPageIndex = null;
+  state.pendingLastPage = false;
+  clearPagination();
+  renderFolders();
+  renderPostList();
+  renderCurrentPost();
+  if (updateUrl) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("node");
+    history.replaceState(null, "", url);
+  }
+}
+
 function selectFolder(folderId, options = {}) {
-  if (!folderId) return;
+  if (!folderId) {
+    clearFolderSelection();
+    return;
+  }
   state.activeFolderId = folderId;
   state.activePosts = getFolderPosts(folderId);
   const postIndex = options.postId ? state.activePosts.findIndex((post) => post.id === options.postId) : -1;
@@ -691,17 +718,9 @@ async function init() {
     await loadTreeAndPosts(session);
     renderFolders();
     if (state.folders.length > 0) {
-      const shouldUseBookmark = !INITIAL_NODE_ID && state.bookmark?.folderId;
-      let targetFolderId = shouldUseBookmark ? state.bookmark.folderId : state.activeFolderId || state.folders[0].id;
-      if (!state.folders.some((folder) => folder.id === targetFolderId)) {
-        targetFolderId = state.folders[0].id;
-      }
-      selectFolder(targetFolderId, {
-        postId: shouldUseBookmark ? state.bookmark.postId : "",
-        pageIndex: shouldUseBookmark ? Number(state.bookmark.pageIndex || 0) : 0,
-        closeDialog: false,
-      });
-      setMessage("");
+      renderPostList();
+      renderCurrentPost();
+      setMessage("폴더를 선택해주세요.");
     } else {
       renderProgress();
       setMessage("글이 들어 있는 폴더를 만든 뒤 다시 열어주세요.");
