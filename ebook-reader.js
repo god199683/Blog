@@ -6,6 +6,7 @@ const params = new URLSearchParams(window.location.search);
 const INITIAL_NODE_ID = String(params.get("node") || "").trim();
 const FONT_SIZE_KEY = "blog.ebookFontSize";
 const BOOKMARK_KEY_PREFIX = "blog.ebookBookmark.";
+const SIDEBAR_COLLAPSED_KEY = "blog.ebookSidebarCollapsed";
 
 const state = {
   session: null,
@@ -23,12 +24,14 @@ const state = {
   pendingLastPage: false,
   pendingPageIndex: null,
   bookmark: null,
+  sidebarCollapsed: localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true",
 };
 
 const els = {
   brandTitle: document.querySelector("[data-brand-title]"),
   initials: document.querySelectorAll("[data-blog-initial]"),
   owner: document.querySelector("[data-ebook-owner]"),
+  sidebarToggle: document.querySelector("[data-ebook-sidebar-toggle]"),
   folderOpen: document.querySelector("[data-ebook-folder-open]"),
   folderDialog: document.querySelector("[data-ebook-folder-dialog]"),
   folderClose: document.querySelector("[data-ebook-folder-close]"),
@@ -286,6 +289,26 @@ function syncIdentity() {
   });
 }
 
+function applySidebarCollapsed() {
+  document.body.classList.toggle("is-ebook-sidebar-collapsed", state.sidebarCollapsed);
+  if (els.sidebarToggle) {
+    els.sidebarToggle.textContent = state.sidebarCollapsed ? "›" : "‹";
+    els.sidebarToggle.setAttribute("aria-expanded", String(!state.sidebarCollapsed));
+    els.sidebarToggle.setAttribute("aria-label", state.sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기");
+  }
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(state.sidebarCollapsed));
+  } catch {
+    // Local storage can be blocked in some WebViews.
+  }
+  schedulePagination(false);
+}
+
+function toggleSidebar() {
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  applySidebarCollapsed();
+}
+
 function getBookmarkKey() {
   return `${BOOKMARK_KEY_PREFIX}${state.id || "guest"}`;
 }
@@ -503,6 +526,12 @@ function renderCurrentPost({ lastPage = false } = {}) {
       </header>
       ${getPostHtml(post)}
     `;
+    els.content.querySelectorAll("img").forEach((image) => {
+      if (!image.complete) {
+        image.addEventListener("load", () => schedulePagination(false), { once: true });
+        image.addEventListener("error", () => schedulePagination(false), { once: true });
+      }
+    });
   }
   renderPostList();
   schedulePagination(true);
@@ -572,6 +601,7 @@ function closeFolderDialog() {
 }
 
 function bindEvents() {
+  els.sidebarToggle?.addEventListener("click", toggleSidebar);
   els.folderOpen?.addEventListener("click", openFolderDialog);
   els.folderClose?.addEventListener("click", closeFolderDialog);
   els.folderDialog?.addEventListener("click", (event) => {
@@ -619,6 +649,7 @@ function bindEvents() {
 
 async function init() {
   bindEvents();
+  applySidebarCollapsed();
   updateReaderFont();
   const session = await window.blogSession?.ready;
   const id = getSessionId(session);

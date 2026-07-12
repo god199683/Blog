@@ -11284,10 +11284,14 @@ html.is-android-app-view .editor-surface {
 
 .ebook-main {
   display: grid;
-  grid-template-columns: minmax(13rem, 18rem) minmax(0, 1fr);
+  grid-template-columns: minmax(11.5rem, 16rem) minmax(0, 1fr);
   gap: 0.8rem;
   width: min(100% - 1.4rem, 1280px);
   margin: 0.8rem auto 1rem;
+}
+
+.is-ebook-sidebar-collapsed .ebook-main {
+  grid-template-columns: 3.35rem minmax(0, 1fr);
 }
 
 .ebook-sidebar,
@@ -11305,18 +11309,67 @@ html.is-android-app-view .editor-surface {
   padding: 0.75rem;
   max-height: calc(100vh - 5.6rem);
   overflow: hidden;
+  transition: padding 160ms ease;
 }
 
 .ebook-sidebar-head {
   display: grid;
-  gap: 0.1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem;
   padding: 0.45rem 0.35rem 0.6rem;
   border-bottom: 1px solid rgba(216, 234, 251, 0.8);
+}
+
+.ebook-sidebar-head > div {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
 }
 
 .ebook-sidebar-head strong {
   color: #0f3f61;
   font-size: 0.92rem;
+}
+
+.ebook-sidebar-head button {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 8px;
+  background: #fbfdff;
+  color: #245d80;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.ebook-sidebar-head button:hover,
+.ebook-sidebar-head button:focus-visible {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: #eaf8ff;
+  color: #075985;
+}
+
+.is-ebook-sidebar-collapsed .ebook-sidebar {
+  gap: 0;
+  padding: 0.5rem;
+}
+
+.is-ebook-sidebar-collapsed .ebook-sidebar-head {
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.is-ebook-sidebar-collapsed .ebook-sidebar-head > div,
+.is-ebook-sidebar-collapsed .ebook-sidebar-actions,
+.is-ebook-sidebar-collapsed .ebook-selected-folder,
+.is-ebook-sidebar-collapsed .ebook-post-list {
+  display: none;
 }
 
 .ebook-sidebar-head span,
@@ -11487,22 +11540,22 @@ html.is-android-app-view .editor-surface {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.68rem 0.85rem;
+  gap: 0.55rem;
+  padding: 0.48rem 0.82rem;
   border-bottom: 1px solid rgba(216, 234, 251, 0.78);
   background: rgba(247, 252, 255, 0.9);
 }
 
 .ebook-toolbar p {
-  margin: 0 0 0.18rem;
+  margin: 0 0 0.12rem;
   color: #6f8497;
-  font-size: 0.74rem;
+  font-size: 0.7rem;
 }
 
 .ebook-toolbar h1 {
   margin: 0;
   color: #1d3146;
-  font-size: 1.02rem;
+  font-size: 0.96rem;
   letter-spacing: 0;
 }
 
@@ -11516,8 +11569,8 @@ html.is-android-app-view .editor-surface {
 
 .ebook-toolbar-actions button,
 .ebook-footer button {
-  min-height: 1.8rem;
-  padding: 0 0.7rem;
+  min-height: 1.65rem;
+  padding: 0 0.62rem;
   border: 1px solid rgba(186, 230, 253, 0.9);
   border-radius: 999px;
   background: #fff;
@@ -11552,6 +11605,7 @@ html.is-android-app-view .editor-surface {
 .ebook-page-surface {
   position: relative;
   min-width: 0;
+  height: clamp(24rem, 64svh, 46rem);
   overflow: hidden;
   border: 1px solid rgba(216, 234, 251, 0.88);
   border-radius: 10px;
@@ -11560,8 +11614,9 @@ html.is-android-app-view .editor-surface {
 }
 
 .ebook-page-content {
+  box-sizing: border-box;
   height: 100%;
-  min-height: clamp(26rem, 64vh, 48rem);
+  min-height: 0;
   padding: clamp(1.2rem, 3vw, 2.6rem);
   color: #20364a;
   font-family: "a시네마L", "Noto Sans KR", "Malgun Gothic", sans-serif;
@@ -11569,12 +11624,27 @@ html.is-android-app-view .editor-surface {
   line-height: 1.78;
   column-fill: auto;
   transition: transform 180ms ease;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: keep-all;
 }
 
 .ebook-page-content :where(p, div, li, blockquote) {
+  break-inside: auto;
   margin-top: 0;
   margin-bottom: 1em;
+  orphans: 2;
+  widows: 2;
+}
+
+.ebook-page-content :where(img, video, table, pre) {
+  break-inside: avoid;
+  max-width: 100%;
+}
+
+.ebook-page-content :where(img, video) {
+  height: auto;
+  max-height: min(36rem, 54svh);
+  object-fit: contain;
 }
 
 .ebook-content-title h2 {
@@ -11691,6 +11761,10 @@ html.is-android-app-view .editor-surface {
     grid-template-columns: 1fr;
   }
 
+  .is-ebook-sidebar-collapsed .ebook-main {
+    grid-template-columns: 1fr;
+  }
+
   .ebook-sidebar {
     order: 2;
   }
@@ -11709,8 +11783,12 @@ html.is-android-app-view .editor-surface {
     padding: 0.7rem 2.5rem;
   }
 
+  .ebook-page-surface {
+    height: 58svh;
+    min-height: 22rem;
+  }
+
   .ebook-page-content {
-    min-height: 58vh;
     padding: 1.1rem;
   }
 }
