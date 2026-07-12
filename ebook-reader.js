@@ -29,6 +29,7 @@ const els = {
   brandTitle: document.querySelector("[data-brand-title]"),
   initials: document.querySelectorAll("[data-blog-initial]"),
   owner: document.querySelector("[data-ebook-owner]"),
+  back: document.querySelector("[data-ebook-back]"),
   sidebarToggle: document.querySelector("[data-ebook-sidebar-toggle]"),
   folderOpen: document.querySelector("[data-ebook-folder-open]"),
   folderDialog: document.querySelector("[data-ebook-folder-dialog]"),
@@ -651,7 +652,16 @@ function closeFolderDialog() {
   els.folderDialog.removeAttribute("open");
 }
 
+function goBack() {
+  if (window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+  window.location.href = "./my-blog.html";
+}
+
 function bindEvents() {
+  els.back?.addEventListener("click", goBack);
   els.sidebarToggle?.addEventListener("click", toggleSidebar);
   els.folderOpen?.addEventListener("click", openFolderDialog);
   els.folderClose?.addEventListener("click", closeFolderDialog);

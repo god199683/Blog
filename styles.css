@@ -11569,6 +11569,11 @@ html.is-android-app-view .editor-surface {
   background: rgba(247, 252, 255, 0.9);
 }
 
+.ebook-toolbar > div:first-of-type {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .ebook-toolbar p {
   margin: 0 0 0.06rem;
   color: #6f8497;
@@ -11592,8 +11597,10 @@ html.is-android-app-view .editor-surface {
   gap: 0.36rem;
 }
 
+.ebook-back-button,
 .ebook-toolbar-actions button,
 .ebook-footer button {
+  flex: 0 0 auto;
   min-height: 1.45rem;
   padding: 0 0.54rem;
   border: 1px solid rgba(186, 230, 253, 0.9);
@@ -11603,6 +11610,8 @@ html.is-android-app-view .editor-surface {
   font-weight: 760;
 }
 
+.ebook-back-button:hover,
+.ebook-back-button:focus-visible,
 .ebook-toolbar-actions button:hover,
 .ebook-toolbar-actions button:focus-visible,
 .ebook-footer button:hover:not(:disabled),
@@ -11805,6 +11814,10 @@ html.is-android-app-view .editor-surface {
   .ebook-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .ebook-back-button {
+    align-self: flex-start;
   }
 
   .ebook-stage {
