@@ -95,6 +95,7 @@ const els = {
   postDeleteSelected: document.querySelector("[data-post-delete-selected]"),
   postMoveSelected: document.querySelector("[data-post-move-selected]"),
   postRenameSelected: document.querySelector("[data-post-rename-selected]"),
+  ebookButton: document.querySelector("[data-blog-ebook-button]"),
   writeButton: document.querySelector(".blog-write-button"),
   importLocationDialog: document.querySelector("[data-import-location-dialog]"),
   importLocationTitle: document.querySelector("[data-import-location-title]"),
@@ -164,8 +165,22 @@ function getWriteEditorHref() {
   return `./editor.html?${params.toString()}`;
 }
 
+function getEbookReaderHref() {
+  const params = new URLSearchParams();
+  if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
+    params.set("node", state.activeNodeId);
+  }
+  return `./ebook-reader.html${params.toString() ? `?${params.toString()}` : ""}`;
+}
+
+function syncEbookButtonHref() {
+  if (!els.ebookButton || state.publicMode) return;
+  els.ebookButton.href = getEbookReaderHref();
+}
+
 function syncWriteButtonHref() {
   if (!els.writeButton || state.publicMode) return;
+  syncEbookButtonHref();
   els.writeButton.href = getWriteEditorHref();
 }
 
@@ -234,6 +249,7 @@ function setOwnerControlsVisible(visible) {
   if (!visible && toolsPanel) toolsPanel.hidden = true;
   [
     els.writeButton,
+    els.ebookButton,
     document.querySelector("[data-owner-only-link]"),
     document.querySelector(".blog-profile-tool"),
     document.querySelector("[data-file-import]"),

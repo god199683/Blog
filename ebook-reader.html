@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="폴더 안의 글을 Ebook 형식으로 이어 읽는 페이지">
+    <title>책 뷰어 | Blog</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body class="ebook-page">
+    <header class="site-header">
+      <a class="brand" href="./my-blog.html" aria-label="내 블로그 홈">
+        <span class="brand-mark" data-blog-initial aria-hidden="true">B</span>
+        <span data-brand-title>Blog</span>
+      </a>
+      <nav class="top-nav" aria-label="상단 메뉴">
+        <a href="./">홈</a>
+        <a href="./my-blog.html">내 블로그</a>
+      </nav>
+      <div class="auth-actions" aria-label="계정 메뉴" data-auth-actions>
+        <a class="auth-button" href="./login.html">로그인</a>
+        <a class="auth-button auth-button-primary" href="./signup.html">회원가입</a>
+      </div>
+    </header>
+
+    <main class="ebook-main">
+      <aside class="ebook-sidebar" aria-label="책 뷰어 폴더 선택">
+        <div class="ebook-sidebar-head">
+          <strong>책 뷰어</strong>
+          <span data-ebook-owner>@blog</span>
+        </div>
+        <label class="ebook-select-label">
+          <span>폴더</span>
+          <select data-ebook-folder-select>
+            <option value="">폴더를 불러오는 중</option>
+          </select>
+        </label>
+        <div class="ebook-folder-list" data-ebook-folder-list></div>
+        <div class="ebook-post-list" data-ebook-post-list></div>
+      </aside>
+
+      <section class="ebook-reader" aria-labelledby="ebook-title">
+        <div class="ebook-toolbar">
+          <div>
+            <p data-ebook-folder-path>폴더를 선택해주세요.</p>
+            <h1 id="ebook-title" data-ebook-title>책 뷰어</h1>
+          </div>
+          <div class="ebook-toolbar-actions">
+            <button type="button" data-ebook-font-down aria-label="글자 작게">A-</button>
+            <span data-ebook-font-size>18px</span>
+            <button type="button" data-ebook-font-up aria-label="글자 크게">A+</button>
+          </div>
+        </div>
+
+        <div class="ebook-stage" data-ebook-stage>
+          <button class="ebook-page-arrow ebook-page-arrow-prev" type="button" data-ebook-prev-page aria-label="이전 페이지">‹</button>
+          <article class="ebook-page-surface">
+            <div class="ebook-page-content" data-ebook-content>
+              <p>왼쪽에서 읽을 폴더를 선택하면 글이 표시됩니다.</p>
+            </div>
+          </article>
+          <button class="ebook-page-arrow ebook-page-arrow-next" type="button" data-ebook-next-page aria-label="다음 페이지">›</button>
+        </div>
+
+        <div class="ebook-footer">
+          <button type="button" data-ebook-prev-post>이전 글</button>
+          <div class="ebook-progress">
+            <input type="range" min="1" max="1" value="1" data-ebook-progress aria-label="읽기 위치" disabled>
+            <span data-ebook-position>1 / 1</span>
+          </div>
+          <button type="button" data-ebook-next-post>다음 글</button>
+        </div>
+
+        <p class="ebook-message" data-ebook-message></p>
+      </section>
+    </main>
+
+    <script src="./session.js" defer></script>
+    <script src="./ebook-reader.js" defer></script>
+  </body>
+</html>
