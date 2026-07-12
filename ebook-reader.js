@@ -469,9 +469,11 @@ function clearPagination() {
 function updatePagination() {
   if (!els.content) return;
   const surface = els.content.closest(".ebook-page-surface");
-  const width = Math.max(1, surface?.clientWidth || els.content.clientWidth || 1);
-  const gap = 48;
+  els.content.style.width = "";
+  const width = Math.max(1, els.content.clientWidth || surface?.clientWidth || 1);
+  const gap = Math.min(48, Math.max(28, Math.round(width * 0.06)));
   state.pageStep = width + gap;
+  els.content.style.width = `${width}px`;
   els.content.style.columnWidth = `${width}px`;
   els.content.style.columnGap = `${gap}px`;
   state.pageCount = Math.max(1, Math.ceil(Math.max(els.content.scrollWidth, width) / state.pageStep));
