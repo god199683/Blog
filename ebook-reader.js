@@ -357,6 +357,12 @@ function isCurrentBookmark() {
   );
 }
 
+function getPostBookmark(post = {}) {
+  if (!post?.id || !state.bookmark) return null;
+  if (state.bookmark.folderId !== state.activeFolderId) return null;
+  return state.bookmark.postId === post.id ? state.bookmark : null;
+}
+
 function syncBookmarkButton() {
   if (!els.bookmark) return;
   const hasCurrent = Boolean(getCurrentBookmark());
@@ -370,6 +376,7 @@ function toggleBookmark() {
   if (isCurrentBookmark()) {
     writeBookmark(null);
     setMessage("북마크를 해제했습니다.");
+    renderPostList();
     syncBookmarkButton();
     return;
   }
@@ -377,6 +384,7 @@ function toggleBookmark() {
   if (!current) return;
   writeBookmark(current);
   setMessage("북마크를 저장했습니다.");
+  renderPostList();
   syncBookmarkButton();
 }
 
@@ -441,11 +449,19 @@ function renderPostList() {
     <strong>글 목록</strong>
     ${state.activePosts
       .map(
-        (post, index) => `
-          <button class="${index === state.postIndex ? "is-active" : ""}" type="button" data-ebook-post-index="${index}">
-            <span>${escapeHtml(post.title)}</span>
+        (post, index) => {
+          const bookmark = getPostBookmark(post);
+          const classes = [index === state.postIndex ? "is-active" : "", bookmark ? "has-bookmark" : ""]
+            .filter(Boolean)
+            .join(" ");
+          const bookmarkPage = Math.max(1, Number(bookmark?.pageIndex || 0) + 1);
+          return `
+          <button class="${classes}" type="button" data-ebook-post-index="${index}">
+            <span class="ebook-post-title">${escapeHtml(post.title)}</span>
+            ${bookmark ? `<span class="ebook-bookmark-marker" aria-label="북마크 ${bookmarkPage}페이지">북마크 ${bookmarkPage}p</span>` : ""}
           </button>
-        `
+        `;
+        }
       )
       .join("")}
   `;
@@ -560,6 +576,12 @@ function selectFolder(folderId, options = {}) {
 function selectPost(index, options = {}) {
   if (index < 0 || index >= state.activePosts.length) return;
   state.postIndex = index;
+  if (options.restoreBookmark) {
+    const bookmark = getPostBookmark(state.activePosts[index]);
+    if (bookmark) {
+      state.pendingPageIndex = Number(bookmark.pageIndex || 0);
+    }
+  }
   if (Number.isFinite(options.pageIndex)) {
     state.pendingPageIndex = Number(options.pageIndex);
   }
@@ -616,7 +638,7 @@ function bindEvents() {
   });
   els.postList?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-ebook-post-index]");
-    if (button) selectPost(Number(button.dataset.ebookPostIndex) || 0);
+    if (button) selectPost(Number(button.dataset.ebookPostIndex) || 0, { restoreBookmark: true });
   });
   els.prevPage?.addEventListener("click", prevPage);
   els.nextPage?.addEventListener("click", nextPage);

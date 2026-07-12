@@ -11490,6 +11490,12 @@ html.is-android-app-view .editor-surface {
   text-align: left;
 }
 
+.ebook-post-list button {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.45rem;
+}
+
 .ebook-folder-list button:hover,
 .ebook-folder-list button:focus-visible,
 .ebook-post-list button:hover,
@@ -11501,12 +11507,29 @@ html.is-android-app-view .editor-surface {
   color: #075985;
 }
 
+.ebook-post-list button.has-bookmark {
+  border-color: rgba(14, 165, 233, 0.36);
+  background: #f7fcff;
+}
+
 .ebook-folder-list strong,
 .ebook-post-list strong,
 .ebook-post-list button span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ebook-bookmark-marker {
+  justify-self: end;
+  max-width: 5.4rem;
+  padding: 0.14rem 0.42rem;
+  border: 1px solid rgba(56, 189, 248, 0.34);
+  border-radius: 999px;
+  background: #eaf8ff;
+  color: #0369a1;
+  font-size: 0.66rem;
+  font-weight: 780;
 }
 
 .ebook-post-list {
