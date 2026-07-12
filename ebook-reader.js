@@ -5,6 +5,7 @@ const SUPABASE_ANON_KEY =
 const params = new URLSearchParams(window.location.search);
 const INITIAL_NODE_ID = String(params.get("node") || "").trim();
 const FONT_SIZE_KEY = "blog.ebookFontSize";
+const BOOKMARK_KEY_PREFIX = "blog.ebookBookmark.";
 
 const state = {
   session: null,
@@ -20,14 +21,22 @@ const state = {
   pageStep: 0,
   fontSize: clampFontSize(Number.parseInt(localStorage.getItem(FONT_SIZE_KEY) || "18", 10)),
   pendingLastPage: false,
+  pendingPageIndex: null,
+  bookmark: null,
 };
 
 const els = {
   brandTitle: document.querySelector("[data-brand-title]"),
   initials: document.querySelectorAll("[data-blog-initial]"),
   owner: document.querySelector("[data-ebook-owner]"),
+  folderOpen: document.querySelector("[data-ebook-folder-open]"),
+  folderDialog: document.querySelector("[data-ebook-folder-dialog]"),
+  folderClose: document.querySelector("[data-ebook-folder-close]"),
   folderSelect: document.querySelector("[data-ebook-folder-select]"),
   folderList: document.querySelector("[data-ebook-folder-list]"),
+  selectedFolder: document.querySelector("[data-ebook-selected-folder]"),
+  selectedFolderName: document.querySelector("[data-ebook-selected-folder-name]"),
+  selectedFolderPath: document.querySelector("[data-ebook-selected-folder-path]"),
   postList: document.querySelector("[data-ebook-post-list]"),
   folderPath: document.querySelector("[data-ebook-folder-path]"),
   title: document.querySelector("[data-ebook-title]"),
@@ -42,6 +51,7 @@ const els = {
   fontDown: document.querySelector("[data-ebook-font-down]"),
   fontUp: document.querySelector("[data-ebook-font-up]"),
   fontSize: document.querySelector("[data-ebook-font-size]"),
+  bookmark: document.querySelector("[data-ebook-bookmark]"),
   message: document.querySelector("[data-ebook-message]"),
 };
 
@@ -276,6 +286,91 @@ function syncIdentity() {
   });
 }
 
+function getBookmarkKey() {
+  return `${BOOKMARK_KEY_PREFIX}${state.id || "guest"}`;
+}
+
+function readBookmark() {
+  try {
+    const bookmark = JSON.parse(localStorage.getItem(getBookmarkKey()) || "null");
+    return bookmark?.folderId && bookmark?.postId ? bookmark : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeBookmark(bookmark) {
+  state.bookmark = bookmark;
+  try {
+    if (bookmark) {
+      localStorage.setItem(getBookmarkKey(), JSON.stringify(bookmark));
+    } else {
+      localStorage.removeItem(getBookmarkKey());
+    }
+  } catch {
+    // Local storage can be blocked in some WebViews.
+  }
+}
+
+function getCurrentBookmark() {
+  const post = state.activePosts[state.postIndex] || null;
+  if (!state.activeFolderId || !post?.id) return null;
+  return {
+    folderId: state.activeFolderId,
+    postId: post.id,
+    pageIndex: Math.max(0, state.pageIndex),
+    savedAt: new Date().toISOString(),
+  };
+}
+
+function isCurrentBookmark() {
+  const current = getCurrentBookmark();
+  return Boolean(
+    current &&
+      state.bookmark &&
+      state.bookmark.folderId === current.folderId &&
+      state.bookmark.postId === current.postId &&
+      Number(state.bookmark.pageIndex || 0) === Number(current.pageIndex || 0)
+  );
+}
+
+function syncBookmarkButton() {
+  if (!els.bookmark) return;
+  const hasCurrent = Boolean(getCurrentBookmark());
+  const active = isCurrentBookmark();
+  els.bookmark.disabled = !hasCurrent;
+  els.bookmark.setAttribute("aria-pressed", String(active));
+  els.bookmark.textContent = active ? "북마크 해제" : "북마크";
+}
+
+function toggleBookmark() {
+  if (isCurrentBookmark()) {
+    writeBookmark(null);
+    setMessage("북마크를 해제했습니다.");
+    syncBookmarkButton();
+    return;
+  }
+  const current = getCurrentBookmark();
+  if (!current) return;
+  writeBookmark(current);
+  setMessage("북마크를 저장했습니다.");
+  syncBookmarkButton();
+}
+
+function getActiveFolder() {
+  return state.folders.find((item) => item.id === state.activeFolderId) || null;
+}
+
+function renderSelectedFolder() {
+  const folder = getActiveFolder();
+  if (els.selectedFolderName) {
+    els.selectedFolderName.textContent = folder?.label || "폴더를 선택해주세요";
+  }
+  if (els.selectedFolderPath) {
+    els.selectedFolderPath.textContent = folder ? `${folder.path} · ${folder.count}개 글` : "";
+  }
+}
+
 function renderFolders() {
   state.folders = collectFolderOptions();
   if (!els.folderSelect || !els.folderList) return;
@@ -283,6 +378,8 @@ function renderFolders() {
   if (state.folders.length === 0) {
     els.folderSelect.innerHTML = `<option value="">글이 있는 폴더가 없습니다</option>`;
     els.folderList.innerHTML = `<p class="ebook-empty">글이 들어 있는 폴더가 아직 없습니다.</p>`;
+    renderSelectedFolder();
+    syncBookmarkButton();
     return;
   }
 
@@ -307,6 +404,8 @@ function renderFolders() {
       `
     )
     .join("");
+  renderSelectedFolder();
+  syncBookmarkButton();
 }
 
 function renderPostList() {
@@ -353,7 +452,11 @@ function updatePagination() {
   els.content.style.columnWidth = `${width}px`;
   els.content.style.columnGap = `${gap}px`;
   state.pageCount = Math.max(1, Math.ceil(Math.max(els.content.scrollWidth, width) / state.pageStep));
-  if (state.pendingLastPage) {
+  if (Number.isFinite(state.pendingPageIndex)) {
+    state.pageIndex = Math.max(0, Math.floor(state.pendingPageIndex));
+    state.pendingPageIndex = null;
+    state.pendingLastPage = false;
+  } else if (state.pendingLastPage) {
     state.pageIndex = state.pageCount - 1;
     state.pendingLastPage = false;
   }
@@ -369,7 +472,7 @@ function schedulePagination(resetPage = false) {
 
 function renderProgress() {
   const post = state.activePosts[state.postIndex] || null;
-  const folder = state.folders.find((item) => item.id === state.activeFolderId);
+  const folder = getActiveFolder();
   if (els.folderPath) els.folderPath.textContent = folder ? folder.path : "폴더를 선택해주세요.";
   if (els.title) els.title.textContent = post?.title || "책 뷰어";
   if (els.position) els.position.textContent = `${state.pageIndex + 1} / ${state.pageCount} · ${state.postIndex + 1} / ${Math.max(state.activePosts.length, 1)}`;
@@ -382,6 +485,7 @@ function renderProgress() {
   if (els.nextPage) els.nextPage.disabled = state.pageIndex >= state.pageCount - 1 && state.postIndex >= state.activePosts.length - 1;
   if (els.prevPost) els.prevPost.disabled = state.postIndex <= 0;
   if (els.nextPost) els.nextPost.disabled = state.postIndex >= state.activePosts.length - 1;
+  syncBookmarkButton();
 }
 
 function renderCurrentPost({ lastPage = false } = {}) {
@@ -404,22 +508,30 @@ function renderCurrentPost({ lastPage = false } = {}) {
   schedulePagination(true);
 }
 
-function selectFolder(folderId) {
+function selectFolder(folderId, options = {}) {
   if (!folderId) return;
   state.activeFolderId = folderId;
   state.activePosts = getFolderPosts(folderId);
-  state.postIndex = 0;
+  const postIndex = options.postId ? state.activePosts.findIndex((post) => post.id === options.postId) : -1;
+  state.postIndex = postIndex >= 0 ? postIndex : 0;
+  if (Number.isFinite(options.pageIndex)) {
+    state.pendingPageIndex = Number(options.pageIndex);
+  }
   renderFolders();
   renderPostList();
   renderCurrentPost();
   const url = new URL(window.location.href);
   url.searchParams.set("node", folderId);
   history.replaceState(null, "", url);
+  if (options.closeDialog !== false) closeFolderDialog();
 }
 
 function selectPost(index, options = {}) {
   if (index < 0 || index >= state.activePosts.length) return;
   state.postIndex = index;
+  if (Number.isFinite(options.pageIndex)) {
+    state.pendingPageIndex = Number(options.pageIndex);
+  }
   renderCurrentPost(options);
 }
 
@@ -441,7 +553,30 @@ function prevPage() {
   selectPost(state.postIndex - 1, { lastPage: true });
 }
 
+function openFolderDialog() {
+  if (!els.folderDialog) return;
+  if (typeof els.folderDialog.showModal === "function") {
+    if (!els.folderDialog.open) els.folderDialog.showModal();
+    return;
+  }
+  els.folderDialog.setAttribute("open", "");
+}
+
+function closeFolderDialog() {
+  if (!els.folderDialog) return;
+  if (typeof els.folderDialog.close === "function") {
+    if (els.folderDialog.open) els.folderDialog.close();
+    return;
+  }
+  els.folderDialog.removeAttribute("open");
+}
+
 function bindEvents() {
+  els.folderOpen?.addEventListener("click", openFolderDialog);
+  els.folderClose?.addEventListener("click", closeFolderDialog);
+  els.folderDialog?.addEventListener("click", (event) => {
+    if (event.target === els.folderDialog) closeFolderDialog();
+  });
   els.folderSelect?.addEventListener("change", (event) => selectFolder(event.target.value));
   els.folderList?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-ebook-folder]");
@@ -463,6 +598,7 @@ function bindEvents() {
     state.fontSize += 1;
     updateReaderFont();
   });
+  els.bookmark?.addEventListener("click", toggleBookmark);
   els.progress?.addEventListener("input", (event) => {
     state.pageIndex = Math.min(Math.max(Number(event.target.value) - 1, 0), state.pageCount - 1);
     updatePagination();
@@ -493,13 +629,23 @@ async function init() {
   state.session = session;
   state.id = id;
   syncIdentity();
+  state.bookmark = readBookmark();
   setMessage("글과 폴더를 불러오는 중입니다.");
 
   try {
     await loadTreeAndPosts(session);
     renderFolders();
     if (state.folders.length > 0) {
-      selectFolder(state.activeFolderId || state.folders[0].id);
+      const shouldUseBookmark = !INITIAL_NODE_ID && state.bookmark?.folderId;
+      let targetFolderId = shouldUseBookmark ? state.bookmark.folderId : state.activeFolderId || state.folders[0].id;
+      if (!state.folders.some((folder) => folder.id === targetFolderId)) {
+        targetFolderId = state.folders[0].id;
+      }
+      selectFolder(targetFolderId, {
+        postId: shouldUseBookmark ? state.bookmark.postId : "",
+        pageIndex: shouldUseBookmark ? Number(state.bookmark.pageIndex || 0) : 0,
+        closeDialog: false,
+      });
       setMessage("");
     } else {
       renderProgress();

@@ -11303,6 +11303,8 @@ html.is-android-app-view .editor-surface {
   align-content: start;
   gap: 0.7rem;
   padding: 0.75rem;
+  max-height: calc(100vh - 5.6rem);
+  overflow: hidden;
 }
 
 .ebook-sidebar-head {
@@ -11319,10 +11321,69 @@ html.is-android-app-view .editor-surface {
 
 .ebook-sidebar-head span,
 .ebook-select-label span,
+.ebook-selected-folder span,
+.ebook-selected-folder small,
 .ebook-folder-list span,
 .ebook-message {
   color: #7f95a8;
   font-size: 0.76rem;
+}
+
+.ebook-sidebar-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.ebook-sidebar-actions button,
+.ebook-folder-dialog button {
+  min-height: 2rem;
+  padding: 0 0.68rem;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 8px;
+  background: #fbfdff;
+  color: #245d80;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 780;
+}
+
+.ebook-sidebar-actions button:hover,
+.ebook-sidebar-actions button:focus-visible,
+.ebook-folder-dialog button:hover,
+.ebook-folder-dialog button:focus-visible {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: #eaf8ff;
+  color: #075985;
+}
+
+.ebook-sidebar-actions button[aria-pressed="true"] {
+  border-color: rgba(14, 165, 233, 0.6);
+  background: #dff3ff;
+  color: #0369a1;
+}
+
+.ebook-selected-folder {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.62rem 0.68rem;
+  border: 1px solid rgba(186, 230, 253, 0.92);
+  border-radius: 9px;
+  background: linear-gradient(135deg, #f7fcff, #ffffff);
+}
+
+.ebook-selected-folder strong {
+  overflow: hidden;
+  color: #0f3f61;
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ebook-selected-folder small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ebook-select-label {
@@ -11352,8 +11413,14 @@ html.is-android-app-view .editor-surface {
 }
 
 .ebook-folder-list {
-  max-height: 16rem;
+  max-height: min(58vh, 24rem);
   overflow: auto;
+}
+
+.ebook-post-list {
+  max-height: calc(100vh - 17rem);
+  overflow: auto;
+  padding-right: 0.15rem;
 }
 
 .ebook-folder-list button,
@@ -11574,6 +11641,49 @@ html.is-android-app-view .editor-surface {
   margin: 0;
   padding: 0 0.9rem 0.7rem;
   text-align: center;
+}
+
+.ebook-folder-dialog {
+  width: min(92vw, 28rem);
+  padding: 0;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 24px 70px rgba(15, 79, 120, 0.16);
+  color: #1d3146;
+}
+
+.ebook-folder-dialog::backdrop {
+  background: rgba(15, 79, 120, 0.18);
+  backdrop-filter: blur(2px);
+}
+
+.ebook-folder-dialog form {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.85rem;
+}
+
+.ebook-folder-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.78);
+}
+
+.ebook-folder-dialog header strong {
+  color: #0f3f61;
+  font-size: 0.96rem;
+}
+
+.ebook-folder-dialog header button {
+  width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  font-size: 1.05rem;
 }
 
 @media (max-width: 860px) {

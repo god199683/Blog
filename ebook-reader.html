@@ -24,20 +24,38 @@
     </header>
 
     <main class="ebook-main">
-      <aside class="ebook-sidebar" aria-label="책 뷰어 폴더 선택">
+      <aside class="ebook-sidebar" aria-label="책 뷰어 폴더와 글 목록">
         <div class="ebook-sidebar-head">
           <strong>책 뷰어</strong>
           <span data-ebook-owner>@blog</span>
         </div>
-        <label class="ebook-select-label">
-          <span>폴더</span>
-          <select data-ebook-folder-select>
-            <option value="">폴더를 불러오는 중</option>
-          </select>
-        </label>
-        <div class="ebook-folder-list" data-ebook-folder-list></div>
+        <div class="ebook-sidebar-actions" aria-label="책 뷰어 기능">
+          <button type="button" data-ebook-folder-open>폴더 선택</button>
+          <button type="button" data-ebook-bookmark aria-pressed="false">북마크</button>
+        </div>
+        <section class="ebook-selected-folder" aria-label="선택한 폴더" data-ebook-selected-folder>
+          <span>선택한 폴더</span>
+          <strong data-ebook-selected-folder-name>폴더를 선택해주세요</strong>
+          <small data-ebook-selected-folder-path></small>
+        </section>
         <div class="ebook-post-list" data-ebook-post-list></div>
       </aside>
+
+      <dialog class="ebook-folder-dialog" data-ebook-folder-dialog aria-labelledby="ebook-folder-dialog-title">
+        <form method="dialog">
+          <header>
+            <strong id="ebook-folder-dialog-title">폴더 선택</strong>
+            <button type="button" data-ebook-folder-close aria-label="닫기">×</button>
+          </header>
+          <label class="ebook-select-label">
+            <span>폴더</span>
+            <select data-ebook-folder-select>
+              <option value="">폴더를 불러오는 중</option>
+            </select>
+          </label>
+          <div class="ebook-folder-list" data-ebook-folder-list></div>
+        </form>
+      </dialog>
 
       <section class="ebook-reader" aria-labelledby="ebook-title">
         <div class="ebook-toolbar">
