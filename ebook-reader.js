@@ -235,10 +235,33 @@ function collectFolderPostsInReadingOrder(node = {}, posts = []) {
   return posts;
 }
 
-function getFolderPosts(folderId) {
+function getFolderSubtreePosts(folderId) {
   const found = findNode(state.tree, folderId);
   if (!found) return [];
   return collectFolderPostsInReadingOrder(found.node);
+}
+
+function getReadingFolderNodes(folderId) {
+  const found = findNode(state.tree, folderId);
+  if (!found) return [];
+  const parent = found.path[found.path.length - 2] || null;
+  const siblings = Array.isArray(parent?.children) ? parent.children : state.tree;
+  const startIndex = siblings.findIndex((node) => node.id === folderId);
+  if (startIndex < 0) return [found.node];
+  return siblings.slice(startIndex).filter((node) => node.type === "folder");
+}
+
+function getFolderPosts(folderId) {
+  return getReadingFolderNodes(folderId).reduce((posts, folder) => collectFolderPostsInReadingOrder(folder, posts), []);
+}
+
+function getFolderPathById(folderId) {
+  const found = findNode(state.tree, folderId);
+  return found ? getPathLabel(found.path) : "";
+}
+
+function getPostFolderPath(post = {}) {
+  return post.folder_path || getFolderPathById(post.folder_id) || getActiveFolder()?.path || "";
 }
 
 function collectFolderOptions() {
@@ -248,7 +271,7 @@ function collectFolderOptions() {
     nodes.forEach((node) => {
       const nextPath = [...path, node];
       if (node.type === "folder") {
-        const posts = getFolderPosts(node.id);
+        const posts = getFolderSubtreePosts(node.id);
         if (posts.length > 0) {
           folders.push({
             id: node.id,
@@ -528,7 +551,7 @@ function schedulePagination(resetPage = false) {
 function renderProgress() {
   const post = state.activePosts[state.postIndex] || null;
   const folder = getActiveFolder();
-  if (els.folderPath) els.folderPath.textContent = folder ? folder.path : "폴더를 선택해주세요.";
+  if (els.folderPath) els.folderPath.textContent = post ? getPostFolderPath(post) : folder ? folder.path : "폴더를 선택해주세요.";
   if (els.title) els.title.textContent = post?.title || "책 뷰어";
   if (els.position) els.position.textContent = `${state.pageIndex + 1} / ${state.pageCount} · ${state.postIndex + 1} / ${Math.max(state.activePosts.length, 1)}`;
   if (els.progress) {
