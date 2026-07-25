@@ -11847,10 +11847,6 @@ html.is-android-app-view .editor-surface {
     grid-template-columns: 1fr;
   }
 
-  .ebook-sidebar {
-    order: 2;
-  }
-
   .ebook-reader {
     min-height: 70vh;
   }
