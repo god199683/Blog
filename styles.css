@@ -11291,7 +11291,7 @@ html.is-android-app-view .editor-surface {
 }
 
 .is-ebook-sidebar-collapsed .ebook-main {
-  grid-template-columns: 3.35rem minmax(0, 1fr);
+  grid-template-columns: minmax(11.5rem, 16rem) minmax(0, 1fr);
 }
 
 .ebook-sidebar,
@@ -11309,6 +11309,8 @@ html.is-android-app-view .editor-surface {
   padding: 0.65rem;
   max-height: calc(100vh - 5.6rem);
   overflow: hidden;
+  position: sticky;
+  top: 0.65rem;
   transition: padding 160ms ease;
 }
 
@@ -11354,20 +11356,18 @@ html.is-android-app-view .editor-surface {
 }
 
 .is-ebook-sidebar-collapsed .ebook-sidebar {
-  gap: 0;
-  padding: 0.5rem;
+  gap: 0.58rem;
+  padding: 0.65rem;
 }
 
 .is-ebook-sidebar-collapsed .ebook-sidebar-head {
-  display: flex;
-  justify-content: center;
-  padding: 0;
-  border-bottom: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-content: stretch;
+  padding: 0.28rem 0.26rem 0.42rem;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.8);
 }
 
-.is-ebook-sidebar-collapsed .ebook-sidebar-head > div,
-.is-ebook-sidebar-collapsed .ebook-sidebar-actions,
-.is-ebook-sidebar-collapsed .ebook-selected-folder,
 .is-ebook-sidebar-collapsed .ebook-post-list {
   display: none;
 }
