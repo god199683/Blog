@@ -62,15 +62,19 @@
 
       <section class="ebook-reader" aria-labelledby="ebook-title">
         <div class="ebook-toolbar">
-          <button class="ebook-back-button" type="button" data-ebook-back>뒤로가기</button>
           <div>
             <p data-ebook-folder-path>폴더를 선택해주세요.</p>
             <h1 id="ebook-title" data-ebook-title>책 뷰어</h1>
           </div>
-          <div class="ebook-toolbar-actions">
-            <button type="button" data-ebook-font-down aria-label="글자 작게">A-</button>
-            <span data-ebook-font-size>18px</span>
-            <button type="button" data-ebook-font-up aria-label="글자 크게">A+</button>
+          <div class="ebook-toolbar-right">
+            <div class="ebook-toolbar-actions">
+              <button type="button" data-ebook-font-down aria-label="글자 작게">A-</button>
+              <span data-ebook-font-size>18px</span>
+              <button type="button" data-ebook-font-up aria-label="글자 크게">A+</button>
+            </div>
+            <button class="ebook-back-button" type="button" data-ebook-back aria-label="뒤로가기" title="뒤로가기">
+              <span aria-hidden="true">&larr;</span>
+            </button>
           </div>
         </div>
 
