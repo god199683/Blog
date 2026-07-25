@@ -85,12 +85,16 @@
         </div>
 
         <div class="ebook-footer">
-          <button type="button" data-ebook-prev-post>이전 글</button>
+          <button class="ebook-post-nav ebook-post-nav-prev" type="button" data-ebook-prev-post aria-label="이전 글" title="이전 글">
+            <span aria-hidden="true">&larr;</span>
+          </button>
           <div class="ebook-progress">
             <input type="range" min="1" max="1" value="1" data-ebook-progress aria-label="읽기 위치" disabled>
             <span data-ebook-position>1 / 1</span>
           </div>
-          <button type="button" data-ebook-next-post>다음 글</button>
+          <button class="ebook-post-nav ebook-post-nav-next" type="button" data-ebook-next-post aria-label="다음 글" title="다음 글">
+            <span aria-hidden="true">&rarr;</span>
+          </button>
         </div>
 
         <p class="ebook-message" data-ebook-message></p>

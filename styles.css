@@ -11728,19 +11728,42 @@ html.is-android-app-view .editor-surface {
 }
 
 .ebook-footer {
+  min-height: 2rem;
+  padding: 0.18rem 0.74rem;
   border-top: 1px solid rgba(216, 234, 251, 0.78);
   border-bottom: 0;
 }
 
 .ebook-progress {
-  flex: 1 1 18rem;
+  flex: 1 1 auto;
   justify-content: center;
   min-width: 0;
 }
 
 .ebook-progress input {
-  width: min(100%, 21rem);
+  flex: 1 1 auto;
+  width: auto;
+  max-width: 28rem;
   accent-color: #0ea5e9;
+}
+
+.ebook-progress span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.ebook-post-nav {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0;
+  font-size: 0.86rem;
+  line-height: 1;
+}
+
+.ebook-post-nav span {
+  display: grid;
+  place-items: center;
 }
 
 .ebook-message {
@@ -11810,10 +11833,24 @@ html.is-android-app-view .editor-surface {
     min-height: 70vh;
   }
 
-  .ebook-toolbar,
-  .ebook-footer {
+  .ebook-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .ebook-footer {
+    align-items: center;
+    flex-direction: row;
+    gap: 0.34rem;
+    padding: 0.16rem 0.52rem;
+  }
+
+  .ebook-progress {
+    gap: 0.28rem;
+  }
+
+  .ebook-progress input {
+    max-width: none;
   }
 
   .ebook-back-button {
