@@ -204,12 +204,6 @@ function findNode(nodes = [], nodeId, path = []) {
   return null;
 }
 
-function collectFolderIds(node = {}, ids = new Set()) {
-  if (node.type === "folder") ids.add(node.id);
-  (node.children || []).forEach((child) => collectFolderIds(child, ids));
-  return ids;
-}
-
 function getPathLabel(path = []) {
   return path
     .map((node) => node?.label || "")
@@ -217,12 +211,8 @@ function getPathLabel(path = []) {
     .join(" / ");
 }
 
-function getFolderPosts(folderId) {
-  const found = findNode(state.tree, folderId);
-  if (!found) return [];
-  const folderIds = collectFolderIds(found.node);
-  return state.posts
-    .filter((post) => folderIds.has(post.folder_id))
+function sortPostsForReading(posts = []) {
+  return [...posts]
     .sort((a, b) => {
       const titleDiff = String(a.title || "").localeCompare(String(b.title || ""), "ko", {
         numeric: true,
@@ -231,6 +221,24 @@ function getFolderPosts(folderId) {
       if (titleDiff) return titleDiff;
       return String(a.published_at || a.created_at || "").localeCompare(String(b.published_at || b.created_at || ""));
     });
+}
+
+function getDirectFolderPosts(folderId) {
+  return sortPostsForReading(state.posts.filter((post) => post.folder_id === folderId));
+}
+
+function collectFolderPostsInReadingOrder(node = {}, posts = []) {
+  if (node.type === "folder") {
+    posts.push(...getDirectFolderPosts(node.id));
+  }
+  (node.children || []).forEach((child) => collectFolderPostsInReadingOrder(child, posts));
+  return posts;
+}
+
+function getFolderPosts(folderId) {
+  const found = findNode(state.tree, folderId);
+  if (!found) return [];
+  return collectFolderPostsInReadingOrder(found.node);
 }
 
 function collectFolderOptions() {
