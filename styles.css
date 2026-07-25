@@ -11324,14 +11324,23 @@ html.is-android-app-view .editor-surface {
 }
 
 .ebook-sidebar-head > div {
-  display: grid;
-  gap: 0.1rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.28rem;
   min-width: 0;
 }
 
 .ebook-sidebar-head strong {
+  flex: 0 0 auto;
   color: #0f3f61;
   font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.ebook-sidebar-head span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ebook-sidebar-head button {
