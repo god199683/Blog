@@ -11320,8 +11320,8 @@ html.is-android-app-view .editor-surface {
 
 .ebook-sidebar-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: 0.34rem;
   padding: 0.18rem 0.18rem 0.32rem;
   border-bottom: 1px solid rgba(216, 234, 251, 0.8);
@@ -11375,7 +11375,7 @@ html.is-android-app-view .editor-surface {
 
 .is-ebook-sidebar-collapsed .ebook-sidebar-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   justify-content: stretch;
   padding: 0.18rem 0.18rem 0.32rem;
   border-bottom: 1px solid rgba(216, 234, 251, 0.8);
