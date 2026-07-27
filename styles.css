@@ -11707,17 +11707,20 @@ html.is-android-app-view .editor-surface {
 .ebook-page-content {
   box-sizing: border-box;
   width: 100%;
+  max-width: min(100%, 48rem);
   height: 100%;
   min-height: 0;
-  padding: 0;
+  margin-inline: auto;
+  padding: clamp(0.28rem, 0.9vw, 0.72rem) clamp(0.1rem, 0.5vw, 0.35rem);
   color: #20364a;
   font-family: "a시네마L", "Noto Sans KR", "Malgun Gothic", sans-serif;
   font-size: var(--ebook-font-size, 18px);
-  line-height: 1.72;
+  line-height: 1.78;
   column-fill: auto;
   transition: transform 180ms ease;
   overflow-wrap: break-word;
   word-break: keep-all;
+  text-align: left;
 }
 
 .ebook-page-content :where(p, div, li, blockquote) {
@@ -11924,7 +11927,8 @@ html.is-android-app-view .editor-surface {
   }
 
   .ebook-page-content {
-    padding: 0;
+    max-width: min(100%, 44rem);
+    padding: 0.18rem 0.08rem;
   }
 }
 
