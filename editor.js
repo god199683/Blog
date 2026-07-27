@@ -1586,6 +1586,14 @@ function rtfCodePageToEncoding(value = "") {
   }[codePage] || "windows-1252";
 }
 
+function rtfCodePageToEncodingForText(value = "", text = "") {
+  const codePage = String(value || "").trim();
+  if (textContainsKorean(text) && (!codePage || codePage === "1252")) {
+    return "euc-kr";
+  }
+  return rtfCodePageToEncoding(codePage);
+}
+
 function decodeRtfHexBytes(bytes = [], encoding = "windows-1252") {
   if (!bytes.length) return "";
   if (typeof TextDecoder === "undefined") {
@@ -1644,7 +1652,7 @@ function rtfToEditorHtml(rtf = "", plainText = "") {
   const runs = [];
   let buffer = "";
   const initialCodePage = rtf.match(/\\ansicpg(\d+)/i)?.[1] || (textContainsKorean(plainText) ? "949" : "1252");
-  let encoding = rtfCodePageToEncoding(initialCodePage);
+  let encoding = rtfCodePageToEncodingForText(initialCodePage, plainText);
   let hexBytes = [];
 
   const flushHexBytes = () => {
@@ -1712,7 +1720,7 @@ function rtfToEditorHtml(rtf = "", plainText = "") {
     }
 
     if (control === "ansicpg") {
-      encoding = rtfCodePageToEncoding(value);
+      encoding = rtfCodePageToEncodingForText(value, plainText);
       continue;
     }
 
@@ -1804,10 +1812,13 @@ function rtfToEditorHtml(rtf = "", plainText = "") {
   const parsedWeight = getPlainTextWeight(decodedText);
   const plainWeight = getPlainTextWeight(plainText);
   if (!parsedWeight || (plainWeight && parsedWeight < plainWeight * 0.45)) return "";
-  if (plainText && !rtfTextMatchesPlainText(decodedText, plainText)) return "";
 
   const html = plainText ? rtfRunsToPlainTextHtml(runs, plainText) : rtfRunsToEditorHtml(runs);
-  return html ? cleanEditorHtml(html) : "";
+  if (html) return cleanEditorHtml(html);
+  if (plainText && rtfTextMatchesPlainText(decodedText, plainText)) {
+    return cleanEditorHtml(rtfRunsToEditorHtml(runs));
+  }
+  return "";
 }
 
 function rtfHasVisibleColorFormatting(rtf = "") {
@@ -2247,6 +2258,70 @@ function computedPasteColorIsVisible(value = "") {
   );
 }
 
+function canonicalizePasteColor(value = "", property = "color") {
+  const normalized = String(value || "").trim();
+  if (!computedPasteColorIsVisible(normalized) || typeof document === "undefined") return "";
+
+  const probe = document.createElement("span");
+  try {
+    probe.style.setProperty(property, normalized);
+    if (!probe.style.getPropertyValue(property)) return "";
+    probe.style.position = "fixed";
+    probe.style.left = "-10000px";
+    probe.style.top = "0";
+    document.body.append(probe);
+    return window.getComputedStyle(probe).getPropertyValue(property).replace(/\s+/g, "").toLowerCase();
+  } catch {
+    return "";
+  } finally {
+    probe.remove();
+  }
+}
+
+function getActiveEditorCanonicalTextColor() {
+  const activeStyle = window.getComputedStyle(getActiveEditorStyleElement() || els.content);
+  return canonicalizePasteColor(activeStyle.color || "", "color");
+}
+
+function pasteTextColorLooksNeutral(color = "", defaultColor = "") {
+  const normalized = String(color || "").replace(/\s+/g, "").toLowerCase();
+  return (
+    !normalized ||
+    normalized === defaultColor ||
+    normalized === "rgb(0,0,0)" ||
+    normalized === "rgba(0,0,0,1)" ||
+    normalized === "rgb(255,255,255)" ||
+    normalized === "rgba(255,255,255,1)"
+  );
+}
+
+function htmlHasUsefulPasteColor(html = "") {
+  if (!html || typeof document === "undefined") return false;
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const textColors = new Set();
+  const backgroundColors = new Set();
+  const defaultTextColor = getActiveEditorCanonicalTextColor();
+
+  template.content.querySelectorAll("*").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+
+    const textColor = canonicalizePasteColor(
+      node.style.getPropertyValue("-webkit-text-fill-color") || node.style.getPropertyValue("color"),
+      "color"
+    );
+    if (textColor) textColors.add(textColor);
+
+    const backgroundColor = canonicalizePasteColor(node.style.getPropertyValue("background-color"), "background-color");
+    if (backgroundColor) backgroundColors.add(backgroundColor);
+  });
+
+  if (backgroundColors.size > 0) return true;
+  if (textColors.size > 1) return true;
+  return [...textColors].some((color) => !pasteTextColorLooksNeutral(color, defaultTextColor));
+}
+
 function getComputedPasteTextColor(element) {
   if (!(element instanceof HTMLElement)) return "";
   const computed = window.getComputedStyle(element);
@@ -2578,11 +2653,14 @@ async function buildPasteHtml(mode, payload = {}) {
   const imageFile = payload.imageFiles?.[0] || null;
 
   if (mode === "source") {
+    const htmlWithComputedColors = html ? cleanSourcePasteHtml(materializeComputedPasteColors(html) || html) : "";
+    if (htmlHasUsefulPasteColor(htmlWithComputedColors)) return htmlWithComputedColors;
+
     if (rtfHasVisibleColorFormatting(rtf)) {
       const rtfHtml = rtfToEditorHtml(rtf, text);
       if (rtfHtml) return rtfHtml;
     }
-    if (html) return cleanSourcePasteHtml(materializeComputedPasteColors(html) || html) || textToEditorHtml(text);
+    if (html) return htmlWithComputedColors || textToEditorHtml(text);
     if (rtf) {
       const rtfHtml = rtfToEditorHtml(rtf, text);
       if (rtfHtml) return rtfHtml;
@@ -2832,6 +2910,14 @@ function scheduleNativePasteCleanup(payload = {}) {
     let finalized = false;
 
     try {
+      inlineNativePastedComputedStyles(payload);
+      const nativeHtml = sanitizeNativePastedContent(payload);
+      if (htmlHasUsefulPasteColor(nativeHtml)) {
+        finalizeNativePastedContent(payload);
+        finalized = true;
+        return;
+      }
+
       if (payload.html) {
         const sourceHtml = await buildPasteHtml("source", payload);
         if (sourceHtml) {
@@ -2841,7 +2927,6 @@ function scheduleNativePasteCleanup(payload = {}) {
         }
       }
 
-      inlineNativePastedComputedStyles(payload);
       const html = sanitizeNativePastedContent(payload);
       if (html) {
         finalizeNativePastedContent(payload);
