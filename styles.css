@@ -11725,9 +11725,11 @@ html.is-android-app-view .editor-surface {
   letter-spacing: 0;
   column-fill: auto;
   transition: transform 180ms ease;
+  line-break: loose;
   overflow-wrap: break-word;
   word-break: keep-all;
   text-align: left;
+  hanging-punctuation: first allow-end;
   text-rendering: optimizeLegibility;
 }
 
@@ -11741,6 +11743,16 @@ html.is-android-app-view .editor-surface {
 
 .ebook-page-content :where(p, div) {
   min-height: 1.82em;
+}
+
+.ebook-page-content :where(p, div, li) {
+  padding-inline: 0.06rem;
+  text-wrap: pretty;
+}
+
+.ebook-page-content .ebook-dialogue-line {
+  padding-left: 0.72em;
+  text-indent: -0.72em;
 }
 
 .ebook-page-content :where(strong, b) {

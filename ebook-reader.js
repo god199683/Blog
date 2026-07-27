@@ -644,6 +644,20 @@ function renderProgress() {
   syncBookmarkButton();
 }
 
+function enhanceEbookContentTypography() {
+  if (!els.content) return;
+
+  els.content.querySelectorAll("p, div, li").forEach((node) => {
+    if (node.closest(".ebook-content-title")) return;
+    const text = String(node.textContent || "").trim();
+    if (!text) return;
+
+    if (/^[\u201c\u2018"'「『]/.test(text) && [...text].length >= 28) {
+      node.classList.add("ebook-dialogue-line");
+    }
+  });
+}
+
 function renderCurrentPost({ lastPage = false } = {}) {
   const post = state.activePosts[state.postIndex] || null;
   if (!post) {
@@ -661,6 +675,7 @@ function renderCurrentPost({ lastPage = false } = {}) {
       </header>
       ${getPostHtml(post)}
     `;
+    enhanceEbookContentTypography();
     els.content.querySelectorAll("img").forEach((image) => {
       if (!image.complete) {
         image.addEventListener("load", () => schedulePagination(false), { once: true });
