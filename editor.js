@@ -206,6 +206,7 @@ const ALLOWED_EDITOR_STYLES = new Set([
   "border-top-style",
   "border-top-width",
   "border-width",
+  "-webkit-text-fill-color",
   "color",
   "font-family",
   "font-kerning",
@@ -249,6 +250,7 @@ const EDITOR_PASTE_OPTIONS = [
 
 const SOURCE_PASTE_COMPUTED_STYLES = [
   "background-color",
+  "-webkit-text-fill-color",
   "color",
   "font-family",
   "font-size",
@@ -1385,7 +1387,7 @@ function getCharacterCounts(html = "") {
 
 function getSafeEditorStyleValue(property, value = "") {
   const normalizedProperty = String(property || "").trim().toLowerCase();
-  const normalizedValue = String(value || "").trim();
+  const normalizedValue = String(value || "").trim().replace(/\s*!important\s*$/i, "");
   if (!normalizedProperty || !normalizedValue || !ALLOWED_EDITOR_STYLES.has(normalizedProperty)) return "";
   if (/expression|javascript:|url\s*\(|behavior\s*:/i.test(normalizedValue)) return "";
   return normalizedValue;
@@ -1521,11 +1523,43 @@ function normalizeLegacyPastedFormatting(fragment) {
   });
 }
 
+function getRawStylePropertyValue(styleText = "", property = "") {
+  const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = String(styleText || "").match(new RegExp(`(?:^|;)\\s*${escapedProperty}\\s*:\\s*([^;]+)`, "i"));
+  return match ? match[1].trim() : "";
+}
+
+function getExplicitPasteTextColor(node) {
+  if (!(node instanceof HTMLElement)) return "";
+  const rawStyle = node.getAttribute("style") || "";
+  const candidates = [
+    node.style.getPropertyValue("-webkit-text-fill-color"),
+    getRawStylePropertyValue(rawStyle, "-webkit-text-fill-color"),
+    getRawStylePropertyValue(rawStyle, "mso-style-textfill-fill-color"),
+    getRawStylePropertyValue(rawStyle, "mso-color-alt"),
+    node.style.getPropertyValue("color"),
+    getRawStylePropertyValue(rawStyle, "color"),
+    node.getAttribute("color"),
+  ];
+
+  return candidates
+    .map((value) => getSafeEditorStyleValue("color", value))
+    .find((value) => computedPasteColorIsVisible(value) && !/^(inherit|initial|unset|windowtext)$/i.test(value)) || "";
+}
+
+function materializeExplicitPasteTextColors(fragment) {
+  fragment.querySelectorAll("*").forEach((node) => {
+    const color = getExplicitPasteTextColor(node);
+    if (color) node.style.setProperty("color", color);
+  });
+}
+
 function cleanEditorHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = html;
   inlinePastedStyleRules(template.content);
   normalizeLegacyPastedFormatting(template.content);
+  materializeExplicitPasteTextColors(template.content);
   template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => {
     node.remove();
   });
@@ -1780,7 +1814,9 @@ function materializeComputedPasteColors(html = "") {
   const template = document.createElement("template");
   template.innerHTML = html;
   template.content.querySelectorAll("script, iframe, object, embed, link, meta").forEach((node) => node.remove());
+  inlinePastedStyleRules(template.content);
   normalizeLegacyPastedFormatting(template.content);
+  materializeExplicitPasteTextColors(template.content);
 
   const host = document.createElement("div");
   const activeStyle = window.getComputedStyle(getActiveEditorStyleElement() || els.content);
@@ -2325,6 +2361,15 @@ function scheduleNativePasteCleanup(payload = {}) {
     let finalized = false;
 
     try {
+      if (payload.html) {
+        const sourceHtml = await buildPasteHtml("source", payload);
+        if (sourceHtml) {
+          replaceNativePastedContent(payload, sourceHtml);
+          finalized = true;
+          return;
+        }
+      }
+
       inlineNativePastedComputedStyles(payload);
       const html = sanitizeNativePastedContent(payload);
       if (html) {
