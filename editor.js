@@ -2320,6 +2320,38 @@ function replaceNativePastedContent(payload = {}, html = "") {
   finalizeNativePastedContent(payload);
 }
 
+function scheduleNativePasteCleanup(payload = {}) {
+  window.setTimeout(async () => {
+    let finalized = false;
+
+    try {
+      inlineNativePastedComputedStyles(payload);
+      const html = sanitizeNativePastedContent(payload);
+      if (html) {
+        finalizeNativePastedContent(payload);
+        finalized = true;
+        return;
+      }
+
+      const fallbackHtml = await buildPasteHtml("source", payload);
+      replaceNativePastedContent(payload, fallbackHtml);
+      finalized = true;
+    } catch (error) {
+      try {
+        const fallbackHtml = await buildPasteHtml("source", payload);
+        replaceNativePastedContent(payload, fallbackHtml);
+        finalized = true;
+      } catch {
+        window.alert(error.message || "붙여넣기를 처리하지 못했습니다.");
+      }
+    } finally {
+      if (!finalized) {
+        finalizeNativePastedContent(payload);
+      }
+    }
+  }, 0);
+}
+
 function insertEditorHtml(html = "") {
   const safeHtml = cleanEditorHtml(html);
   if (!safeHtml) return;
@@ -2429,9 +2461,17 @@ async function handleEditorPaste(event) {
   const payload = getClipboardPayload(event);
   if (!payload) return;
 
-  event.preventDefault();
   saveCurrentSelection();
   closePasteMenu({ finalizeNative: false });
+  if (payload.html) {
+    const markers = insertNativePasteMarkers();
+    if (markers) {
+      scheduleNativePasteCleanup({ ...payload, ...markers, nativePaste: true });
+      return;
+    }
+  }
+
+  event.preventDefault();
   try {
     const html = await buildPasteHtml("source", payload);
     insertEditorHtml(html);
