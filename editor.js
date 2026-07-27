@@ -1477,24 +1477,68 @@ function rtfRunsToPlainTextHtml(runs = [], plainText = "") {
   }
 
   const lengthDelta = Math.abs(plainVisibleChars.length - rtfVisibleChars.length);
-  if (lengthDelta > Math.max(3, Math.round(plainVisibleChars.length * 0.08))) return "";
+  if (lengthDelta > Math.max(8, Math.round(plainVisibleChars.length * 0.18))) return "";
 
-  const comparableLength = Math.min(plainVisibleChars.length, rtfVisibleChars.length);
-  const matches = plainVisibleChars
-    .slice(0, comparableLength)
-    .reduce((total, char, index) => total + (char === rtfVisibleChars[index].char ? 1 : 0), 0);
-  if (matches / Math.max(1, plainVisibleChars.length) < 0.92) return "";
+  const stylesByVisibleIndex = new Array(plainVisibleChars.length).fill(null);
+  const lookAhead = 18;
+  let plainIndex = 0;
+  let rtfIndex = 0;
+  let matches = 0;
+
+  while (plainIndex < plainVisibleChars.length && rtfIndex < rtfVisibleChars.length) {
+    if (plainVisibleChars[plainIndex] === rtfVisibleChars[rtfIndex].char) {
+      stylesByVisibleIndex[plainIndex] = rtfVisibleChars[rtfIndex].style || {};
+      plainIndex += 1;
+      rtfIndex += 1;
+      matches += 1;
+      continue;
+    }
+
+    let nextRtfIndex = -1;
+    for (let offset = 1; offset <= lookAhead && rtfIndex + offset < rtfVisibleChars.length; offset += 1) {
+      if (rtfVisibleChars[rtfIndex + offset].char === plainVisibleChars[plainIndex]) {
+        nextRtfIndex = rtfIndex + offset;
+        break;
+      }
+    }
+
+    let nextPlainIndex = -1;
+    for (let offset = 1; offset <= lookAhead && plainIndex + offset < plainVisibleChars.length; offset += 1) {
+      if (plainVisibleChars[plainIndex + offset] === rtfVisibleChars[rtfIndex].char) {
+        nextPlainIndex = plainIndex + offset;
+        break;
+      }
+    }
+
+    if (nextRtfIndex >= 0 && (nextPlainIndex < 0 || nextRtfIndex - rtfIndex <= nextPlainIndex - plainIndex)) {
+      rtfIndex = nextRtfIndex;
+      continue;
+    }
+
+    if (nextPlainIndex >= 0) {
+      plainIndex = nextPlainIndex;
+      continue;
+    }
+
+    plainIndex += 1;
+    rtfIndex += 1;
+  }
+
+  if (matches / Math.max(1, plainVisibleChars.length) < 0.82) return "";
 
   let visibleIndex = 0;
-  let lastStyle = null;
+  const emptyStyle = {};
   const styledChars = chars.map((char) => {
     if (!/\s/.test(char)) {
-      const style = rtfVisibleChars[visibleIndex]?.style || {};
+      const style = stylesByVisibleIndex[visibleIndex] || emptyStyle;
       visibleIndex += 1;
-      lastStyle = style;
       return { char, style };
     }
-    return { char, style: lastStyle || rtfVisibleChars[visibleIndex]?.style || {} };
+
+    const previousStyle = visibleIndex > 0 ? stylesByVisibleIndex[visibleIndex - 1] : null;
+    const nextStyle = visibleIndex < stylesByVisibleIndex.length ? stylesByVisibleIndex[visibleIndex] : null;
+    const style = previousStyle && nextStyle && JSON.stringify(previousStyle) === JSON.stringify(nextStyle) ? previousStyle : emptyStyle;
+    return { char, style };
   });
 
   const parts = [];
