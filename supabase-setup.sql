@@ -27,6 +27,7 @@ create table if not exists public.blog_trees (
   hidden_category_ids text[] not null default '{}',
   tree_collapsed_ids text[] not null default '{}',
   trash jsonb not null default '[]'::jsonb,
+  ebook_bookmark jsonb,
   updated_at timestamptz default now()
 );
 
@@ -103,6 +104,7 @@ alter table public.blog_trees add column if not exists tree jsonb not null defau
 alter table public.blog_trees add column if not exists hidden_category_ids text[] not null default '{}';
 alter table public.blog_trees add column if not exists tree_collapsed_ids text[] not null default '{}';
 alter table public.blog_trees add column if not exists trash jsonb not null default '[]'::jsonb;
+alter table public.blog_trees add column if not exists ebook_bookmark jsonb;
 alter table public.blog_trees add column if not exists updated_at timestamptz default now();
 
 alter table public.password_hints add column if not exists login_id text;
@@ -223,6 +225,79 @@ begin
     for select
     to anon, authenticated
     using (published = true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_trees'
+      and policyname = 'Authenticated users can read own blog tree'
+  ) then
+    create policy "Authenticated users can read own blog tree"
+    on public.blog_trees
+    for select
+    to authenticated
+    using ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_trees'
+      and policyname = 'Authenticated users can create own blog tree'
+  ) then
+    create policy "Authenticated users can create own blog tree"
+    on public.blog_trees
+    for insert
+    to authenticated
+    with check ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_trees'
+      and policyname = 'Authenticated users can update own blog tree'
+  ) then
+    create policy "Authenticated users can update own blog tree"
+    on public.blog_trees
+    for update
+    to authenticated
+    using ((select auth.uid()) = user_id)
+    with check ((select auth.uid()) = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blog_trees'
+      and policyname = 'Authenticated users can delete own blog tree'
+  ) then
+    create policy "Authenticated users can delete own blog tree"
+    on public.blog_trees
+    for delete
+    to authenticated
+    using ((select auth.uid()) = user_id);
   end if;
 end
 $$;

@@ -25,6 +25,7 @@ const state = {
   pendingLastPage: false,
   pendingPageIndex: null,
   bookmark: null,
+  remoteBookmarkSupported: true,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true",
 };
 
@@ -97,6 +98,53 @@ function plainTextToHtml(value = "") {
   );
 }
 
+function readerNodeHasVisibleContent(node) {
+  if (!(node instanceof HTMLElement)) return false;
+  const text = String(node.textContent || "").replace(/[\u00a0\u200b]/g, "").trim();
+  return Boolean(text || node.querySelector("img, video, audio, table, canvas, svg, iframe, hr, pre, code"));
+}
+
+function markReaderEmptyBlock(node) {
+  node.removeAttribute("style");
+  node.removeAttribute("class");
+  node.removeAttribute("width");
+  node.removeAttribute("height");
+  node.dataset.readerEmptyBlock = "true";
+  node.innerHTML = "<br>";
+}
+
+function normalizeReaderFragment(fragment) {
+  fragment.querySelectorAll("*").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+
+    const writingMode = node.style.getPropertyValue("writing-mode");
+    if (/vertical|sideways/i.test(writingMode)) {
+      node.style.removeProperty("writing-mode");
+      node.style.removeProperty("text-orientation");
+      node.style.removeProperty("transform");
+    }
+
+    if (!readerNodeHasVisibleContent(node)) {
+      node.style.removeProperty("background");
+      node.style.removeProperty("background-color");
+      node.style.removeProperty("box-shadow");
+      node.style.removeProperty("border");
+    }
+  });
+
+  fragment.querySelectorAll("p, div, li, blockquote").forEach((node) => {
+    if (node instanceof HTMLElement && !readerNodeHasVisibleContent(node)) {
+      markReaderEmptyBlock(node);
+    }
+  });
+
+  fragment.querySelectorAll("span").forEach((node) => {
+    if (node instanceof HTMLElement && !readerNodeHasVisibleContent(node)) {
+      node.remove();
+    }
+  });
+}
+
 function cleanHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = String(html || "");
@@ -109,6 +157,7 @@ function cleanHtml(html = "") {
       if ((name === "href" || name === "src") && value.startsWith("javascript:")) node.removeAttribute(attr.name);
     });
   });
+  normalizeReaderFragment(template.content);
   return template.innerHTML;
 }
 
@@ -151,6 +200,10 @@ async function requestRest(path, token, options = {}, retry = true) {
     throw new Error(message);
   }
   return payload;
+}
+
+function isMissingBookmarkColumnError(error) {
+  return /ebook_bookmark|column|schema cache|could not find/i.test(String(error?.message || error || ""));
 }
 
 function normalizeTreeNode(node = {}) {
@@ -328,8 +381,15 @@ function collectFolderOptions() {
 }
 
 async function loadTreeAndPosts(session) {
+  const treePathWithBookmark = `blog_trees?select=tree,trash,ebook_bookmark&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`;
+  const treePath = `blog_trees?select=tree,trash&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`;
+  const treeRequest = requestRest(treePathWithBookmark, session.access_token).catch((error) => {
+    if (!isMissingBookmarkColumnError(error)) throw error;
+    state.remoteBookmarkSupported = false;
+    return requestRest(treePath, session.access_token);
+  });
   const [treeRows, postRows] = await Promise.all([
-    requestRest(`blog_trees?select=tree,trash&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`, session.access_token),
+    treeRequest,
     requestRest(
       "posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,author,login_id,user_id,published,published_at,created_at&order=title.asc&limit=1000",
       session.access_token
@@ -338,6 +398,7 @@ async function loadTreeAndPosts(session) {
   const treeRow = Array.isArray(treeRows) ? treeRows[0] : null;
   const trashIds = normalizeTrashPostIds(treeRow?.trash);
   state.tree = Array.isArray(treeRow?.tree) ? treeRow.tree.map(normalizeTreeNode) : [];
+  syncBookmarkFromRemote(treeRow?.ebook_bookmark);
   state.posts = (Array.isArray(postRows) ? postRows : [])
     .map(normalizePost)
     .filter((post) => belongsToUser(post, session, state.id))
@@ -417,28 +478,112 @@ function writeBookmarkCookie(bookmark) {
   }
 }
 
-function readBookmark() {
+function normalizeBookmark(value) {
+  let bookmark = value;
+  if (typeof bookmark === "string") {
+    try {
+      bookmark = JSON.parse(bookmark);
+    } catch {
+      return null;
+    }
+  }
+  if (!bookmark || typeof bookmark !== "object" || !bookmark.folderId || !bookmark.postId) return null;
+  return {
+    folderId: String(bookmark.folderId),
+    postId: String(bookmark.postId),
+    pageIndex: Math.max(0, Number.parseInt(bookmark.pageIndex || 0, 10) || 0),
+    savedAt: bookmark.savedAt || new Date().toISOString(),
+  };
+}
+
+function readLocalBookmark() {
   try {
-    const bookmark = JSON.parse(localStorage.getItem(getBookmarkKey()) || "null");
-    if (bookmark?.folderId && bookmark?.postId) return bookmark;
+    const bookmark = normalizeBookmark(JSON.parse(localStorage.getItem(getBookmarkKey()) || "null"));
+    if (bookmark) return bookmark;
   } catch {
     // Local storage can be blocked or reset in some WebViews; cookie backup keeps the bookmark visible.
   }
-  return readBookmarkCookie();
+  return normalizeBookmark(readBookmarkCookie());
 }
 
-function writeBookmark(bookmark) {
-  state.bookmark = bookmark;
+function writeLocalBookmark(bookmark) {
+  const normalized = normalizeBookmark(bookmark);
+  state.bookmark = normalized;
   try {
-    if (bookmark) {
-      localStorage.setItem(getBookmarkKey(), JSON.stringify(bookmark));
+    if (normalized) {
+      localStorage.setItem(getBookmarkKey(), JSON.stringify(normalized));
     } else {
       localStorage.removeItem(getBookmarkKey());
     }
   } catch {
     // Local storage can be blocked in some WebViews.
   }
-  writeBookmarkCookie(bookmark);
+  writeBookmarkCookie(normalized);
+}
+
+function syncBookmarkFromRemote(remoteBookmark) {
+  if (remoteBookmark !== undefined && remoteBookmark !== null) {
+    const remote = normalizeBookmark(remoteBookmark);
+    state.bookmark = remote;
+    writeLocalBookmark(remote);
+    return;
+  }
+
+  const remote = normalizeBookmark(remoteBookmark);
+  const local = readLocalBookmark();
+  const bookmark = remote || local;
+  state.bookmark = bookmark;
+  if (bookmark) writeLocalBookmark(bookmark);
+  if (!remote && local && state.remoteBookmarkSupported) {
+    saveBookmarkRemote(local).catch(() => {});
+  }
+}
+
+async function saveBookmarkRemote(bookmark) {
+  if (!state.remoteBookmarkSupported) return false;
+  const session = await getFreshSession();
+  const userId = session?.user?.id;
+  if (!session?.access_token || !userId || !state.id) return false;
+
+  const normalized = normalizeBookmark(bookmark);
+  const payload = {
+    ebook_bookmark: normalized || { cleared: true, savedAt: new Date().toISOString() },
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const updated = await requestRest(`blog_trees?user_id=eq.${encodeURIComponent(userId)}`, session.access_token, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(payload),
+    });
+    if (Array.isArray(updated) && updated.length > 0) return true;
+
+    await requestRest("blog_trees", session.access_token, {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        user_id: userId,
+        login_id: state.id,
+        tree: state.tree || [],
+        trash: [],
+        ...payload,
+      }),
+    });
+    return true;
+  } catch (error) {
+    if (isMissingBookmarkColumnError(error)) {
+      state.remoteBookmarkSupported = false;
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function writeBookmark(bookmark) {
+  const normalized = normalizeBookmark(bookmark);
+  writeLocalBookmark(normalized);
+  await saveBookmarkRemote(normalized);
 }
 
 function getCurrentBookmark() {
@@ -593,20 +738,29 @@ function clearPagination() {
   state.pageIndex = 0;
   state.pageCount = 1;
   state.pageStep = 0;
-  if (els.content) els.content.style.transform = "translateX(0)";
+  if (els.content) els.content.style.transform = "translate3d(0, 0, 0)";
+}
+
+function resetPaginationMeasureStyles() {
+  if (!els.content) return;
+  els.content.style.transform = "translate3d(0, 0, 0)";
+  els.content.style.width = "";
+  els.content.style.columnWidth = "";
+  els.content.style.columnGap = "";
 }
 
 function updatePagination() {
   if (!els.content) return;
   const surface = els.content.closest(".ebook-page-surface");
-  els.content.style.width = "";
-  const width = Math.max(1, els.content.clientWidth || surface?.clientWidth || 1);
+  resetPaginationMeasureStyles();
+  const width = Math.max(1, Math.floor(els.content.clientWidth || surface?.clientWidth || 1));
   const gap = Math.min(48, Math.max(28, Math.round(width * 0.06)));
   state.pageStep = width + gap;
   els.content.style.width = `${width}px`;
   els.content.style.columnWidth = `${width}px`;
   els.content.style.columnGap = `${gap}px`;
-  state.pageCount = Math.max(1, Math.ceil(Math.max(els.content.scrollWidth, width) / state.pageStep));
+  const scrollWidth = Math.max(els.content.scrollWidth, width);
+  state.pageCount = Math.max(1, Math.ceil((scrollWidth + gap) / state.pageStep));
   if (Number.isFinite(state.pendingPageIndex)) {
     state.pageIndex = Math.max(0, Math.floor(state.pendingPageIndex));
     state.pendingPageIndex = null;
@@ -616,7 +770,7 @@ function updatePagination() {
     state.pendingLastPage = false;
   }
   state.pageIndex = Math.min(Math.max(state.pageIndex, 0), state.pageCount - 1);
-  els.content.style.transform = `translateX(${-state.pageIndex * state.pageStep}px)`;
+  els.content.style.transform = `translate3d(${-state.pageIndex * state.pageStep}px, 0, 0)`;
   renderProgress();
 }
 
@@ -653,6 +807,21 @@ function enhanceEbookContentTypography() {
     if (!text) return;
 
     if (/^[\u201c\u2018"'「『]/.test(text) && [...text].length >= 28) {
+      node.classList.add("ebook-dialogue-line");
+    }
+  });
+}
+
+function enhanceEbookContentTypography() {
+  if (!els.content) return;
+
+  els.content.querySelectorAll("p, div, li").forEach((node) => {
+    if (node.closest(".ebook-content-title")) return;
+    node.classList.remove("ebook-dialogue-line");
+    const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
+    if (!text) return;
+
+    if (/^[\s"'`\u201c\u201d\u2018\u2019\u300c\u300d\u300e\u300f\u300a\u300b\u3008\u3009\[]/.test(text) && [...text].length >= 28) {
       node.classList.add("ebook-dialogue-line");
     }
   });
@@ -846,6 +1015,31 @@ function goBack() {
   window.location.href = state.id ? "./my-blog.html" : "./";
 }
 
+async function toggleBookmark() {
+  if (isCurrentBookmark()) {
+    try {
+      await writeBookmark(null);
+      setMessage("북마크를 해제했습니다.");
+    } catch (error) {
+      setMessage(error.message || "북마크를 해제하지 못했습니다.");
+    }
+    renderPostList();
+    syncBookmarkButton();
+    return;
+  }
+
+  const current = getCurrentBookmark();
+  if (!current) return;
+  try {
+    await writeBookmark(current);
+    setMessage("북마크를 저장했습니다.");
+  } catch (error) {
+    setMessage(error.message || "북마크를 저장하지 못했습니다.");
+  }
+  renderPostList();
+  syncBookmarkButton();
+}
+
 async function openWriteEditor() {
   const session = await getFreshSession();
   const id = getSessionId(session);
@@ -935,7 +1129,7 @@ async function init() {
   state.id = id;
   syncIdentity();
   syncWriteButton();
-  state.bookmark = readBookmark();
+  state.bookmark = readLocalBookmark();
   setMessage("글과 폴더를 불러오는 중입니다.");
 
   try {

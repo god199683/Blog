@@ -2628,7 +2628,9 @@ async function readRichClipboardPayload() {
       if (html && text && rtf) break;
     }
 
-    return html || text || rtf ? { html, text, rtf, imageFiles: [] } : null;
+    return html || text || rtf
+      ? { html, text, rtf, clipboardHtml: html, clipboardText: text, clipboardRtf: rtf, imageFiles: [] }
+      : null;
   } catch {
     return null;
   }
@@ -2647,9 +2649,10 @@ async function resolveSourcePastePayload(payload = {}) {
 
 async function buildPasteHtml(mode, payload = {}) {
   const sourcePayload = mode === "source" || mode === "image" || mode === "text" ? await resolveSourcePastePayload(payload) : payload;
-  const html = sourcePayload.html || "";
-  const rtf = sourcePayload.rtf || "";
-  const text = getPastePlainText(sourcePayload);
+  const html = sourcePayload.clipboardHtml ?? sourcePayload.html ?? "";
+  const rtf = sourcePayload.clipboardRtf ?? sourcePayload.rtf ?? "";
+  const rawText = sourcePayload.clipboardText ?? sourcePayload.text ?? "";
+  const text = rawText || getPastePlainText(sourcePayload);
   const imageFile = payload.imageFiles?.[0] || null;
 
   if (mode === "source") {
@@ -2669,7 +2672,7 @@ async function buildPasteHtml(mode, payload = {}) {
       const imageUrl = await readClipboardImageFile(imageFile);
       return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
     }
-    return textToEditorHtml(text);
+    return textToEditorHtml(text || rawText);
   }
 
   if (mode === "merge") {
@@ -3055,7 +3058,7 @@ function getClipboardPayload(event) {
   const rtf = clipboard.getData("text/rtf");
   if (!html && !text && !rtf && imageFiles.length === 0) return null;
 
-  return { html, text, rtf, imageFiles };
+  return { html, text, rtf, clipboardHtml: html, clipboardText: text, clipboardRtf: rtf, imageFiles };
 }
 
 async function handleEditorPaste(event) {

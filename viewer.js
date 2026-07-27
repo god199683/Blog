@@ -84,6 +84,53 @@ function getSessionId(session) {
   return window.blogSession?.getId?.(session) || "";
 }
 
+function readerNodeHasVisibleContent(node) {
+  if (!(node instanceof HTMLElement)) return false;
+  const text = String(node.textContent || "").replace(/[\u00a0\u200b]/g, "").trim();
+  return Boolean(text || node.querySelector("img, video, audio, table, canvas, svg, iframe, hr, pre, code"));
+}
+
+function markReaderEmptyBlock(node) {
+  node.removeAttribute("style");
+  node.removeAttribute("class");
+  node.removeAttribute("width");
+  node.removeAttribute("height");
+  node.dataset.readerEmptyBlock = "true";
+  node.innerHTML = "<br>";
+}
+
+function normalizeReaderFragment(fragment) {
+  fragment.querySelectorAll("*").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+
+    const writingMode = node.style.getPropertyValue("writing-mode");
+    if (/vertical|sideways/i.test(writingMode)) {
+      node.style.removeProperty("writing-mode");
+      node.style.removeProperty("text-orientation");
+      node.style.removeProperty("transform");
+    }
+
+    if (!readerNodeHasVisibleContent(node)) {
+      node.style.removeProperty("background");
+      node.style.removeProperty("background-color");
+      node.style.removeProperty("box-shadow");
+      node.style.removeProperty("border");
+    }
+  });
+
+  fragment.querySelectorAll("p, div, li, blockquote").forEach((node) => {
+    if (node instanceof HTMLElement && !readerNodeHasVisibleContent(node)) {
+      markReaderEmptyBlock(node);
+    }
+  });
+
+  fragment.querySelectorAll("span").forEach((node) => {
+    if (node instanceof HTMLElement && !readerNodeHasVisibleContent(node)) {
+      node.remove();
+    }
+  });
+}
+
 function cleanViewerHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -97,6 +144,7 @@ function cleanViewerHtml(html = "") {
       if ((name === "href" || name === "src") && value.startsWith("javascript:")) node.removeAttribute(attr.name);
     });
   });
+  normalizeReaderFragment(template.content);
 
   return template.innerHTML;
 }
