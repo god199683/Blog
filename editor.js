@@ -1357,6 +1357,318 @@ function textToEditorHtmlWithCurrentStyle(text = "") {
   return template.innerHTML.trim();
 }
 
+function rtfControlValueToNumber(value, fallback = 0) {
+  if (value === "" || value === null || value === undefined) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseRtfColorTable(rtf = "") {
+  const match = String(rtf || "").match(/\{\\colortbl([\s\S]*?)\}/i);
+  if (!match) return [];
+
+  return match[1].split(";").map((entry) => {
+    const red = rtfControlValueToNumber(entry.match(/\\red(-?\d+)/i)?.[1], -1);
+    const green = rtfControlValueToNumber(entry.match(/\\green(-?\d+)/i)?.[1], -1);
+    const blue = rtfControlValueToNumber(entry.match(/\\blue(-?\d+)/i)?.[1], -1);
+    if (red < 0 || green < 0 || blue < 0) return "";
+    return rgbToHex(red, green, blue);
+  });
+}
+
+function parseRtfFontTable(rtf = "") {
+  const fonts = new Map();
+  const table = String(rtf || "").match(/\{\\fonttbl([\s\S]*?)\}\s*(?:\{|\\)/i)?.[1] || "";
+  const fontPattern = /\{\\f(\d+)([\s\S]*?);}/g;
+  let match = null;
+
+  while ((match = fontPattern.exec(table))) {
+    const id = Number.parseInt(match[1], 10);
+    const name = match[2]
+      .replace(/\\[a-z]+-?\d* ?/gi, "")
+      .replace(/\\'([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+      .replace(/[{};]/g, "")
+      .trim();
+    if (Number.isFinite(id) && name) fonts.set(id, name);
+  }
+
+  return fonts;
+}
+
+function rtfGroupShouldBeSkipped(rtf = "", index = 0) {
+  const chunk = String(rtf || "").slice(index, index + 72);
+  if (/^\\\*/.test(chunk)) return true;
+
+  const keyword = chunk.match(/^\\([a-zA-Z]+)/)?.[1]?.toLowerCase() || "";
+  return new Set([
+    "colortbl",
+    "fonttbl",
+    "stylesheet",
+    "info",
+    "pict",
+    "object",
+    "header",
+    "footer",
+    "generator",
+    "listtable",
+    "listoverridetable",
+    "datastore",
+  ]).has(keyword);
+}
+
+function pushRtfRun(runs, text, style) {
+  if (!text) return;
+  const normalizedStyle = {
+    color: style.color || "",
+    backgroundColor: style.backgroundColor || "",
+    fontFamily: style.fontFamily || "",
+    fontSize: style.fontSize || "",
+    fontWeight: style.fontWeight || "",
+    fontStyle: style.fontStyle || "",
+    textDecoration: style.textDecoration || "",
+  };
+  const key = JSON.stringify(normalizedStyle);
+  const last = runs[runs.length - 1];
+  if (last?.key === key) {
+    last.text += text;
+    return;
+  }
+  runs.push({ key, text, style: normalizedStyle });
+}
+
+function rtfStyleToCssText(style = {}) {
+  return [
+    style.color ? `color: ${style.color}` : "",
+    style.backgroundColor ? `background-color: ${style.backgroundColor}` : "",
+    style.fontFamily ? `font-family: ${formatFontFamilyValue(style.fontFamily)}` : "",
+    style.fontSize ? `font-size: ${style.fontSize}` : "",
+    style.fontWeight ? `font-weight: ${style.fontWeight}` : "",
+    style.fontStyle ? `font-style: ${style.fontStyle}` : "",
+    style.textDecoration ? `text-decoration: ${style.textDecoration}` : "",
+  ].filter(Boolean).join("; ");
+}
+
+function rtfRunsToEditorHtml(runs = []) {
+  const content = runs.map((run) => {
+    const style = rtfStyleToCssText(run.style);
+    const text = escapeHtml(run.text);
+    return style ? `<span style="${escapeHtml(style)}">${text}</span>` : text;
+  }).join("");
+
+  return content ? `<p style="white-space: pre-wrap">${content}</p>` : "";
+}
+
+function rtfCodePageToEncoding(value = "") {
+  const codePage = String(value || "").trim();
+  return {
+    65001: "utf-8",
+    949: "euc-kr",
+    51949: "euc-kr",
+    1250: "windows-1250",
+    1251: "windows-1251",
+    1252: "windows-1252",
+    1253: "windows-1253",
+    1254: "windows-1254",
+    1255: "windows-1255",
+    1256: "windows-1256",
+    1257: "windows-1257",
+    1258: "windows-1258",
+    932: "shift_jis",
+    936: "gbk",
+    950: "big5",
+  }[codePage] || "windows-1252";
+}
+
+function decodeRtfHexBytes(bytes = [], encoding = "windows-1252") {
+  if (!bytes.length) return "";
+  if (typeof TextDecoder === "undefined") {
+    return bytes.map((byte) => String.fromCharCode(byte)).join("");
+  }
+  try {
+    return new TextDecoder(encoding).decode(new Uint8Array(bytes));
+  } catch {
+    return bytes.map((byte) => String.fromCharCode(byte)).join("");
+  }
+}
+
+function rtfToEditorHtml(rtf = "", plainText = "") {
+  if (!rtf || !/^\s*\{\\rtf/i.test(rtf)) return "";
+
+  const colors = parseRtfColorTable(rtf);
+  const fonts = parseRtfFontTable(rtf);
+  const defaultStyle = { color: "", backgroundColor: "", fontFamily: "", fontSize: "", fontWeight: "", fontStyle: "", textDecoration: "", uc: 1, skip: false };
+  let style = { ...defaultStyle };
+  const stack = [];
+  const runs = [];
+  let buffer = "";
+  let encoding = rtfCodePageToEncoding("1252");
+  let hexBytes = [];
+
+  const flushHexBytes = () => {
+    if (!hexBytes.length) return;
+    buffer += decodeRtfHexBytes(hexBytes, encoding);
+    hexBytes = [];
+  };
+
+  const flush = () => {
+    flushHexBytes();
+    pushRtfRun(runs, buffer, style);
+    buffer = "";
+  };
+
+  for (let index = 0; index < rtf.length; index += 1) {
+    const char = rtf[index];
+
+    if (char === "{") {
+      flush();
+      stack.push({ ...style });
+      style = { ...style, skip: style.skip || rtfGroupShouldBeSkipped(rtf, index + 1) };
+      continue;
+    }
+
+    if (char === "}") {
+      flush();
+      style = stack.pop() || { ...defaultStyle };
+      continue;
+    }
+
+    if (char !== "\\") {
+      if (!style.skip && char !== "\r" && char !== "\n") {
+        flushHexBytes();
+        buffer += char;
+      }
+      continue;
+    }
+
+    const next = rtf[index + 1] || "";
+    if (next === "'" && /^[0-9a-f]{2}$/i.test(rtf.slice(index + 2, index + 4))) {
+      if (!style.skip) hexBytes.push(Number.parseInt(rtf.slice(index + 2, index + 4), 16));
+      index += 3;
+      continue;
+    }
+
+    if (!/[a-zA-Z]/.test(next)) {
+      if (!style.skip && ["\\", "{", "}"].includes(next)) {
+        flushHexBytes();
+        buffer += next;
+      }
+      index += 1;
+      continue;
+    }
+
+    const controlMatch = rtf.slice(index + 1).match(/^([a-zA-Z]+)(-?\d+)? ?/);
+    if (!controlMatch) continue;
+
+    const control = controlMatch[1].toLowerCase();
+    const value = controlMatch[2] || "";
+    index += controlMatch[0].length;
+
+    if (style.skip) {
+      if (control === "uc") style.uc = Math.max(0, rtfControlValueToNumber(value, 1));
+      continue;
+    }
+
+    if (control === "ansicpg") {
+      encoding = rtfCodePageToEncoding(value);
+      continue;
+    }
+
+    if (control === "u") {
+      flushHexBytes();
+      let code = rtfControlValueToNumber(value, 0);
+      if (code < 0) code += 65536;
+      buffer += String.fromCharCode(code);
+      index += Math.max(0, style.uc || 0);
+      continue;
+    }
+
+    if (control === "par" || control === "line") {
+      flushHexBytes();
+      buffer += "\n";
+    }
+    if (control === "tab") {
+      flushHexBytes();
+      buffer += "\t";
+    }
+    if (control === "emdash") {
+      flushHexBytes();
+      buffer += "—";
+    }
+    if (control === "endash") {
+      flushHexBytes();
+      buffer += "–";
+    }
+    if (control === "lquote") {
+      flushHexBytes();
+      buffer += "‘";
+    }
+    if (control === "rquote") {
+      flushHexBytes();
+      buffer += "’";
+    }
+    if (control === "ldblquote") {
+      flushHexBytes();
+      buffer += "“";
+    }
+    if (control === "rdblquote") {
+      flushHexBytes();
+      buffer += "”";
+    }
+    if (control === "bullet") {
+      flushHexBytes();
+      buffer += "•";
+    }
+
+    if (control === "cf") {
+      flush();
+      style.color = colors[rtfControlValueToNumber(value, 0)] || "";
+    }
+    if (control === "highlight" || control === "cb") {
+      flush();
+      style.backgroundColor = colors[rtfControlValueToNumber(value, 0)] || "";
+    }
+    if (control === "fs") {
+      flush();
+      const halfPoints = rtfControlValueToNumber(value, 0);
+      style.fontSize = halfPoints > 0 ? `${halfPoints / 2}pt` : "";
+    }
+    if (control === "f") {
+      flush();
+      style.fontFamily = fonts.get(rtfControlValueToNumber(value, -1)) || style.fontFamily;
+    }
+    if (control === "b") {
+      flush();
+      style.fontWeight = value === "0" ? "" : "700";
+    }
+    if (control === "i") {
+      flush();
+      style.fontStyle = value === "0" ? "" : "italic";
+    }
+    if (control === "ul") {
+      flush();
+      style.textDecoration = value === "0" ? "" : "underline";
+    }
+    if (control === "plain") {
+      flush();
+      style = { ...defaultStyle, skip: style.skip };
+    }
+    if (control === "uc") style.uc = Math.max(0, rtfControlValueToNumber(value, 1));
+  }
+
+  flush();
+
+  const parsedWeight = getPlainTextWeight(runs.map((run) => run.text).join(""));
+  const plainWeight = getPlainTextWeight(plainText);
+  if (!parsedWeight || (plainWeight && parsedWeight < plainWeight * 0.45)) return "";
+
+  return cleanEditorHtml(rtfRunsToEditorHtml(runs));
+}
+
+function rtfHasVisibleColorFormatting(rtf = "") {
+  const colors = parseRtfColorTable(rtf).filter(Boolean);
+  return /\\cf\d+/i.test(rtf) && colors.some((color) => !/^#(?:000000|ffffff)$/i.test(color));
+}
+
 function sourcePasteShouldUsePlainText(payload = {}) {
   const html = String(payload.html || "");
   const text = String(payload.text || "").trim();
@@ -2080,6 +2392,7 @@ async function readRichClipboardPayload() {
     const items = await navigator.clipboard.read();
     let html = "";
     let text = "";
+    let rtf = "";
 
     for (const item of items) {
       if (!html && item.types.includes("text/html")) {
@@ -2088,19 +2401,22 @@ async function readRichClipboardPayload() {
       if (!text && item.types.includes("text/plain")) {
         text = await readClipboardTextFromItem(item, "text/plain");
       }
-      if (html && text) break;
+      if (!rtf && item.types.includes("text/rtf")) {
+        rtf = await readClipboardTextFromItem(item, "text/rtf");
+      }
+      if (html && text && rtf) break;
     }
 
-    return html || text ? { html, text, imageFiles: [] } : null;
+    return html || text || rtf ? { html, text, rtf, imageFiles: [] } : null;
   } catch {
     return null;
   }
 }
 
 async function resolveSourcePastePayload(payload = {}) {
-  if (payload.html) return payload;
+  if (payload.html && payload.rtf) return payload;
   const richPayload = await readRichClipboardPayload();
-  if (!richPayload?.html) return payload;
+  if (!richPayload?.html && !richPayload?.rtf) return payload;
   return {
     ...payload,
     ...richPayload,
@@ -2111,11 +2427,20 @@ async function resolveSourcePastePayload(payload = {}) {
 async function buildPasteHtml(mode, payload = {}) {
   const sourcePayload = mode === "source" || mode === "image" || mode === "text" ? await resolveSourcePastePayload(payload) : payload;
   const html = sourcePayload.html || "";
+  const rtf = sourcePayload.rtf || "";
   const text = getPastePlainText(sourcePayload);
   const imageFile = payload.imageFiles?.[0] || null;
 
   if (mode === "source") {
+    if (rtfHasVisibleColorFormatting(rtf)) {
+      const rtfHtml = rtfToEditorHtml(rtf, text);
+      if (rtfHtml) return rtfHtml;
+    }
     if (html) return cleanSourcePasteHtml(materializeComputedPasteColors(html) || html) || textToEditorHtml(text);
+    if (rtf) {
+      const rtfHtml = rtfToEditorHtml(rtf, text);
+      if (rtfHtml) return rtfHtml;
+    }
     if (imageFile) {
       const imageUrl = await readClipboardImageFile(imageFile);
       return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
@@ -2496,9 +2821,10 @@ function getClipboardPayload(event) {
   const imageFiles = [...clipboard.files].filter((file) => file.type.startsWith("image/"));
   const html = clipboard.getData("text/html");
   const text = clipboard.getData("text/plain");
-  if (!html && !text && imageFiles.length === 0) return null;
+  const rtf = clipboard.getData("text/rtf");
+  if (!html && !text && !rtf && imageFiles.length === 0) return null;
 
-  return { html, text, imageFiles };
+  return { html, text, rtf, imageFiles };
 }
 
 async function handleEditorPaste(event) {
