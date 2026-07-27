@@ -5,6 +5,8 @@ const SUPABASE_ANON_KEY =
 const FONT_SIZE_KEY = "blog.ebookFontSize";
 const BOOKMARK_KEY_PREFIX = "blog.ebookBookmark.";
 const SIDEBAR_COLLAPSED_KEY = "blog.ebookSidebarCollapsed";
+const SWIPE_MIN_DISTANCE = 48;
+const SWIPE_DOMINANCE_RATIO = 1.25;
 
 const state = {
   session: null,
@@ -24,6 +26,8 @@ const state = {
   bookmark: null,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true",
 };
+
+let swipeState = null;
 
 const els = {
   brandTitle: document.querySelector("[data-brand-title]"),
@@ -690,6 +694,53 @@ function prevPage() {
   selectPost(state.postIndex - 1, { lastPage: true });
 }
 
+function shouldIgnoreSwipeTarget(target) {
+  return Boolean(target?.closest?.("a, button, input, select, textarea, dialog, [contenteditable='true']"));
+}
+
+function startSwipe(event) {
+  if (event.touches.length !== 1 || shouldIgnoreSwipeTarget(event.target)) {
+    swipeState = null;
+    return;
+  }
+  const touch = event.touches[0];
+  swipeState = {
+    x: touch.clientX,
+    y: touch.clientY,
+    horizontal: false,
+  };
+}
+
+function moveSwipe(event) {
+  if (!swipeState || event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  const dx = touch.clientX - swipeState.x;
+  const dy = touch.clientY - swipeState.y;
+  if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * SWIPE_DOMINANCE_RATIO) {
+    swipeState.horizontal = true;
+    event.preventDefault();
+  }
+}
+
+function endSwipe(event) {
+  if (!swipeState) return;
+  const touch = event.changedTouches[0];
+  const dx = touch.clientX - swipeState.x;
+  const dy = touch.clientY - swipeState.y;
+  const isSwipe = swipeState.horizontal && Math.abs(dx) >= SWIPE_MIN_DISTANCE && Math.abs(dx) > Math.abs(dy) * SWIPE_DOMINANCE_RATIO;
+  swipeState = null;
+  if (!isSwipe) return;
+  if (dx < 0) {
+    nextPage();
+  } else {
+    prevPage();
+  }
+}
+
+function cancelSwipe() {
+  swipeState = null;
+}
+
 function openFolderDialog() {
   if (!els.folderDialog) return;
   if (typeof els.folderDialog.showModal === "function") {
@@ -766,6 +817,10 @@ function bindEvents() {
     state.pageIndex = Math.min(Math.max(Number(event.target.value) - 1, 0), state.pageCount - 1);
     updatePagination();
   });
+  els.stage?.addEventListener("touchstart", startSwipe, { passive: true });
+  els.stage?.addEventListener("touchmove", moveSwipe, { passive: false });
+  els.stage?.addEventListener("touchend", endSwipe, { passive: true });
+  els.stage?.addEventListener("touchcancel", cancelSwipe, { passive: true });
   window.addEventListener("resize", () => schedulePagination(false));
   document.addEventListener("keydown", (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
