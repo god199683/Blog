@@ -1323,15 +1323,8 @@ function getPlainTextFromHtml(html = "") {
 
 function textToEditorHtml(text = "") {
   const normalized = String(text || "").replace(/\r\n?/g, "\n");
-  const paragraphs = normalized
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trimEnd())
-    .filter((paragraph) => paragraph.trim());
-
-  if (paragraphs.length === 0) return "<p><br></p>";
-  return paragraphs
-    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
-    .join("");
+  if (!normalized) return "<p><br></p>";
+  return `<p style="white-space: pre-wrap">${escapeHtml(normalized)}</p>`;
 }
 
 function getCurrentPlainTextPasteStyle() {
@@ -1357,7 +1350,7 @@ function textToEditorHtmlWithCurrentStyle(text = "") {
   const template = document.createElement("template");
   template.innerHTML = html;
   template.content.querySelectorAll("p").forEach((paragraph) => {
-    paragraph.setAttribute("style", style);
+    paragraph.setAttribute("style", [paragraph.getAttribute("style"), style].filter(Boolean).join("; "));
   });
   return template.innerHTML.trim();
 }
@@ -2086,8 +2079,7 @@ async function buildPasteHtml(mode, payload = {}) {
   const imageFile = payload.imageFiles?.[0] || null;
 
   if (mode === "source") {
-    if (sourcePasteShouldUsePlainText(sourcePayload)) return textToEditorHtml(normalizeSourcePlainText(text));
-    if (html) return cleanSourcePasteHtml(html) || textToEditorHtml(text);
+    if (html) return cleanSourcePasteHtml(materializeComputedPasteColors(html) || html) || textToEditorHtml(text);
     if (imageFile) {
       const imageUrl = await readClipboardImageFile(imageFile);
       return `<p><img src="${escapeHtml(imageUrl)}" alt="붙여넣은 이미지"></p>`;
@@ -2441,7 +2433,7 @@ async function handleEditorPaste(event) {
   saveCurrentSelection();
   closePasteMenu({ finalizeNative: false });
   try {
-    const html = await buildPasteHtml("text", payload);
+    const html = await buildPasteHtml("source", payload);
     insertEditorHtml(html);
   } catch (error) {
     window.alert(error.message || "붙여넣기를 처리하지 못했습니다.");
