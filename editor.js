@@ -1458,6 +1458,56 @@ function rtfRunsToEditorHtml(runs = []) {
   return content ? `<p style="white-space: pre-wrap">${content}</p>` : "";
 }
 
+function getVisibleTextWeight(value = "") {
+  return [...String(value || "").replace(/\u200b/g, "")].filter((char) => !/\s/.test(char)).length;
+}
+
+function getTextIndexForVisibleWeight(chars = [], targetWeight = 0) {
+  if (targetWeight <= 0) return 0;
+  let weight = 0;
+
+  for (let index = 0; index < chars.length; index += 1) {
+    if (!/\s/.test(chars[index])) {
+      weight += 1;
+      if (weight >= targetWeight) return index + 1;
+    }
+  }
+
+  return chars.length;
+}
+
+function rtfRunsToPlainTextHtml(runs = [], plainText = "") {
+  const normalized = String(plainText || "").replace(/\r\n?/g, "\n");
+  if (!normalized) return "";
+
+  const chars = [...normalized];
+  const plainVisibleWeight = getVisibleTextWeight(normalized);
+  const runWeights = runs.map((run) => getVisibleTextWeight(run.text));
+  const totalRunWeight = runWeights.reduce((total, weight) => total + weight, 0);
+
+  if (!plainVisibleWeight || !totalRunWeight) {
+    return textToEditorHtml(normalized);
+  }
+
+  let previousIndex = 0;
+  let cumulativeRunWeight = 0;
+  const content = runs.map((run, index) => {
+    cumulativeRunWeight += runWeights[index];
+    const nextIndex = index === runs.length - 1
+      ? chars.length
+      : getTextIndexForVisibleWeight(chars, Math.round((plainVisibleWeight * cumulativeRunWeight) / totalRunWeight));
+    const safeNextIndex = Math.max(previousIndex, Math.min(nextIndex, chars.length));
+    const chunk = chars.slice(previousIndex, safeNextIndex).join("");
+    previousIndex = safeNextIndex;
+    if (!chunk) return "";
+
+    const style = rtfStyleToCssText(run.style);
+    return style ? `<span style="${escapeHtml(style)}">${escapeHtml(chunk)}</span>` : escapeHtml(chunk);
+  }).join("");
+
+  return content ? `<p style="white-space: pre-wrap">${content}</p>` : textToEditorHtml(normalized);
+}
+
 function rtfCodePageToEncoding(value = "") {
   const codePage = String(value || "").trim();
   return {
@@ -1661,7 +1711,7 @@ function rtfToEditorHtml(rtf = "", plainText = "") {
   const plainWeight = getPlainTextWeight(plainText);
   if (!parsedWeight || (plainWeight && parsedWeight < plainWeight * 0.45)) return "";
 
-  return cleanEditorHtml(rtfRunsToEditorHtml(runs));
+  return cleanEditorHtml(plainText ? rtfRunsToPlainTextHtml(runs, plainText) : rtfRunsToEditorHtml(runs));
 }
 
 function rtfHasVisibleColorFormatting(rtf = "") {
