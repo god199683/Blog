@@ -4,6 +4,7 @@ const SUPABASE_ANON_KEY =
 
 const FONT_SIZE_KEY = "blog.ebookFontSize";
 const BOOKMARK_KEY_PREFIX = "blog.ebookBookmark.";
+const BOOKMARK_COOKIE_PREFIX = "blog_ebook_bookmark_";
 const SIDEBAR_COLLAPSED_KEY = "blog.ebookSidebarCollapsed";
 const SWIPE_MIN_DISTANCE = 48;
 const SWIPE_DOMINANCE_RATIO = 1.25;
@@ -276,11 +277,21 @@ function getBlogReturnHref() {
   return `./my-blog.html${query ? `?${query}` : ""}`;
 }
 
+function getEbookReturnHref() {
+  const params = new URLSearchParams();
+  if (state.activeFolderId) params.set("node", state.activeFolderId);
+  const post = state.activePosts[state.postIndex] || null;
+  if (post?.id) params.set("post", post.id);
+  if (state.pageIndex > 0) params.set("page", String(state.pageIndex + 1));
+  const query = params.toString();
+  return `./ebook-reader.html${query ? `?${query}` : ""}`;
+}
+
 function getWriteEditorHref() {
   const params = new URLSearchParams();
   params.set("mode", "new");
   if (state.activeFolderId) params.set("node", state.activeFolderId);
-  params.set("return", getBlogReturnHref());
+  params.set("return", getEbookReturnHref());
   return `./editor.html?${params.toString()}`;
 }
 
@@ -370,13 +381,50 @@ function getBookmarkKey() {
   return `${BOOKMARK_KEY_PREFIX}${state.id || "guest"}`;
 }
 
-function readBookmark() {
+function getBookmarkCookieName() {
+  const id = String(state.id || "guest").replace(/[^a-z0-9_-]/gi, "_").slice(0, 48) || "guest";
+  return `${BOOKMARK_COOKIE_PREFIX}${id}`;
+}
+
+function readBookmarkCookie() {
   try {
-    const bookmark = JSON.parse(localStorage.getItem(getBookmarkKey()) || "null");
+    const name = `${getBookmarkCookieName()}=`;
+    const raw = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(name));
+    if (!raw) return null;
+
+    const bookmark = JSON.parse(decodeURIComponent(raw.slice(name.length)));
     return bookmark?.folderId && bookmark?.postId ? bookmark : null;
   } catch {
     return null;
   }
+}
+
+function writeBookmarkCookie(bookmark) {
+  try {
+    const name = getBookmarkCookieName();
+    const sameSite = location.protocol === "https:" ? "; SameSite=Lax; Secure" : "; SameSite=Lax";
+    if (!bookmark) {
+      document.cookie = `${name}=; Max-Age=0; Path=/${sameSite}`;
+      return;
+    }
+    const value = encodeURIComponent(JSON.stringify(bookmark));
+    document.cookie = `${name}=${value}; Max-Age=31536000; Path=/${sameSite}`;
+  } catch {
+    // Cookie access can also be restricted in some embedded browsers.
+  }
+}
+
+function readBookmark() {
+  try {
+    const bookmark = JSON.parse(localStorage.getItem(getBookmarkKey()) || "null");
+    if (bookmark?.folderId && bookmark?.postId) return bookmark;
+  } catch {
+    // Local storage can be blocked or reset in some WebViews; cookie backup keeps the bookmark visible.
+  }
+  return readBookmarkCookie();
 }
 
 function writeBookmark(bookmark) {
@@ -390,6 +438,7 @@ function writeBookmark(bookmark) {
   } catch {
     // Local storage can be blocked in some WebViews.
   }
+  writeBookmarkCookie(bookmark);
 }
 
 function getCurrentBookmark() {
@@ -676,6 +725,21 @@ function selectPost(index, options = {}) {
   renderCurrentPost(options);
 }
 
+function restoreReaderLocationFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const folderId = params.get("node") || params.get("folder") || "";
+  if (!folderId || !state.folders.some((folder) => folder.id === folderId)) return false;
+
+  const postId = params.get("post") || "";
+  const pageNumber = Number.parseInt(params.get("page") || "", 10);
+  selectFolder(folderId, {
+    postId,
+    pageIndex: Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber - 1 : undefined,
+    closeDialog: false,
+  });
+  return true;
+}
+
 function nextPage() {
   if (state.pageIndex < state.pageCount - 1) {
     state.pageIndex += 1;
@@ -856,6 +920,10 @@ async function init() {
     await loadTreeAndPosts(session);
     renderFolders();
     if (state.folders.length > 0) {
+      if (restoreReaderLocationFromUrl()) {
+        setMessage("");
+        return;
+      }
       renderPostList();
       renderCurrentPost();
       setMessage("폴더를 선택해주세요.");

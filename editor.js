@@ -4633,9 +4633,9 @@ function getEditorReturnHref(savedItem = null) {
 
   try {
     const url = new URL(rawReturn, window.location.href);
-    const expectedPage = isMaterialEditor() ? "materials.html" : "my-blog.html";
+    const allowedPages = isMaterialEditor() ? ["materials.html"] : ["my-blog.html", "ebook-reader.html"];
     const sameOrigin = url.origin === window.location.origin;
-    const allowedPage = url.pathname.endsWith(`/${expectedPage}`) || url.pathname.endsWith(expectedPage);
+    const allowedPage = allowedPages.some((page) => url.pathname.endsWith(`/${page}`) || url.pathname.endsWith(page));
     return applySavedEditorReturnParams(sameOrigin && allowedPage ? url.href : fallback, savedItem);
   } catch {
     return applySavedEditorReturnParams(fallback, savedItem);

@@ -11923,3 +11923,35 @@ html.is-android-app-view .editor-surface {
     padding: 0;
   }
 }
+
+html.is-android-app-view .ebook-main {
+  width: min(100% - 0.78rem, 1280px);
+  margin-top: 0.52rem;
+  margin-bottom: 1rem;
+}
+
+html.is-android-app-view .ebook-sidebar {
+  max-height: none;
+  overflow: visible;
+}
+
+html.is-android-app-view .ebook-sidebar-actions {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(4.8rem, 1fr));
+  gap: 0.32rem;
+}
+
+html.is-android-app-view .ebook-sidebar-actions button:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 1.78rem;
+  padding-inline: 0.42rem;
+  white-space: nowrap;
+}
+
+html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
+  visibility: visible;
+  opacity: 1;
+}
