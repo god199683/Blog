@@ -349,9 +349,9 @@ function setMessage(message = "") {
 }
 
 function syncIdentity() {
-  const title = `${state.id}'s Blog`;
+  const title = state.id ? `${state.id}'s Blog` : "Blog";
   if (els.brandTitle) els.brandTitle.textContent = title;
-  if (els.owner) els.owner.textContent = `@${state.id}`;
+  if (els.owner) els.owner.textContent = state.id ? `@${state.id}` : "@guest";
   els.initials.forEach((item) => {
     item.textContent = (state.id || "B").slice(0, 1).toUpperCase();
   });
@@ -824,11 +824,11 @@ function closeFolderDialog() {
 }
 
 function goBack() {
-  if (window.history.length > 1) {
-    window.history.back();
+  if (state.activeFolderId) {
+    window.location.href = getBlogReturnHref();
     return;
   }
-  window.location.href = "./my-blog.html";
+  window.location.href = state.id ? "./my-blog.html" : "./";
 }
 
 async function openWriteEditor() {
@@ -906,7 +906,14 @@ async function init() {
   const session = await window.blogSession?.ready;
   const id = getSessionId(session);
   if (!id) {
-    window.location.href = "./login.html";
+    state.session = null;
+    state.id = "";
+    syncIdentity();
+    syncWriteButton();
+    renderFolders();
+    renderPostList();
+    renderCurrentPost();
+    setMessage("로그인 후 책 뷰어를 사용할 수 있습니다.");
     return;
   }
   state.session = session;
