@@ -1458,53 +1458,66 @@ function rtfRunsToEditorHtml(runs = []) {
   return content ? `<p style="white-space: pre-wrap">${content}</p>` : "";
 }
 
-function getVisibleTextWeight(value = "") {
-  return [...String(value || "").replace(/\u200b/g, "")].filter((char) => !/\s/.test(char)).length;
-}
-
-function getTextIndexForVisibleWeight(chars = [], targetWeight = 0) {
-  if (targetWeight <= 0) return 0;
-  let weight = 0;
-
-  for (let index = 0; index < chars.length; index += 1) {
-    if (!/\s/.test(chars[index])) {
-      weight += 1;
-      if (weight >= targetWeight) return index + 1;
-    }
-  }
-
-  return chars.length;
-}
-
 function rtfRunsToPlainTextHtml(runs = [], plainText = "") {
   const normalized = String(plainText || "").replace(/\r\n?/g, "\n");
   if (!normalized) return "";
 
   const chars = [...normalized];
-  const plainVisibleWeight = getVisibleTextWeight(normalized);
-  const runWeights = runs.map((run) => getVisibleTextWeight(run.text));
-  const totalRunWeight = runWeights.reduce((total, weight) => total + weight, 0);
+  const plainVisibleChars = chars.filter((char) => !/\s/.test(char));
+  const rtfVisibleChars = [];
 
-  if (!plainVisibleWeight || !totalRunWeight) {
+  runs.forEach((run) => {
+    [...String(run.text || "").replace(/\r\n?/g, "\n")].forEach((char) => {
+      if (!/\s/.test(char)) rtfVisibleChars.push({ char, style: run.style || {} });
+    });
+  });
+
+  if (!plainVisibleChars.length || !rtfVisibleChars.length) {
     return textToEditorHtml(normalized);
   }
 
-  let previousIndex = 0;
-  let cumulativeRunWeight = 0;
-  const content = runs.map((run, index) => {
-    cumulativeRunWeight += runWeights[index];
-    const nextIndex = index === runs.length - 1
-      ? chars.length
-      : getTextIndexForVisibleWeight(chars, Math.round((plainVisibleWeight * cumulativeRunWeight) / totalRunWeight));
-    const safeNextIndex = Math.max(previousIndex, Math.min(nextIndex, chars.length));
-    const chunk = chars.slice(previousIndex, safeNextIndex).join("");
-    previousIndex = safeNextIndex;
-    if (!chunk) return "";
+  const lengthDelta = Math.abs(plainVisibleChars.length - rtfVisibleChars.length);
+  if (lengthDelta > Math.max(3, Math.round(plainVisibleChars.length * 0.08))) return "";
 
-    const style = rtfStyleToCssText(run.style);
-    return style ? `<span style="${escapeHtml(style)}">${escapeHtml(chunk)}</span>` : escapeHtml(chunk);
-  }).join("");
+  const comparableLength = Math.min(plainVisibleChars.length, rtfVisibleChars.length);
+  const matches = plainVisibleChars
+    .slice(0, comparableLength)
+    .reduce((total, char, index) => total + (char === rtfVisibleChars[index].char ? 1 : 0), 0);
+  if (matches / Math.max(1, plainVisibleChars.length) < 0.92) return "";
 
+  let visibleIndex = 0;
+  let lastStyle = null;
+  const styledChars = chars.map((char) => {
+    if (!/\s/.test(char)) {
+      const style = rtfVisibleChars[visibleIndex]?.style || {};
+      visibleIndex += 1;
+      lastStyle = style;
+      return { char, style };
+    }
+    return { char, style: lastStyle || rtfVisibleChars[visibleIndex]?.style || {} };
+  });
+
+  const parts = [];
+  let chunkText = "";
+  let chunkStyle = "";
+  const flushChunk = () => {
+    if (!chunkText) return;
+    const escaped = escapeHtml(chunkText);
+    parts.push(chunkStyle ? `<span style="${escapeHtml(chunkStyle)}">${escaped}</span>` : escaped);
+    chunkText = "";
+  };
+
+  styledChars.forEach((item) => {
+    const style = rtfStyleToCssText(item.style);
+    if (style !== chunkStyle) {
+      flushChunk();
+      chunkStyle = style;
+    }
+    chunkText += item.char;
+  });
+  flushChunk();
+
+  const content = parts.join("");
   return content ? `<p style="white-space: pre-wrap">${content}</p>` : textToEditorHtml(normalized);
 }
 
@@ -1541,6 +1554,41 @@ function decodeRtfHexBytes(bytes = [], encoding = "windows-1252") {
   }
 }
 
+function textContainsKorean(value = "") {
+  return /[\uac00-\ud7a3]/.test(String(value || ""));
+}
+
+function normalizePasteComparisonText(value = "") {
+  return [...String(value || "").replace(/\u200b/g, "").replace(/\s+/g, "")].join("");
+}
+
+function getOrderedCharacterMatchRatio(source = "", target = "") {
+  if (!target) return source ? 0 : 1;
+
+  let targetIndex = 0;
+  for (const char of source) {
+    if (char === target[targetIndex]) {
+      targetIndex += 1;
+      if (targetIndex >= target.length) break;
+    }
+  }
+
+  return targetIndex / target.length;
+}
+
+function rtfTextMatchesPlainText(rtfText = "", plainText = "") {
+  const rtfNormalized = normalizePasteComparisonText(rtfText);
+  const plainNormalized = normalizePasteComparisonText(plainText);
+  if (!rtfNormalized || !plainNormalized) return false;
+
+  const lengthRatio = rtfNormalized.length / plainNormalized.length;
+  if (lengthRatio < 0.76 || lengthRatio > 1.32) return false;
+
+  const rtfContainsPlain = getOrderedCharacterMatchRatio(rtfNormalized, plainNormalized);
+  const plainContainsRtf = getOrderedCharacterMatchRatio(plainNormalized, rtfNormalized);
+  return rtfContainsPlain >= 0.9 && plainContainsRtf >= 0.78;
+}
+
 function rtfToEditorHtml(rtf = "", plainText = "") {
   if (!rtf || !/^\s*\{\\rtf/i.test(rtf)) return "";
 
@@ -1551,7 +1599,8 @@ function rtfToEditorHtml(rtf = "", plainText = "") {
   const stack = [];
   const runs = [];
   let buffer = "";
-  let encoding = rtfCodePageToEncoding("1252");
+  const initialCodePage = rtf.match(/\\ansicpg(\d+)/i)?.[1] || (textContainsKorean(plainText) ? "949" : "1252");
+  let encoding = rtfCodePageToEncoding(initialCodePage);
   let hexBytes = [];
 
   const flushHexBytes = () => {
@@ -1707,11 +1756,14 @@ function rtfToEditorHtml(rtf = "", plainText = "") {
 
   flush();
 
-  const parsedWeight = getPlainTextWeight(runs.map((run) => run.text).join(""));
+  const decodedText = runs.map((run) => run.text).join("");
+  const parsedWeight = getPlainTextWeight(decodedText);
   const plainWeight = getPlainTextWeight(plainText);
   if (!parsedWeight || (plainWeight && parsedWeight < plainWeight * 0.45)) return "";
+  if (plainText && !rtfTextMatchesPlainText(decodedText, plainText)) return "";
 
-  return cleanEditorHtml(plainText ? rtfRunsToPlainTextHtml(runs, plainText) : rtfRunsToEditorHtml(runs));
+  const html = plainText ? rtfRunsToPlainTextHtml(runs, plainText) : rtfRunsToEditorHtml(runs);
+  return html ? cleanEditorHtml(html) : "";
 }
 
 function rtfHasVisibleColorFormatting(rtf = "") {
