@@ -57,7 +57,7 @@ async function fetchPublicPosts() {
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
   endpoint.searchParams.set(
     "select",
-    "id,title,excerpt,body,category,author,login_id,user_id,published,published_at,created_at"
+    "id,title,excerpt,category,author,login_id,user_id,published,published_at,created_at"
   );
   endpoint.searchParams.set("published", "eq.true");
   endpoint.searchParams.set("order", "published_at.desc.nullslast,created_at.desc.nullslast");

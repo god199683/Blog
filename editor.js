@@ -366,8 +366,11 @@ function belongsToAccount(raw, id) {
 
 async function fetchPosts() {
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
-  endpoint.searchParams.set("select", "*");
-  endpoint.searchParams.set("limit", "100");
+  endpoint.searchParams.set(
+    "select",
+    "id,title,excerpt,category,folder,folder_id,folder_name,folder_path,author,login_id,user_id,published,published_at,created_at"
+  );
+  endpoint.searchParams.set("limit", "300");
   const token = (await getFreshSession())?.access_token || SUPABASE_ANON_KEY;
 
   const response = await fetch(endpoint, {
@@ -1323,6 +1326,20 @@ function getPlainTextFromHtml(html = "") {
   return getTextFromHtml(html).replace(/\s+/g, " ").trim();
 }
 
+function getFirstImageFromHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = String(html || "");
+  const image = template.content.querySelector("img[src]");
+  const source = image?.getAttribute("src") || "";
+  if (!source || source.trim().toLowerCase().startsWith("javascript:")) return "";
+  return source;
+}
+
+function getExcerptFromText(text = "", limit = 220) {
+  const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  return normalized.length > limit ? `${normalized.slice(0, limit).trim()}...` : normalized;
+}
+
 function textToEditorHtml(text = "") {
   const normalized = String(text || "").replace(/\r\n?/g, "\n");
   if (!normalized) return "<p><br></p>";
@@ -1639,6 +1656,18 @@ function rtfTextMatchesPlainText(rtfText = "", plainText = "") {
   const rtfContainsPlain = getOrderedCharacterMatchRatio(rtfNormalized, plainNormalized);
   const plainContainsRtf = getOrderedCharacterMatchRatio(plainNormalized, rtfNormalized);
   return rtfContainsPlain >= 0.9 && plainContainsRtf >= 0.78;
+}
+
+function pastedHtmlTextLooksCorrupted(html = "", plainText = "") {
+  const text = getPlainTextFromHtml(html);
+  if (!text) return false;
+  if (textContainsKorean(text)) return false;
+  if (!textContainsKorean(plainText)) return false;
+
+  const suspicious = (text.match(/[ÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßà-ÿ�]/g) || []).length;
+  const letters = (text.match(/[A-Za-z]/g) || []).length;
+  const total = Math.max(1, getPlainTextWeight(text));
+  return suspicious / total > 0.04 || letters / total > 0.48;
 }
 
 function rtfToEditorHtml(rtf = "", plainText = "") {
@@ -2659,14 +2688,14 @@ async function buildPasteHtml(mode, payload = {}) {
     const htmlWithComputedColors = html ? cleanSourcePasteHtml(materializeComputedPasteColors(html) || html) : "";
     if (htmlHasUsefulPasteColor(htmlWithComputedColors)) return htmlWithComputedColors;
 
-    if (rtfHasVisibleColorFormatting(rtf)) {
+    if (!htmlWithComputedColors && rtfHasVisibleColorFormatting(rtf)) {
       const rtfHtml = rtfToEditorHtml(rtf, text);
-      if (rtfHtml) return rtfHtml;
+      if (rtfHtml && !pastedHtmlTextLooksCorrupted(rtfHtml, text)) return rtfHtml;
     }
     if (html) return htmlWithComputedColors || textToEditorHtml(text);
     if (rtf) {
       const rtfHtml = rtfToEditorHtml(rtf, text);
-      if (rtfHtml) return rtfHtml;
+      if (rtfHtml && !pastedHtmlTextLooksCorrupted(rtfHtml, text)) return rtfHtml;
     }
     if (imageFile) {
       const imageUrl = await readClipboardImageFile(imageFile);
@@ -3068,14 +3097,6 @@ async function handleEditorPaste(event) {
 
   saveCurrentSelection();
   closePasteMenu({ finalizeNative: false });
-  if (payload.html) {
-    const markers = insertNativePasteMarkers();
-    if (markers) {
-      scheduleNativePasteCleanup({ ...payload, ...markers, nativePaste: true });
-      return;
-    }
-  }
-
   event.preventDefault();
   try {
     const html = await buildPasteHtml("source", payload);
@@ -3103,6 +3124,8 @@ function collectEditorValues() {
     category,
     folder,
     body,
+    excerpt: getExcerptFromText(plainText),
+    cover_image: getFirstImageFromHtml(body),
     plainText,
     characterCounts,
     reading_time: getReadingTimeLabel(plainText),
@@ -4004,7 +4027,10 @@ function handleEditorContentInput(event) {
     refreshEditorFindMatches({ preserveIndex: true });
   }
   pushEditorHistorySnapshot();
+  syncEditorStats();
   syncEditorToolbarState();
+  markEditorDirty();
+  saveCurrentSelection();
 }
 
 function executeEditorCommand(command, value = null) {
@@ -4696,12 +4722,14 @@ async function publishEditorPost() {
 
   const payload = {
     title: values.title,
+    excerpt: values.excerpt,
     body: values.body,
     category: values.category,
     author: state.id,
     login_id: state.id,
     user_id: session.user?.id,
     reading_time: values.reading_time,
+    cover_image: values.cover_image || null,
     published: values.published,
     published_at: state.editingPost?.published_at || new Date().toISOString(),
     folder: values.folder?.label || null,
@@ -4725,10 +4753,12 @@ async function publishEditorPost() {
 
     const fallbackPayload = {
       title: payload.title,
+      excerpt: payload.excerpt,
       body: payload.body,
       category: payload.category,
       author: payload.author,
       reading_time: payload.reading_time,
+      cover_image: payload.cover_image,
       published: payload.published,
       published_at: payload.published_at,
     };
@@ -4914,7 +4944,7 @@ async function handleEditorSubmit(event) {
 }
 
 async function initEditor() {
-  const session = getSession();
+  const session = await getFreshSession();
   state.id = getSessionId(session);
 
   if (!state.id) {
@@ -4924,44 +4954,35 @@ async function initEditor() {
 
   renderEditorBrand(state.id);
 
-  let exactEditingPost = null;
-  let exactEditingMaterial = null;
-  if (!isMaterialEditor() && state.editPostId) {
-    try {
-      const row = await fetchPostById(state.editPostId);
-      if (row && belongsToAccount(row, state.id)) {
-        exactEditingPost = normalizePost(row);
-      }
-    } catch {
-      exactEditingPost = null;
-    }
-  }
-  if (isMaterialEditor() && state.editMaterialId) {
-    try {
-      const row = await fetchMaterialById(state.editMaterialId);
-      if (row) {
-        exactEditingMaterial = normalizeMaterialForEditor(row);
-      }
-    } catch {
-      exactEditingMaterial = null;
-    }
-  }
+  const exactPostPromise =
+    !isMaterialEditor() && state.editPostId ? fetchPostById(state.editPostId) : Promise.resolve(null);
+  const exactMaterialPromise =
+    isMaterialEditor() && state.editMaterialId ? fetchMaterialById(state.editMaterialId) : Promise.resolve(null);
+  const postsPromise = isMaterialEditor() ? Promise.resolve([]) : fetchPosts();
+  const treePromise = loadTreeData();
+  const [exactPostResult, exactMaterialResult, postsResult, treeResult] = await Promise.allSettled([
+    exactPostPromise,
+    exactMaterialPromise,
+    postsPromise,
+    treePromise,
+  ]);
+
+  const exactPost = exactPostResult.status === "fulfilled" ? exactPostResult.value : null;
+  const exactMaterial = exactMaterialResult.status === "fulfilled" ? exactMaterialResult.value : null;
+  const exactEditingPost = exactPost && belongsToAccount(exactPost, state.id) ? normalizePost(exactPost) : null;
+  const exactEditingMaterial = exactMaterial ? normalizeMaterialForEditor(exactMaterial) : null;
 
   if (isMaterialEditor()) {
     state.posts = [];
   } else {
-    try {
-      const rows = await fetchPosts();
-      state.posts = rows
-        .filter((post) => belongsToAccount(post, state.id))
-        .map(normalizePost)
-        .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
-    } catch {
-      state.posts = [];
-    }
+    const rows = postsResult.status === "fulfilled" && Array.isArray(postsResult.value) ? postsResult.value : [];
+    state.posts = rows
+      .filter((post) => belongsToAccount(post, state.id))
+      .map(normalizePost)
+      .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
   }
 
-  state.storedTreeData = await loadTreeData();
+  state.storedTreeData = treeResult.status === "fulfilled" ? treeResult.value : getStoredTreeData();
   buildTree();
 
   const defaults = getEditorDefaults();
@@ -5012,7 +5033,8 @@ els.draft.addEventListener("click", () => {
   saveCurrentSelection();
 });
 
-els.form.addEventListener("input", () => {
+els.form.addEventListener("input", (event) => {
+  if (nodeIsInEditor(event.target)) return;
   syncEditorStats();
   markEditorDirty();
   saveCurrentSelection();

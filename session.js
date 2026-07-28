@@ -5,6 +5,7 @@
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
   const REFRESH_WINDOW_MS = 60 * 1000;
   const APK_DOWNLOAD_PATH = "./Blog.apk?v=1.0.4";
+  let refreshInFlight = null;
 
   function readSession() {
     try {
@@ -259,7 +260,14 @@
     const expiresAt = getSessionExpiresAt(session);
 
     if (expiresAt && Date.now() >= expiresAt * 1000 - REFRESH_WINDOW_MS) {
-      if (session.refresh_token) return refreshSession(session);
+      if (session.refresh_token) {
+        if (!refreshInFlight) {
+          refreshInFlight = Promise.resolve(refreshSession(session)).finally(() => {
+            refreshInFlight = null;
+          });
+        }
+        return refreshInFlight;
+      }
       clearSession();
       return null;
     }

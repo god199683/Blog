@@ -204,18 +204,24 @@ function setSidebarCollapsed(isCollapsed) {
   sidebarToggle.setAttribute("aria-label", isCollapsed ? "사이드바 펼치기" : "사이드바 접기");
 }
 
-async function requestRest(path, token, options = {}) {
+async function requestRest(path, token, options = {}, retry = true) {
+  const freshSession = await getFreshBlogSession();
+  const requestToken = freshSession?.access_token || token || SUPABASE_ANON_KEY;
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
       apikey: SUPABASE_ANON_KEY,
-      Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_ANON_KEY}`,
+      Authorization: requestToken ? `Bearer ${requestToken}` : `Bearer ${SUPABASE_ANON_KEY}`,
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
   });
 
   const payload = await response.json().catch(() => null);
+  if (retry && !response.ok && /jwt expired|invalid jwt|expired/i.test(payload?.message || "")) {
+    await window.blogSession?.refresh?.();
+    return requestRest(path, token, options, false);
+  }
   if (!response.ok) throw new Error(payload?.message || "블로그 정보를 불러오지 못했습니다.");
   return payload;
 }
@@ -443,7 +449,7 @@ function getFirstImageFromHtml(html = "") {
 }
 
 function getPostExcerpt(post = {}, limit = 120) {
-  const text = htmlToPlainText(post.body || "");
+  const text = post.excerpt || htmlToPlainText(post.body || "");
   if (!text) return "";
   return text.length > limit ? `${text.slice(0, limit).trim()}...` : text;
 }
@@ -2319,7 +2325,7 @@ function renderFolderRows(folders = [], scopeTitle = "", posts = []) {
 
 async function fetchUserPosts(session, id) {
   const rows = await requestRest(
-    "posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=100",
+    "posts?select=id,title,excerpt,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&order=published_at.desc&limit=300",
     session.access_token
   );
   const posts = Array.isArray(rows) ? rows.filter((post) => belongsToUser(post, session, id)) : [];
@@ -2328,7 +2334,7 @@ async function fetchUserPosts(session, id) {
 
 async function fetchPublicBlogPosts(id) {
   const rows = await requestRest(
-    `posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&login_id=eq.${encodeURIComponent(id)}&published=eq.true&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=100`,
+    `posts?select=id,title,excerpt,category,folder,folder_id,folder_name,folder_path,cover_image,reading_time,author,login_id,user_id,published,published_at,created_at&login_id=eq.${encodeURIComponent(id)}&published=eq.true&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=300`,
     SUPABASE_ANON_KEY
   );
   return Array.isArray(rows) ? rows : [];
@@ -2747,11 +2753,8 @@ window.blogSession?.ready.then(async (session) => {
     renderBlog(state.id);
     state.tree = [];
     renderTree();
-    try {
-      state.posts = await fetchPublicBlogPosts(state.id);
-    } catch {
-      state.posts = [];
-    }
+    const postsPromise = fetchPublicBlogPosts(state.id).catch(() => []);
+    state.posts = await postsPromise;
     focusPendingPostFromUrl();
     renderActivePosts();
     return;
@@ -2770,6 +2773,7 @@ window.blogSession?.ready.then(async (session) => {
   renderTree();
   renderActivePosts();
 
+  const postsPromise = fetchUserPosts(session, id).catch(() => []);
   const [profileResult, treeResult] = await Promise.allSettled([ensureBlogProfile(session, id), loadTree(session)]);
   renderBlog(id, profileResult.status === "fulfilled" ? profileResult.value : null);
   state.tree = treeResult.status === "fulfilled" ? treeResult.value : [];
@@ -2777,11 +2781,7 @@ window.blogSession?.ready.then(async (session) => {
   renderTree();
   renderPendingFocusPostFast();
 
-  try {
-    state.posts = mergePendingFocusPost(await fetchUserPosts(session, id));
-  } catch {
-    state.posts = mergePendingFocusPost([]);
-  }
+  state.posts = mergePendingFocusPost(await postsPromise);
   focusPendingPostFromUrl();
   renderActivePosts();
 });
