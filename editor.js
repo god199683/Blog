@@ -1368,6 +1368,68 @@ function normalizePastedPlainText(text = "") {
     .replace(/^\n+|\n+$/g, "");
 }
 
+function getBasicPasteStyleState(node, inherited = {}) {
+  const next = { ...inherited };
+  const tag = node.tagName || "";
+  const style = node.getAttribute?.("style") || "";
+  const fontWeight = style.match(/font-weight\s*:\s*([^;]+)/i)?.[1]?.trim() || "";
+
+  if (tag === "B" || tag === "STRONG") next.bold = true;
+  if (tag === "I" || tag === "EM") next.italic = true;
+  if (tag === "U") next.underline = true;
+  if (/bold|bolder/i.test(fontWeight) || Number.parseInt(fontWeight, 10) >= 600) next.bold = true;
+  if (/font-style\s*:\s*(italic|oblique)/i.test(style)) next.italic = true;
+  if (/text-decoration(?:-line)?\s*:[^;]*underline/i.test(style)) next.underline = true;
+  return next;
+}
+
+function wrapBasicPasteText(text = "", style = {}) {
+  const value = String(text || "").replace(/\u200b/g, "").replace(/\r\n?/g, "\n");
+  if (!value) return "";
+  if (!value.replace(/\s+/g, "")) return escapeHtml(value);
+
+  let html = escapeHtml(value);
+  if (style.underline) html = `<u>${html}</u>`;
+  if (style.italic) html = `<em>${html}</em>`;
+  if (style.bold) html = `<strong>${html}</strong>`;
+  return html;
+}
+
+function buildBasicEditorPasteHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = String(html || "");
+  template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => node.remove());
+
+  const blockTags = new Set(["ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DIV", "FIGCAPTION", "FIGURE", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "P", "PRE", "SECTION", "TR"]);
+  const output = [];
+  const appendNewline = () => {
+    if (output.length > 0 && output[output.length - 1] !== "\n") output.push("\n");
+  };
+
+  const walk = (node, style = {}) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      output.push(wrapBasicPasteText(node.textContent || "", style));
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return;
+    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "BR") {
+      output.push("\n");
+      return;
+    }
+
+    const isBlock = node.nodeType === Node.ELEMENT_NODE && blockTags.has(node.tagName);
+    if (isBlock) appendNewline();
+    const nextStyle = node.nodeType === Node.ELEMENT_NODE ? getBasicPasteStyleState(node, style) : style;
+    [...node.childNodes].forEach((child) => walk(child, nextStyle));
+    if (isBlock) appendNewline();
+  };
+
+  walk(template.content, {});
+  const content = output.join("").replace(/\n{4,}/g, "\n\n\n").replace(/^\n+|\n+$/g, "");
+  return content.replace(/<[^>]+>/g, "").trim() ? `<p style="white-space: pre-wrap">${content}</p>` : "";
+}
+
 function getCurrentPlainTextPasteStyle() {
   const activeStyle = window.getComputedStyle(getActiveEditorStyleElement() || els.content);
   const fontFamily = formatFontFamilyValue(els.fontFamily?.value || "") || activeStyle.fontFamily || "";
@@ -3121,6 +3183,12 @@ async function handleEditorPaste(event) {
   closePasteMenu({ finalizeNative: false });
   event.preventDefault();
   try {
+    const basicHtml = payload.html ? buildBasicEditorPasteHtml(payload.html) : "";
+    if (basicHtml) {
+      insertEditorHtml(basicHtml);
+      return;
+    }
+
     const plainText = normalizePastedPlainText(payload.text || getPreservedPlainTextFromHtml(payload.html || ""));
     if (plainText) {
       insertEditorHtml(textToEditorHtml(plainText));
@@ -3368,6 +3436,7 @@ function targetNeedsEditorSelectionHold(target) {
         "[data-color-menu-toggle]",
         "[data-color-value]",
         "[data-color-custom]",
+        "[data-color-eyedropper]",
         "[data-table-menu-toggle]",
         "[data-table-insert]",
         "[data-table-add-row]",
@@ -4096,6 +4165,48 @@ function applyColor(target, color) {
     selectAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
     useSelectionHold: true,
   });
+}
+
+function openFallbackColorInput() {
+  const input = document.createElement("input");
+  input.type = "color";
+  input.value = colorDialogValue || "#000000";
+  input.setAttribute("aria-label", "색 선택");
+  input.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;";
+  input.addEventListener(
+    "change",
+    () => {
+      const color = normalizeHexColor(input.value);
+      if (color) {
+        colorDialogValue = color;
+        applyColor("foreground", color);
+      }
+      input.remove();
+    },
+    { once: true }
+  );
+  input.addEventListener("blur", () => window.setTimeout(() => input.remove(), 3000), { once: true });
+  document.body.append(input);
+  input.click();
+}
+
+async function pickForegroundColorFromScreen() {
+  closeAllToolbarMenus();
+  if (typeof window.EyeDropper !== "function") {
+    openFallbackColorInput();
+    return;
+  }
+
+  try {
+    const result = await new window.EyeDropper().open();
+    const color = normalizeHexColor(result?.sRGBHex || "");
+    if (!color) return;
+    colorDialogValue = color;
+    applyColor("foreground", color);
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    openFallbackColorInput();
+  }
 }
 
 function insertEditorTable() {
@@ -5218,6 +5329,11 @@ els.toolbar.addEventListener("click", (event) => {
   if (event.target.closest("[data-editor-replace-all]")) {
     replaceAllEditorMatches();
     closeAllToolbarMenus();
+    return;
+  }
+
+  if (event.target.closest("[data-color-eyedropper]")) {
+    pickForegroundColorFromScreen();
     return;
   }
 
