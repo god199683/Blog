@@ -3584,6 +3584,57 @@ body.is-away-locked {
   background: linear-gradient(180deg, #eaf7ff 0%, #f8fcff 100%);
 }
 
+.editor-side-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0 0.62rem;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f6f9f;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.editor-side-toggle:hover,
+.editor-side-toggle:focus-visible {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: #f7fcff;
+  color: #075985;
+}
+
+.editor-side-toggle span:last-child {
+  transition: transform 0.16s ease;
+}
+
+.editor-side-content {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.editor-side-panel.is-collapsed {
+  gap: 0;
+  padding: 0.7rem;
+}
+
+.editor-side-panel.is-collapsed .editor-side-toggle {
+  justify-content: center;
+  padding-inline: 0.35rem;
+}
+
+.editor-side-panel.is-collapsed .editor-side-toggle span:last-child {
+  transform: rotate(-90deg);
+}
+
+.editor-side-panel.is-collapsed .editor-side-content {
+  display: none;
+}
+
 .editor-visibility-group {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -11468,6 +11519,31 @@ body.editor-page .editor-surface {
 body.editor-page .editor-side-panel {
   min-height: 0;
   overflow: auto;
+}
+
+body.is-editor-side-collapsed .editor-grid {
+  grid-template-columns: minmax(0, 1fr) 5rem;
+}
+
+@media (max-width: 760px) {
+  body.is-editor-side-collapsed .editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-side-toggle,
+  .editor-side-content {
+    grid-column: 1 / -1;
+  }
+
+  .editor-side-content {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .editor-side-content {
+    grid-template-columns: 1fr;
+  }
 }
 /* Ebook folder reader */
 .blog-menu-bar .blog-ebook-button {

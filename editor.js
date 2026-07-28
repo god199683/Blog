@@ -8,6 +8,7 @@ const TREE_STORAGE_PREFIX = "blog.categoryTree.";
 const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
+const EDITOR_SIDE_COLLAPSED_KEY = "blog.editorSidePanelCollapsed";
 const EDITOR_HISTORY_LIMIT = 120;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
@@ -51,6 +52,9 @@ const els = {
   saveState: document.querySelector("[data-editor-save-state]"),
   submit: document.querySelector("[data-editor-submit]"),
   message: document.querySelector("[data-editor-message]"),
+  sidePanel: document.querySelector("[data-editor-side-panel]"),
+  sideToggle: document.querySelector("[data-editor-side-toggle]"),
+  sideContent: document.querySelector("[data-editor-side-content]"),
   charWithSpaces: document.querySelector("[data-editor-char-spaces]"),
   charWithoutSpaces: document.querySelector("[data-editor-char-nospace]"),
   published: document.querySelector("[data-editor-published]"),
@@ -3318,6 +3322,24 @@ function setPublishedValue(isPublished) {
   syncEditorStats();
 }
 
+function isEditorSidePanelCollapsed() {
+  return localStorage.getItem(EDITOR_SIDE_COLLAPSED_KEY) === "1";
+}
+
+function setEditorSidePanelCollapsed(collapsed) {
+  if (!els.sidePanel || !els.sideToggle) return;
+  const isCollapsed = Boolean(collapsed);
+  els.sidePanel.classList.toggle("is-collapsed", isCollapsed);
+  document.body.classList.toggle("is-editor-side-collapsed", isCollapsed);
+  els.sideToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  els.sideToggle.setAttribute("aria-label", isCollapsed ? "상태 정보 펼치기" : "상태 정보 접기");
+  localStorage.setItem(EDITOR_SIDE_COLLAPSED_KEY, isCollapsed ? "1" : "0");
+}
+
+function initEditorSidePanelToggle() {
+  setEditorSidePanelCollapsed(isEditorSidePanelCollapsed());
+}
+
 function nodeIsInEditor(node) {
   if (!node) return false;
   return node === els.content || els.content.contains(node);
@@ -5146,6 +5168,7 @@ async function handleEditorSubmit(event) {
 }
 
 async function initEditor() {
+  initEditorSidePanelToggle();
   const session = await getFreshSession();
   state.id = getSessionId(session);
 
@@ -5288,6 +5311,10 @@ els.visibilityButtons.forEach((button) => {
     setPublishedValue(button.dataset.editorVisibility === "public");
     markEditorDirty();
   });
+});
+
+els.sideToggle?.addEventListener("click", () => {
+  setEditorSidePanelCollapsed(!els.sidePanel?.classList.contains("is-collapsed"));
 });
 
 els.fontFamily.addEventListener("change", (event) => {
