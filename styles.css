@@ -11946,9 +11946,10 @@ body.editor-page .editor-side-panel {
 .ebook-page-content :where(p, div, li, blockquote) {
   break-inside: auto;
   margin-top: 0;
-  margin-bottom: 1.08em;
+  margin-bottom: 1.32em;
   orphans: 2;
   widows: 2;
+  white-space: normal !important;
 }
 
 .ebook-page-content :where(p, div) {
@@ -11959,6 +11960,16 @@ body.editor-page .editor-side-panel {
   max-width: 100%;
   padding-inline: 0;
   text-wrap: pretty;
+}
+
+.ebook-page-content :where(p, div, li, blockquote, span, strong, b, em, i, u, td, th) {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+.ebook-page-content :where(span, strong, b, em, i, u) {
+  white-space: inherit !important;
 }
 
 .ebook-page-content .ebook-dialogue-line {

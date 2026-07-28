@@ -113,6 +113,95 @@ function markReaderEmptyBlock(node) {
   node.innerHTML = "<br>";
 }
 
+function getReadableTextWithBreaks(node) {
+  const clone = node.cloneNode(true);
+  clone.querySelectorAll("br").forEach((breakNode) => {
+    breakNode.replaceWith("\n");
+  });
+  return String(clone.textContent || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\u200b/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .trim();
+}
+
+function splitReadableText(text = "") {
+  const normalized = String(text || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!normalized) return [];
+
+  const lines = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length > 1) return lines;
+
+  const sentences =
+    normalized.match(/[^.!?。！？…]+(?:[.!?。！？…]+(?:["'”’」』]+)?|$)/g) || [normalized];
+  const parts = [];
+  let chunk = "";
+
+  sentences.forEach((sentence) => {
+    const next = sentence.trim();
+    if (!next) return;
+    const candidate = chunk ? `${chunk} ${next}` : next;
+    if (chunk && candidate.length > 180) {
+      parts.push(chunk);
+      chunk = next;
+      return;
+    }
+    chunk = candidate;
+  });
+
+  if (chunk) parts.push(chunk);
+  if (parts.length > 1 || normalized.length <= 220) return parts.length ? parts : [normalized];
+
+  const fallbackParts = [];
+  let fallbackChunk = "";
+  normalized.split(/\s+/).forEach((word) => {
+    if (!word) return;
+    const candidate = fallbackChunk ? `${fallbackChunk} ${word}` : word;
+    if (fallbackChunk && candidate.length > 180) {
+      fallbackParts.push(fallbackChunk);
+      fallbackChunk = word;
+      return;
+    }
+    fallbackChunk = candidate;
+  });
+  if (fallbackChunk) fallbackParts.push(fallbackChunk);
+  return fallbackParts.length > 1 ? fallbackParts : [normalized];
+}
+
+function normalizeEbookReadableBlocks(fragment) {
+  fragment.querySelectorAll("p, div, blockquote").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    if (!readerNodeHasVisibleContent(node)) return;
+    if (node.closest(".ebook-content-title")) return;
+    if (node.querySelector("p, div, blockquote, ul, ol, table, img, video, audio, pre, code, hr")) return;
+
+    const text = getReadableTextWithBreaks(node);
+    if (text.length < 260 && !/\n/.test(text)) return;
+
+    const parts = splitReadableText(text);
+    if (parts.length <= 1) return;
+
+    const tagName = node.tagName.toLowerCase() === "blockquote" ? "blockquote" : "p";
+    const replacement = parts.map((part) => {
+      const paragraph = document.createElement(tagName);
+      paragraph.textContent = part;
+      return paragraph;
+    });
+    node.replaceWith(...replacement);
+  });
+}
+
 function normalizeReaderFragment(fragment) {
   fragment.querySelectorAll("*").forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
@@ -143,6 +232,8 @@ function normalizeReaderFragment(fragment) {
       node.remove();
     }
   });
+
+  normalizeEbookReadableBlocks(fragment);
 }
 
 function cleanHtml(html = "") {
