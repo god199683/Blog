@@ -3458,7 +3458,7 @@ body.is-away-locked {
   background: #fff;
   color: #1f3144;
   font-family: "a시네마L", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  font-size: 16px;
+  font-size: 12px;
   line-height: 1.68;
   outline: none;
 }
@@ -6373,7 +6373,7 @@ body {
 
 .editor-surface {
   font-family: "a시네마L", var(--font-reading);
-  font-size: 15px;
+  font-size: 12px;
   line-height: 1.74;
 }
 
@@ -11320,7 +11320,66 @@ body.paint-editor-page .paint-workspace {
 
 .editor-surface,
 html.is-android-app-view .editor-surface {
+  font-size: 12px;
   line-height: 1.4;
+}
+
+body.editor-page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.editor-page .site-header {
+  position: relative;
+  top: auto;
+}
+
+body.editor-page .editor-page-main {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding-block: 0.72rem;
+}
+
+body.editor-page .editor-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.editor-page .editor-grid {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.editor-page .editor-canvas {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+body.editor-page .editor-title-input,
+body.editor-page .editor-toolbar {
+  flex: 0 0 auto;
+}
+
+body.editor-page .editor-surface {
+  flex: 1 1 auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+body.editor-page .editor-side-panel {
+  min-height: 0;
+  overflow: auto;
 }
 /* Ebook folder reader */
 .blog-menu-bar .blog-ebook-button {

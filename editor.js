@@ -13,6 +13,7 @@ const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
 const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th";
 const DEFAULT_EDITOR_FONT = "a시네마L";
+const DEFAULT_EDITOR_FONT_SIZE = "12px";
 const EDITOR_MIDDLE_ELLIPSIS = "⋯";
 const EDITOR_ELLIPSIS_BACKSPACE_TEXT = "....";
 
@@ -70,6 +71,10 @@ const els = {
 let savedEditorRange = null;
 let colorDialogTarget = "foreground";
 let colorDialogValue = "#000000";
+let lastEditorColors = {
+  foreground: "#000000",
+  background: "#facc15",
+};
 let colorDialogPointerActive = false;
 let locationDialogResolver = null;
 let fontSizeStepPointerActive = false;
@@ -3501,8 +3506,7 @@ function syncEditorCommandButtons() {
 }
 
 function syncEditorToolbarState({ force = false } = {}) {
-  const target = getActiveEditorStyleElement();
-  if (!target) return;
+  const target = getActiveEditorStyleElement() || els.content;
 
   const style = window.getComputedStyle(target);
   if (els.fontFamily && (force || document.activeElement !== els.fontFamily)) {
@@ -3512,7 +3516,7 @@ function syncEditorToolbarState({ force = false } = {}) {
 
   if (els.fontSize && (force || document.activeElement !== els.fontSize)) {
     const size = Number.parseInt(style.fontSize, 10);
-    if (Number.isFinite(size)) els.fontSize.value = String(size);
+    els.fontSize.value = String(Number.isFinite(size) ? size : Number.parseInt(DEFAULT_EDITOR_FONT_SIZE, 10));
   }
 
   const lineHeightInput = els.toolbar?.querySelector("[data-line-height-custom]");
@@ -4145,6 +4149,7 @@ function executeEditorCommand(command, value = null) {
 }
 
 function applyColor(target, color) {
+  rememberEditorColor(target, color);
   if (target === "foreground") {
     applyInlineStyle("color", color, {
       selectAllWhenMissing: Boolean(state.editingPost || state.editingMaterial),
@@ -4640,6 +4645,54 @@ function normalizeHexColor(value = "") {
   return "";
 }
 
+function getDefaultEditorColor(target) {
+  return target === "background" ? "#facc15" : "#000000";
+}
+
+function syncColorButtonPreview(target, color) {
+  const toggle = els.toolbar?.querySelector(`[data-color-menu-toggle="${target}"]`);
+  if (!toggle || color === "transparent") return;
+
+  if (target === "foreground") {
+    const icon = toggle.querySelector(".font-color-icon");
+    if (icon) icon.style.borderBottomColor = color;
+    return;
+  }
+
+  const icon = toggle.querySelector(".paint-icon");
+  if (icon) {
+    icon.style.background = `linear-gradient(135deg, #ffffff 0 46%, ${color} 46% 100%)`;
+  }
+}
+
+function rememberEditorColor(target, color) {
+  if (!target || color === "transparent") return;
+  const normalized = normalizeHexColor(color);
+  if (!normalized) return;
+  lastEditorColors[target] = normalized;
+  syncColorButtonPreview(target, normalized);
+}
+
+function getRememberedEditorColor(target) {
+  return lastEditorColors[target] || getDefaultEditorColor(target);
+}
+
+function applyRememberedEditorColor(target) {
+  const color = getRememberedEditorColor(target);
+  if (!color) return;
+  applyColor(target, color);
+}
+
+function colorToggleShouldOpenMenu(event) {
+  return event.detail === 0 || Boolean(event.target.closest(".tool-caret"));
+}
+
+function syncRememberedColorButtonPreviews() {
+  Object.entries(lastEditorColors).forEach(([target, color]) => {
+    syncColorButtonPreview(target, color);
+  });
+}
+
 function hsvToHex(hue, saturation, value) {
   const chroma = value * saturation;
   const segment = hue / 60;
@@ -4755,7 +4808,7 @@ function openColorDialog(target) {
   colorDialogTarget = target;
   closeAllToolbarMenus();
   const dialog = getColorDialog();
-  syncColorDialogFields(colorDialogValue);
+  syncColorDialogFields(getRememberedEditorColor(target));
   setColorDialogPanel("basic");
   dialog.hidden = false;
 }
@@ -4843,6 +4896,7 @@ function renderColorMenus() {
       </button>
     `;
   });
+  syncRememberedColorButtonPreviews();
 }
 
 async function publishEditorPost() {
@@ -5340,6 +5394,12 @@ els.toolbar.addEventListener("click", (event) => {
   const colorToggle = event.target.closest("[data-color-menu-toggle]");
   if (colorToggle) {
     const target = colorToggle.dataset.colorMenuToggle;
+    if (!colorToggleShouldOpenMenu(event)) {
+      closeAllToolbarMenus();
+      applyRememberedEditorColor(target);
+      return;
+    }
+
     const menu = els.toolbar.querySelector(`[data-color-menu="${target}"]`);
     const willOpen = menu.hidden;
     closeEditorMiniMenus();
