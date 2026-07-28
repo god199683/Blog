@@ -3632,6 +3632,15 @@ body.is-away-locked {
   padding: 0.7rem;
 }
 
+.editor-side-panel.is-collapsed .editor-side-controls {
+  grid-template-columns: 1.75rem;
+  justify-content: end;
+}
+
+.editor-side-panel.is-collapsed .editor-visibility-group {
+  display: none;
+}
+
 .editor-side-panel.is-collapsed .editor-side-toggle span:last-child {
   transform: rotate(-90deg);
 }
@@ -11527,7 +11536,7 @@ body.editor-page .editor-side-panel {
 }
 
 body.is-editor-side-collapsed .editor-grid {
-  grid-template-columns: minmax(0, 1fr) 8.6rem;
+  grid-template-columns: minmax(0, 1fr) 3.35rem;
 }
 
 @media (max-width: 760px) {
