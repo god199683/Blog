@@ -126,7 +126,18 @@ function normalizeReaderFragment(fragment) {
   fragment.querySelectorAll("*").forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
 
+    node.removeAttribute("class");
+    node.removeAttribute("id");
+
     [
+      "background",
+      "background-color",
+      "border",
+      "border-bottom",
+      "border-left",
+      "border-right",
+      "border-top",
+      "box-shadow",
       "clear",
       "columns",
       "column-count",
@@ -135,17 +146,28 @@ function normalizeReaderFragment(fragment) {
       "display",
       "float",
       "height",
+      "margin",
+      "margin-left",
+      "margin-right",
       "max-height",
       "max-width",
       "min-height",
       "min-width",
+      "outline",
+      "padding",
+      "padding-left",
+      "padding-right",
       "position",
       "text-orientation",
       "transform",
       "width",
       "writing-mode",
     ].forEach((property) => {
-      if (["IMG", "VIDEO", "AUDIO", "TABLE", "TD", "TH"].includes(node.tagName) && /^(width|height|max-width)$/i.test(property)) {
+      const isMediaOrTable = ["IMG", "VIDEO", "AUDIO", "TABLE", "TD", "TH"].includes(node.tagName);
+      if (isMediaOrTable && /^(width|height|max-width|border|border-bottom|border-left|border-right|border-top)$/i.test(property)) {
+        return;
+      }
+      if (node.tagName === "SPAN" && /^(background|background-color)$/i.test(property)) {
         return;
       }
       node.style.removeProperty(property);
