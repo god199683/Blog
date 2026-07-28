@@ -2926,6 +2926,36 @@ body.is-away-locked {
   gap: 0.26rem;
 }
 
+@media (min-width: 761px) {
+  .editor-toolbar-row:first-child {
+    flex-wrap: nowrap;
+  }
+
+  .editor-toolbar-row:first-child .editor-fields {
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .editor-toolbar-row:first-child .editor-fields label {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    flex: 1 1 12rem;
+    white-space: nowrap;
+  }
+
+  .editor-toolbar-row:first-child .editor-fields label span {
+    flex: 0 0 auto;
+  }
+
+  .editor-toolbar-row:first-child .editor-fields select {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
 .editor-font-select {
   width: 9.7rem;
   padding: 0 0.45rem;
@@ -2950,6 +2980,17 @@ body.is-away-locked {
   background: #fff;
   color: #263d50;
   font-size: 0.8rem;
+}
+
+.editor-toolbar-row:nth-child(2) .editor-tool-button,
+.editor-toolbar-row:nth-child(2) .editor-table-button {
+  min-width: 1.72rem;
+  height: 1.72rem;
+  font-size: 0.72rem;
+}
+
+.editor-toolbar-row:nth-child(2) .editor-table-button {
+  padding: 0 0.34rem;
 }
 
 .editor-table-button {
@@ -3149,6 +3190,23 @@ body.is-away-locked {
   width: 1rem;
 }
 
+.editor-toolbar-row:nth-child(2) :where(
+  .align-icon,
+  .list-icon,
+  .line-height-icon,
+  .divider-icon
+) {
+  gap: 0.13rem;
+  width: 0.82rem;
+}
+
+.editor-toolbar-row:nth-child(2) .tool-letter,
+.editor-toolbar-row:nth-child(2) .script-icon,
+.editor-toolbar-row:nth-child(2) .ordered-icon,
+.editor-toolbar-row:nth-child(2) .font-color-icon {
+  font-size: 0.7rem;
+}
+
 .align-icon i,
 .list-icon i,
 .indent-icon i,
@@ -3218,6 +3276,24 @@ body.is-away-locked {
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 3px;
   background: linear-gradient(135deg, #ffffff 0 50%, #facc15 50% 100%);
+}
+
+.editor-toolbar-row:nth-child(2) :where(.paint-icon, .table-icon, .empty-swatch) {
+  width: 0.74rem;
+  height: 0.74rem;
+}
+
+.editor-toolbar-row:nth-child(2) .search-tool-icon {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-width: 1.6px;
+}
+
+.editor-toolbar-row:nth-child(2) .search-tool-icon::after {
+  right: -0.24rem;
+  bottom: -0.18rem;
+  width: 0.34rem;
+  height: 1.6px;
 }
 
 .table-icon {

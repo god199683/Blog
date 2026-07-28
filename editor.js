@@ -81,7 +81,7 @@ let fontSizeStepPointerActive = false;
 let editorHistoryStack = [];
 let editorHistoryIndex = -1;
 let editorHistoryRestoring = false;
-let activeEditorLineHeight = "";
+let activeEditorLineHeight = "1.4";
 let lastEditorEllipsisReplacement = null;
 let pendingPastePayload = null;
 let pasteMenu = null;
@@ -3441,7 +3441,6 @@ function targetNeedsEditorSelectionHold(target) {
         "[data-color-menu-toggle]",
         "[data-color-value]",
         "[data-color-custom]",
-        "[data-color-eyedropper]",
         "[data-table-menu-toggle]",
         "[data-table-insert]",
         "[data-table-add-row]",
@@ -4104,7 +4103,7 @@ function syncActiveLineHeightFromContent() {
   const styledBlock = [els.content, ...els.content.querySelectorAll(EDITOR_BLOCK_SELECTOR)].find(
     (block) => block.style.lineHeight
   );
-  activeEditorLineHeight = styledBlock?.style.lineHeight || "";
+  activeEditorLineHeight = styledBlock?.style.lineHeight || "1.4";
   syncActiveLineHeightBlocks();
 }
 
@@ -5383,11 +5382,6 @@ els.toolbar.addEventListener("click", (event) => {
   if (event.target.closest("[data-editor-replace-all]")) {
     replaceAllEditorMatches();
     closeAllToolbarMenus();
-    return;
-  }
-
-  if (event.target.closest("[data-color-eyedropper]")) {
-    pickForegroundColorFromScreen();
     return;
   }
 
