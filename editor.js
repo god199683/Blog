@@ -3329,10 +3329,13 @@ function isEditorSidePanelCollapsed() {
 function setEditorSidePanelCollapsed(collapsed) {
   if (!els.sidePanel || !els.sideToggle) return;
   const isCollapsed = Boolean(collapsed);
+  const toggleText = isCollapsed ? "상태 정보 펼치기" : "상태 정보 접기";
   els.sidePanel.classList.toggle("is-collapsed", isCollapsed);
   document.body.classList.toggle("is-editor-side-collapsed", isCollapsed);
   els.sideToggle.setAttribute("aria-expanded", String(!isCollapsed));
-  els.sideToggle.setAttribute("aria-label", isCollapsed ? "상태 정보 펼치기" : "상태 정보 접기");
+  els.sideToggle.setAttribute("aria-label", toggleText);
+  const hiddenLabel = els.sideToggle.querySelector(".sr-only");
+  if (hiddenLabel) hiddenLabel.textContent = toggleText;
   localStorage.setItem(EDITOR_SIDE_COLLAPSED_KEY, isCollapsed ? "1" : "0");
 }
 
