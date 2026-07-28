@@ -10511,6 +10511,23 @@ body.is-book-mode .viewer-page-content :where(h1, h2, h3) {
   font-size: 1.12em !important;
 }
 
+.viewer-page-content {
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+.viewer-page-content :where(p, div, li, blockquote) {
+  max-width: 100%;
+}
+
+.viewer-page-content :where(p, blockquote) {
+  margin: 0 0 0.95em;
+}
+
+.viewer-page-content :where(p, div, li, blockquote):empty {
+  display: none;
+}
+
 .garden-stat-card.is-clickable {
   cursor: pointer;
   transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;

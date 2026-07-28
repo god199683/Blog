@@ -17,6 +17,7 @@ let readerWidth = localStorage.getItem("blog.readerWidth") || "standard";
 let readerLineHeight = localStorage.getItem("blog.readerLineHeight") || "normal";
 let currentPost = null;
 let sameFolderPosts = [];
+let sameFolderPostsLoaded = false;
 let bookPageIndex = 0;
 let bookPageCount = 1;
 let bookPageStep = 0;
@@ -80,6 +81,28 @@ async function getViewerToken() {
   return session?.access_token || SUPABASE_ANON_KEY;
 }
 
+async function fetchViewerJson(endpoint, { retry = true } = {}) {
+  const token = await getViewerToken();
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message = data?.message || data?.hint || data?.details || "내용을 불러오지 못했습니다.";
+    if (retry && /jwt expired|invalid jwt|expired/i.test(message)) {
+      await window.blogSession?.refresh?.();
+      return fetchViewerJson(endpoint, { retry: false });
+    }
+    throw new Error(message);
+  }
+
+  return data;
+}
+
 function getSessionId(session) {
   return window.blogSession?.getId?.(session) || "";
 }
@@ -102,6 +125,31 @@ function markReaderEmptyBlock(node) {
 function normalizeReaderFragment(fragment) {
   fragment.querySelectorAll("*").forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
+
+    [
+      "clear",
+      "columns",
+      "column-count",
+      "column-gap",
+      "column-width",
+      "display",
+      "float",
+      "height",
+      "max-height",
+      "max-width",
+      "min-height",
+      "min-width",
+      "position",
+      "text-orientation",
+      "transform",
+      "width",
+      "writing-mode",
+    ].forEach((property) => {
+      if (["IMG", "VIDEO", "AUDIO", "TABLE", "TD", "TH"].includes(node.tagName) && /^(width|height|max-width)$/i.test(property)) {
+        return;
+      }
+      node.style.removeProperty(property);
+    });
 
     const writingMode = node.style.getPropertyValue("writing-mode");
     if (/vertical|sideways/i.test(writingMode)) {
@@ -157,6 +205,20 @@ function decodeHtmlEntities(value = "") {
 
 function hasHtmlMarkup(value = "") {
   return /<\/?[a-z][\s\S]*>/i.test(String(value));
+}
+
+function normalizeStoredViewerBody(value = "") {
+  let current = String(value || "");
+  if (!current.trim()) return "";
+
+  for (let index = 0; index < 3; index += 1) {
+    if (hasHtmlMarkup(current)) return current;
+    const decoded = decodeHtmlEntities(current);
+    if (decoded === current) break;
+    current = decoded;
+  }
+
+  return hasHtmlMarkup(current) ? current : plainTextToViewerHtml(current);
 }
 
 function plainTextToViewerHtml(value = "") {
@@ -419,7 +481,8 @@ function getCurrentViewerFontSize() {
 }
 
 function renderPostBody(post) {
-  const content = post.body ? cleanViewerHtml(post.body) : `<p>${escapeHtml(post.excerpt || "")}</p>`;
+  const rawBody = normalizeStoredViewerBody(post.body || post.content || "");
+  const content = rawBody ? cleanViewerHtml(rawBody) : `<p>${escapeHtml(post.excerpt || "")}</p>`;
   els.body.innerHTML = `<div class="viewer-page-content" data-viewer-page-content>${content}</div>`;
 }
 
@@ -681,24 +744,15 @@ async function fetchPost() {
     throw new Error("글 주소가 올바르지 않습니다.");
   }
 
-  const token = await getViewerToken();
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
-  endpoint.searchParams.set("select", "*");
+  endpoint.searchParams.set(
+    "select",
+    "id,title,excerpt,body,category,folder,folder_id,folder_name,folder_path,author,login_id,user_id,published,published_at,created_at,reading_time"
+  );
   endpoint.searchParams.set("id", `eq.${postId}`);
   endpoint.searchParams.set("limit", "1");
 
-  const response = await fetch(endpoint, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const data = await response.json().catch(() => []);
-
-  if (!response.ok) {
-    const message = data?.message || data?.hint || data?.details || "글을 불러오지 못했습니다.";
-    throw new Error(message);
-  }
+  const data = await fetchViewerJson(endpoint);
 
   const post = Array.isArray(data) ? data[0] : null;
   if (!post) throw new Error("글을 찾지 못했습니다.");
@@ -710,25 +764,16 @@ async function fetchMaterial() {
     throw new Error("자료 주소가 올바르지 않습니다.");
   }
 
-  const token = await getViewerToken();
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
-  endpoint.searchParams.set("select", "*");
+  endpoint.searchParams.set(
+    "select",
+    "id,user_id,login_id,title,material_type,url,content,category,folder_id,folder_name,folder_path,source_post_id,created_at,updated_at,deleted_at"
+  );
   endpoint.searchParams.set("id", `eq.${materialId}`);
   endpoint.searchParams.set("deleted_at", "is.null");
   endpoint.searchParams.set("limit", "1");
 
-  const response = await fetch(endpoint, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const data = await response.json().catch(() => []);
-
-  if (!response.ok) {
-    const message = data?.message || data?.hint || data?.details || "자료를 불러오지 못했습니다.";
-    throw new Error(message);
-  }
+  const data = await fetchViewerJson(endpoint);
 
   const material = Array.isArray(data) ? data[0] : null;
   if (!material) throw new Error("자료를 찾지 못했습니다.");
@@ -746,8 +791,6 @@ async function fetchMaterial() {
 
 async function fetchSameFolderPosts(post) {
   if (viewerTarget === "materials") return [post];
-
-  const token = await getViewerToken();
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
   endpoint.searchParams.set(
     "select",
@@ -765,14 +808,8 @@ async function fetchSameFolderPosts(post) {
     endpoint.searchParams.set(ownerFilter[0], `eq.${ownerFilter[1]}`);
   }
 
-  const response = await fetch(endpoint, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const data = await response.json().catch(() => []);
-  if (!response.ok || !Array.isArray(data)) return [post];
+  const data = await fetchViewerJson(endpoint).catch(() => [post]);
+  if (!Array.isArray(data)) return [post];
 
   const byId = new Map();
   data.filter((item) => isSameBookScope(item, post)).forEach((item) => {
@@ -782,10 +819,20 @@ async function fetchSameFolderPosts(post) {
   return sortPostsForBook([...byId.values()]);
 }
 
+async function ensureSameFolderPostsLoaded() {
+  if (sameFolderPostsLoaded || !currentPost) return sameFolderPosts;
+  sameFolderPosts = await fetchSameFolderPosts(currentPost);
+  sameFolderPostsLoaded = true;
+  renderBookNavigation();
+  return sameFolderPosts;
+}
+
 async function initViewer() {
   try {
     const post = await fetchPost();
     currentPost = post;
+    sameFolderPosts = [post];
+    sameFolderPostsLoaded = viewerTarget === "materials";
     const session = getSession();
     const loginId = getSessionId(session);
     const isOwner = [post.author, post.login_id, post.user_id]
@@ -799,9 +846,11 @@ async function initViewer() {
     renderPostBody(post);
     refreshPaginationWhenMediaLoads();
     els.edit.hidden = !isOwner;
-    sameFolderPosts = await fetchSameFolderPosts(post);
     renderBookNavigation();
-    scheduleBookPagination();
+    if (bookMode) {
+      await ensureSameFolderPostsLoaded();
+      scheduleBookPagination();
+    }
   } catch (error) {
     els.title.textContent = "글을 불러오지 못했습니다";
     els.location.textContent = "";
@@ -821,13 +870,14 @@ els.edit.addEventListener("click", () => {
   window.location.href = getViewerEditHref();
 });
 
-els.bookToggle.addEventListener("click", () => {
+els.bookToggle.addEventListener("click", async () => {
   const willEnterBookMode = !bookMode;
   if (willEnterBookMode) {
     readerFontSize = getCurrentViewerFontSize();
   }
   bookMode = willEnterBookMode;
   if (bookMode) {
+    await ensureSameFolderPostsLoaded();
     scheduleBookPagination(true);
   } else {
     clearBookPagination();
