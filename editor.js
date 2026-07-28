@@ -1403,6 +1403,8 @@ function wrapBasicPasteText(text = "", style = {}) {
 function buildBasicEditorPasteHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = String(html || "");
+  inlinePastedStyleRules(template.content);
+  normalizeLegacyPastedFormatting(template.content);
   template.content.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => node.remove());
 
   const blockTags = new Set(["ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DIV", "FIGCAPTION", "FIGURE", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "P", "PRE", "SECTION", "TR"]);
@@ -1433,6 +1435,20 @@ function buildBasicEditorPasteHtml(html = "") {
   walk(template.content, {});
   const content = output.join("").replace(/\n{4,}/g, "\n\n\n").replace(/^\n+|\n+$/g, "");
   return content.replace(/<[^>]+>/g, "").trim() ? `<p style="white-space: pre-wrap">${content}</p>` : "";
+}
+
+function buildBasicPasteHtmlFromPayload(payload = {}) {
+  const text = normalizePastedPlainText(payload.text || getPreservedPlainTextFromHtml(payload.html || ""));
+  const html = payload.html ? buildBasicEditorPasteHtml(payload.html) : "";
+  if (html) return html;
+
+  if (payload.rtf) {
+    const rtfHtml = rtfToEditorHtml(payload.rtf, text);
+    const basicRtfHtml = rtfHtml ? buildBasicEditorPasteHtml(rtfHtml) : "";
+    if (basicRtfHtml) return basicRtfHtml;
+  }
+
+  return text ? textToEditorHtml(text) : "";
 }
 
 function getCurrentPlainTextPasteStyle() {
@@ -3188,15 +3204,9 @@ async function handleEditorPaste(event) {
   closePasteMenu({ finalizeNative: false });
   event.preventDefault();
   try {
-    const basicHtml = payload.html ? buildBasicEditorPasteHtml(payload.html) : "";
+    const basicHtml = buildBasicPasteHtmlFromPayload(payload);
     if (basicHtml) {
       insertEditorHtml(basicHtml);
-      return;
-    }
-
-    const plainText = normalizePastedPlainText(payload.text || getPreservedPlainTextFromHtml(payload.html || ""));
-    if (plainText) {
-      insertEditorHtml(textToEditorHtml(plainText));
       return;
     }
 
