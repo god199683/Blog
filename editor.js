@@ -4684,7 +4684,7 @@ function applyRememberedEditorColor(target) {
 }
 
 function colorToggleShouldOpenMenu(event) {
-  return event.detail === 0 || Boolean(event.target.closest(".tool-caret"));
+  return Boolean(event.target.closest(".tool-caret"));
 }
 
 function syncRememberedColorButtonPreviews() {
@@ -5395,6 +5395,7 @@ els.toolbar.addEventListener("click", (event) => {
   if (colorToggle) {
     const target = colorToggle.dataset.colorMenuToggle;
     if (!colorToggleShouldOpenMenu(event)) {
+      prepareEditorSelectionForToolbar({ holdSelection: true });
       closeAllToolbarMenus();
       applyRememberedEditorColor(target);
       return;
