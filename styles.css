@@ -10631,10 +10631,21 @@ body.is-book-mode .viewer-page-content :where(h1, h2, h3) {
 
 .viewer-page-content :where(p, div, li, blockquote) {
   max-width: 100%;
+  white-space: pre-line;
 }
 
 .viewer-page-content :where(p, blockquote) {
   margin: 0 0 0.95em;
+}
+
+.viewer-page-content :where(p, div, li, blockquote, span, strong, b, em, i, u, td, th) {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+.viewer-page-content :where(span, strong, b, em, i, u) {
+  white-space: inherit !important;
 }
 
 .viewer-page-content :where(p, div, li, blockquote):empty {
