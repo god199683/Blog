@@ -3376,7 +3376,16 @@ body.is-away-locked {
 
 .editor-color-menu {
   width: 16.2rem;
+  max-width: calc(100vw - 1rem);
+  overflow: auto;
   padding: 0.62rem;
+}
+
+body.editor-page .editor-color-menu {
+  position: fixed;
+  z-index: 1200;
+  top: 0;
+  left: 0;
 }
 
 .color-menu-section {

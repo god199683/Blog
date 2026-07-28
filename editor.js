@@ -4644,6 +4644,52 @@ function closeAllToolbarMenus() {
   closeEditorMiniMenus();
 }
 
+function positionEditorColorMenu(menu, anchor) {
+  if (!menu || !anchor || menu.hidden) return;
+  const gap = 6;
+  const margin = 8;
+  menu.style.visibility = "hidden";
+  menu.style.left = "0px";
+  menu.style.top = "0px";
+  menu.style.maxHeight = "";
+
+  const anchorRect = anchor.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  const menuWidth = menuRect.width || 260;
+  const menuHeight = menuRect.height || 320;
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  let left = anchorRect.left;
+  let top = anchorRect.bottom + gap;
+
+  if (left + menuWidth > viewportWidth - margin) {
+    left = viewportWidth - menuWidth - margin;
+  }
+  if (left < margin) {
+    left = margin;
+  }
+  if (top + menuHeight > viewportHeight - margin) {
+    top = anchorRect.top - menuHeight - gap;
+  }
+  if (top < margin) {
+    top = margin;
+  }
+
+  const availableHeight = Math.max(180, viewportHeight - top - margin);
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.top = `${Math.round(top)}px`;
+  menu.style.maxHeight = `${Math.round(availableHeight)}px`;
+  menu.style.visibility = "";
+}
+
+function repositionOpenColorMenus() {
+  els.toolbar.querySelectorAll("[data-color-menu]:not([hidden])").forEach((menu) => {
+    const target = menu.dataset.colorMenu;
+    const anchor = els.toolbar.querySelector(`[data-color-menu-toggle="${target}"]`);
+    positionEditorColorMenu(menu, anchor);
+  });
+}
+
 function clampColorPart(value) {
   return Math.min(255, Math.max(0, Number.parseInt(value, 10) || 0));
 }
@@ -5279,6 +5325,7 @@ els.content.addEventListener("keyup", syncEditorFindPopoverPosition);
 els.content.addEventListener("scroll", syncEditorFindPopoverPosition);
 document.addEventListener("selectionchange", syncEditorFindPopoverPosition);
 window.addEventListener("resize", syncEditorFindPopoverPosition);
+window.addEventListener("resize", repositionOpenColorMenus);
 
 els.category.addEventListener("change", () => {
   const selectedFolder = getFolderMeta(els.folder.value);
@@ -5440,6 +5487,9 @@ els.toolbar.addEventListener("click", (event) => {
     closeEditorMiniMenus();
     closeColorMenus(target);
     menu.hidden = !willOpen;
+    if (willOpen) {
+      positionEditorColorMenu(menu, colorToggle);
+    }
     return;
   }
 
