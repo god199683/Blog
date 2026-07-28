@@ -1326,6 +1326,20 @@ function getPlainTextFromHtml(html = "") {
   return getTextFromHtml(html).replace(/\s+/g, " ").trim();
 }
 
+function getPreservedPlainTextFromHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = String(html || "");
+  template.content.querySelectorAll("script, style, iframe, object, embed").forEach((node) => node.remove());
+  template.content.querySelectorAll("br").forEach((node) => node.replaceWith("\n"));
+  template.content.querySelectorAll("p, div, h1, h2, h3, h4, h5, h6, li, tr").forEach((node) => {
+    node.append(document.createTextNode("\n"));
+  });
+  return (template.content.textContent || "")
+    .replace(/\u200b/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n");
+}
+
 function getFirstImageFromHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = String(html || "");
@@ -1344,6 +1358,14 @@ function textToEditorHtml(text = "") {
   const normalized = String(text || "").replace(/\r\n?/g, "\n");
   if (!normalized) return "<p><br></p>";
   return `<p style="white-space: pre-wrap">${escapeHtml(normalized)}</p>`;
+}
+
+function normalizePastedPlainText(text = "") {
+  return String(text || "")
+    .replace(/\u200b/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .replace(/^\n+|\n+$/g, "");
 }
 
 function getCurrentPlainTextPasteStyle() {
@@ -3099,7 +3121,13 @@ async function handleEditorPaste(event) {
   closePasteMenu({ finalizeNative: false });
   event.preventDefault();
   try {
-    const html = await buildPasteHtml("source", payload);
+    const plainText = normalizePastedPlainText(payload.text || getPreservedPlainTextFromHtml(payload.html || ""));
+    if (plainText) {
+      insertEditorHtml(textToEditorHtml(plainText));
+      return;
+    }
+
+    const html = await buildPasteHtml("merge", payload);
     insertEditorHtml(html);
   } catch (error) {
     window.alert(error.message || "붙여넣기를 처리하지 못했습니다.");

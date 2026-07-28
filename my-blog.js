@@ -454,6 +454,15 @@ function getPostExcerpt(post = {}, limit = 120) {
   return text.length > limit ? `${text.slice(0, limit).trim()}...` : text;
 }
 
+function getPostPreviewLine(post = {}, limit = 64) {
+  const source = htmlToPlainText(post.body || "") || post.excerpt || "";
+  const firstLine = String(source || "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .find(Boolean) || "";
+  return firstLine.length > limit ? `${firstLine.slice(0, limit).trim()}...` : firstLine;
+}
+
 function getPostMediaSource(post = {}) {
   return post.cover_image || getFirstImageFromHtml(post.body || "");
 }
@@ -1412,7 +1421,7 @@ function renderFeatureArea(posts = [], scopeTitle = "전체보기") {
   const viewHref = getPostViewHref(post);
   const editHref = getPostEditHref(post);
   const mediaSource = getPostMediaSource(post);
-  const excerpt = getPostExcerpt(post, 110);
+  const excerpt = getPostPreviewLine(post, 64);
   const initial = (state.id || "B").slice(0, 1).toUpperCase();
   const ownerLightActions = state.publicMode
     ? ""

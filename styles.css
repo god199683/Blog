@@ -2501,10 +2501,15 @@ body.is-away-locked {
 }
 
 .blog-feature-placeholder small {
+  display: block;
+  max-width: min(100%, 26rem);
+  overflow: hidden;
   color: #6f8497;
   font-size: 0.78rem;
   font-weight: 500;
   line-height: 1.65;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .blog-feature-caption {
