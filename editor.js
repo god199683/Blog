@@ -85,6 +85,10 @@ let fontSizeStepPointerActive = false;
 let editorHistoryStack = [];
 let editorHistoryIndex = -1;
 let editorHistoryRestoring = false;
+let editorHistoryTimer = 0;
+let editorStatsTimer = 0;
+let editorToolbarTimer = 0;
+let editorFindRefreshTimer = 0;
 let activeEditorLineHeight = "1.4";
 let lastEditorEllipsisReplacement = null;
 let pendingPastePayload = null;
@@ -3268,6 +3272,7 @@ function setEditorBusy(isBusy) {
 }
 
 function setEditorSaveState(message) {
+  if (els.saveState.textContent === message) return;
   els.saveState.textContent = message;
 }
 
@@ -3301,11 +3306,26 @@ function clearEditorDraft() {
   localStorage.removeItem(editorDraftKey());
 }
 
+function getEditorTextForCounting() {
+  return (els.content?.textContent || "").replace(/\u200b/g, "");
+}
+
 function syncEditorStats() {
-  const values = collectEditorValues();
-  els.charWithSpaces.textContent = `${values.characterCounts.withSpaces}자`;
-  els.charWithoutSpaces.textContent = `${values.characterCounts.withoutSpaces}자`;
+  const text = getEditorTextForCounting();
+  els.charWithSpaces.textContent = `${text.length}자`;
+  els.charWithoutSpaces.textContent = `${text.replace(/\s/g, "").length}자`;
   syncVisibilityButtons();
+}
+
+function scheduleEditorStatsSync() {
+  window.clearTimeout(editorStatsTimer);
+  editorStatsTimer = window.setTimeout(syncEditorStats, 140);
+}
+
+function flushEditorStatsSync() {
+  window.clearTimeout(editorStatsTimer);
+  editorStatsTimer = 0;
+  syncEditorStats();
 }
 
 function syncVisibilityButtons() {
@@ -3348,11 +3368,15 @@ function nodeIsInEditor(node) {
   return node === els.content || els.content.contains(node);
 }
 
-function saveCurrentSelection() {
+function saveCurrentSelection({ deferToolbar = false, forceToolbar = false } = {}) {
   const selection = window.getSelection();
   if (!selection?.rangeCount || !nodeIsInEditor(selection.anchorNode)) return;
   savedEditorRange = selection.getRangeAt(0).cloneRange();
-  syncEditorToolbarState();
+  if (deferToolbar) {
+    scheduleEditorToolbarStateSync({ force: forceToolbar });
+  } else {
+    syncEditorToolbarState({ force: forceToolbar });
+  }
 }
 
 function setEditorCaret(node, offset) {
@@ -3562,6 +3586,23 @@ function syncEditorToolbarState({ force = false } = {}) {
   syncEditorCommandButtons();
 }
 
+function scheduleEditorToolbarStateSync({ force = false } = {}) {
+  window.clearTimeout(editorToolbarTimer);
+  editorToolbarTimer = window.setTimeout(() => {
+    editorToolbarTimer = 0;
+    syncEditorToolbarState({ force });
+  }, 90);
+}
+
+function scheduleEditorFindRefresh() {
+  if (!getEditorFindQuery()) return;
+  window.clearTimeout(editorFindRefreshTimer);
+  editorFindRefreshTimer = window.setTimeout(() => {
+    editorFindRefreshTimer = 0;
+    refreshEditorFindMatches({ preserveIndex: true });
+  }, 180);
+}
+
 function resetEditorHistory() {
   editorHistoryStack = [els.content.innerHTML];
   editorHistoryIndex = 0;
@@ -3578,6 +3619,21 @@ function pushEditorHistorySnapshot() {
     editorHistoryStack.shift();
   }
   editorHistoryIndex = editorHistoryStack.length - 1;
+}
+
+function scheduleEditorHistorySnapshot() {
+  window.clearTimeout(editorHistoryTimer);
+  editorHistoryTimer = window.setTimeout(() => {
+    editorHistoryTimer = 0;
+    pushEditorHistorySnapshot();
+  }, 360);
+}
+
+function flushEditorHistorySnapshot() {
+  if (!editorHistoryTimer) return;
+  window.clearTimeout(editorHistoryTimer);
+  editorHistoryTimer = 0;
+  pushEditorHistorySnapshot();
 }
 
 function restoreEditorHistory(step) {
@@ -3614,6 +3670,7 @@ function handleEditorHistoryShortcut(event) {
   if (!nodeIsInEditor(event.target) && !selectionInEditor) return;
 
   event.preventDefault();
+  flushEditorHistorySnapshot();
   restoreEditorHistory(action === "undo" ? -1 : 1);
 }
 
@@ -3698,7 +3755,7 @@ function handleEditorEllipsisBackspace(event) {
     position.node.data.slice(position.offset);
   setEditorCaret(position.node, position.offset - 1 + EDITOR_ELLIPSIS_BACKSPACE_TEXT.length);
   lastEditorEllipsisReplacement = null;
-  syncActiveLineHeightBlocks();
+  syncActiveLineHeightAtSelection();
   pushEditorHistorySnapshot();
   syncEditorStats();
   markEditorDirty();
@@ -4134,6 +4191,24 @@ function syncActiveLineHeightBlocks() {
   });
 }
 
+function syncActiveLineHeightAtSelection() {
+  if (!activeEditorLineHeight) return;
+  const selection = window.getSelection();
+  const range = selection?.rangeCount && rangeIsInEditor(selection.getRangeAt(0))
+    ? selection.getRangeAt(0)
+    : null;
+  const targets = new Set([els.content]);
+
+  if (range) {
+    const startBlock = getClosestEditorBlock(range.startContainer);
+    const endBlock = getClosestEditorBlock(range.endContainer);
+    if (startBlock) targets.add(startBlock);
+    if (endBlock) targets.add(endBlock);
+  }
+
+  targets.forEach((block) => applyEditorLineHeight(block, activeEditorLineHeight));
+}
+
 function syncActiveLineHeightFromContent() {
   const styledBlock = [els.content, ...els.content.querySelectorAll(EDITOR_BLOCK_SELECTOR)].find(
     (block) => block.style.lineHeight
@@ -4157,15 +4232,13 @@ function applyLineHeight(value) {
 
 function handleEditorContentInput(event) {
   replaceTrailingEditorEllipsis(event);
-  syncActiveLineHeightBlocks();
-  if (getEditorFindQuery()) {
-    refreshEditorFindMatches({ preserveIndex: true });
-  }
-  pushEditorHistorySnapshot();
-  syncEditorStats();
-  syncEditorToolbarState();
+  syncActiveLineHeightAtSelection();
+  scheduleEditorFindRefresh();
+  scheduleEditorHistorySnapshot();
+  scheduleEditorStatsSync();
+  scheduleEditorToolbarStateSync();
   markEditorDirty();
-  saveCurrentSelection();
+  saveCurrentSelection({ deferToolbar: true });
 }
 
 function executeEditorCommand(command, value = null) {
@@ -5318,8 +5391,8 @@ els.content.addEventListener("input", handleEditorContentInput);
 els.content.addEventListener("keydown", handleEditorKeydown);
 els.content.addEventListener("paste", handleEditorPaste);
 els.content.addEventListener("mouseup", saveCurrentSelection);
-els.content.addEventListener("keyup", saveCurrentSelection);
-document.addEventListener("selectionchange", saveCurrentSelection);
+els.content.addEventListener("keyup", () => saveCurrentSelection({ deferToolbar: true }));
+document.addEventListener("selectionchange", () => saveCurrentSelection({ deferToolbar: true }));
 els.content.addEventListener("mouseup", syncEditorFindPopoverPosition);
 els.content.addEventListener("keyup", syncEditorFindPopoverPosition);
 els.content.addEventListener("scroll", syncEditorFindPopoverPosition);
