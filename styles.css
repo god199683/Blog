@@ -10625,6 +10625,7 @@ body.is-book-mode .viewer-page-content :where(h1, h2, h3) {
 }
 
 .viewer-page-content {
+  margin-inline: auto;
   overflow-wrap: break-word;
   word-break: keep-all;
 }

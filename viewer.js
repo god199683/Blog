@@ -122,6 +122,79 @@ function markReaderEmptyBlock(node) {
   node.innerHTML = "<br>";
 }
 
+function getReaderTextWithBreaks(node) {
+  const clone = node.cloneNode(true);
+  clone.querySelectorAll("br").forEach((breakNode) => {
+    breakNode.replaceWith("\n");
+  });
+  return String(clone.textContent || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\u200b/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .trim();
+}
+
+function splitViewerLongText(text = "") {
+  const normalized = String(text || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!normalized) return [];
+
+  const lineParts = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lineParts.length > 1) return lineParts;
+
+  const sentences =
+    normalized.match(/[^.!?。！？…]+(?:[.!?。！？…]+(?:["'”’」』]+)?|$)/g) || [normalized];
+  const parts = [];
+  let chunk = "";
+
+  sentences.forEach((sentence) => {
+    const next = sentence.trim();
+    if (!next) return;
+    const candidate = chunk ? `${chunk} ${next}` : next;
+    if (chunk && candidate.length > 220) {
+      parts.push(chunk);
+      chunk = next;
+      return;
+    }
+    chunk = candidate;
+  });
+
+  if (chunk) parts.push(chunk);
+  return parts.length > 1 ? parts : [normalized];
+}
+
+function normalizeReaderLongPlainBlocks(fragment) {
+  fragment.querySelectorAll("p, div, blockquote").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    if (!readerNodeHasVisibleContent(node)) return;
+    if (node.querySelector("p, div, blockquote, ul, ol, table, img, video, audio, pre, code, hr")) return;
+    if (node.querySelector("strong, b, em, i, u, span[style], font")) return;
+
+    const text = getReaderTextWithBreaks(node);
+    if (text.length < 360 && !/\n/.test(text)) return;
+
+    const parts = splitViewerLongText(text);
+    if (parts.length <= 1) return;
+
+    const replacement = parts.map((part) => {
+      const paragraph = document.createElement(node.tagName.toLowerCase() === "blockquote" ? "blockquote" : "p");
+      paragraph.textContent = part;
+      return paragraph;
+    });
+    node.replaceWith(...replacement);
+  });
+}
+
 function normalizeReaderFragment(fragment) {
   fragment.querySelectorAll("*").forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
@@ -199,6 +272,8 @@ function normalizeReaderFragment(fragment) {
       node.remove();
     }
   });
+
+  normalizeReaderLongPlainBlocks(fragment);
 }
 
 function cleanViewerHtml(html = "") {
