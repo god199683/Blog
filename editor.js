@@ -56,6 +56,7 @@ const els = {
   sideContent: document.querySelector("[data-editor-side-content]"),
   charWithSpaces: document.querySelector("[data-editor-char-spaces]"),
   charWithoutSpaces: document.querySelector("[data-editor-char-nospace]"),
+  charSelection: document.querySelector("[data-editor-char-selection]"),
   published: document.querySelector("[data-editor-published]"),
   visibilityButtons: document.querySelectorAll("[data-editor-visibility]"),
   brandTitle: document.querySelector("[data-editor-brand-title]"),
@@ -86,6 +87,7 @@ let editorHistoryIndex = -1;
 let editorHistoryRestoring = false;
 let editorHistoryTimer = 0;
 let editorStatsTimer = 0;
+let editorSelectionStatsTimer = 0;
 let editorToolbarTimer = 0;
 let editorFindRefreshTimer = 0;
 let activeEditorLineHeight = "1.4";
@@ -3308,10 +3310,39 @@ function getEditorTextForCounting() {
   return (els.content?.textContent || "").replace(/\u200b/g, "");
 }
 
+function getSelectedEditorTextForCounting() {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return "";
+
+  const parts = [];
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    const range = selection.getRangeAt(index);
+    if (!range.collapsed && rangeIsInEditor(range)) {
+      parts.push(range.toString());
+    }
+  }
+  return parts.join("").replace(/\u200b/g, "");
+}
+
+function syncEditorSelectionStats() {
+  if (!els.charSelection) return;
+  const selectedText = getSelectedEditorTextForCounting();
+  els.charSelection.textContent = `${selectedText.replace(/\s/g, "").length}자`;
+}
+
+function scheduleEditorSelectionStatsSync() {
+  window.clearTimeout(editorSelectionStatsTimer);
+  editorSelectionStatsTimer = window.setTimeout(() => {
+    editorSelectionStatsTimer = 0;
+    syncEditorSelectionStats();
+  }, 60);
+}
+
 function syncEditorStats() {
   const text = getEditorTextForCounting();
   els.charWithSpaces.textContent = `${text.length}자`;
   els.charWithoutSpaces.textContent = `${text.replace(/\s/g, "").length}자`;
+  syncEditorSelectionStats();
   syncVisibilityButtons();
 }
 
@@ -5387,7 +5418,10 @@ els.content.addEventListener("keydown", handleEditorKeydown);
 els.content.addEventListener("paste", handleEditorPaste);
 els.content.addEventListener("mouseup", saveCurrentSelection);
 els.content.addEventListener("keyup", () => saveCurrentSelection({ deferToolbar: true }));
-document.addEventListener("selectionchange", () => saveCurrentSelection({ deferToolbar: true }));
+document.addEventListener("selectionchange", () => {
+  saveCurrentSelection({ deferToolbar: true });
+  scheduleEditorSelectionStatsSync();
+});
 els.content.addEventListener("mouseup", syncEditorFindPopoverPosition);
 els.content.addEventListener("keyup", syncEditorFindPopoverPosition);
 els.content.addEventListener("scroll", syncEditorFindPopoverPosition);
