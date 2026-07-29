@@ -5217,7 +5217,14 @@ function applySavedEditorReturnParams(href, savedItem = null) {
 
   try {
     const url = new URL(href, window.location.href);
+    const isNewPostFromEbook =
+      !isMaterialEditor() &&
+      !state.editPostId &&
+      (url.pathname.endsWith("/ebook-reader.html") || url.pathname.endsWith("ebook-reader.html"));
     url.searchParams.set(isMaterialEditor() ? "material" : "post", savedId);
+    if (isNewPostFromEbook) {
+      url.searchParams.delete("page");
+    }
     return url.href;
   } catch {
     return href;
