@@ -16,7 +16,6 @@ const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, t
 const DEFAULT_EDITOR_FONT = "a시네마L";
 const DEFAULT_EDITOR_FONT_SIZE = "12px";
 const EDITOR_MIDDLE_ELLIPSIS = "⋯";
-const EDITOR_ELLIPSIS_BACKSPACE_TEXT = "....";
 
 const state = {
   id: "",
@@ -90,7 +89,6 @@ let editorStatsTimer = 0;
 let editorToolbarTimer = 0;
 let editorFindRefreshTimer = 0;
 let activeEditorLineHeight = "1.4";
-let lastEditorEllipsisReplacement = null;
 let pendingPastePayload = null;
 let pasteMenu = null;
 let editorFindMatches = [];
@@ -3726,10 +3724,6 @@ function replaceTrailingEditorEllipsis(event) {
   const nextOffset = position.offset - 2;
   position.node.data = `${before.slice(0, -3)}${EDITOR_MIDDLE_ELLIPSIS}${after}`;
   setEditorCaret(position.node, nextOffset);
-  lastEditorEllipsisReplacement = {
-    node: position.node,
-    offset: nextOffset,
-  };
   return true;
 }
 
@@ -3739,9 +3733,6 @@ function handleEditorEllipsisBackspace(event) {
   const position = getCollapsedEditorTextPosition();
   if (
     !position ||
-    !lastEditorEllipsisReplacement ||
-    lastEditorEllipsisReplacement.node !== position.node ||
-    lastEditorEllipsisReplacement.offset !== position.offset ||
     position.offset < 1 ||
     position.node.data.charAt(position.offset - 1) !== EDITOR_MIDDLE_ELLIPSIS
   ) {
@@ -3750,11 +3741,8 @@ function handleEditorEllipsisBackspace(event) {
 
   event.preventDefault();
   position.node.data =
-    position.node.data.slice(0, position.offset - 1) +
-    EDITOR_ELLIPSIS_BACKSPACE_TEXT +
-    position.node.data.slice(position.offset);
-  setEditorCaret(position.node, position.offset - 1 + EDITOR_ELLIPSIS_BACKSPACE_TEXT.length);
-  lastEditorEllipsisReplacement = null;
+    position.node.data.slice(0, position.offset - 1) + position.node.data.slice(position.offset);
+  setEditorCaret(position.node, position.offset - 1);
   syncActiveLineHeightAtSelection();
   pushEditorHistorySnapshot();
   syncEditorStats();
