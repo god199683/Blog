@@ -2830,6 +2830,7 @@ body.is-away-locked {
 .editor-canvas {
   position: relative;
   min-width: 0;
+  box-sizing: border-box;
   padding: 0.85rem;
 }
 
@@ -3712,7 +3713,9 @@ body.editor-page .editor-color-menu {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.32rem;
-  padding-top: 1.55rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  padding-bottom: 0.05rem;
 }
 
 .editor-count-strip .editor-count-box {
@@ -3724,6 +3727,10 @@ body.editor-page .editor-color-menu {
   flex: 1 1 100%;
   min-height: 0.9rem;
   text-align: right;
+}
+
+.editor-count-strip .editor-message:empty {
+  display: none;
 }
 
 .editor-message {
@@ -11577,7 +11584,7 @@ body.editor-page .editor-toolbar {
 }
 
 body.editor-page .editor-surface {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   overscroll-behavior: contain;
 }
