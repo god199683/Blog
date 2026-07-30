@@ -3712,7 +3712,7 @@ body.editor-page .editor-color-menu {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.32rem;
-  padding-top: 0.4rem;
+  padding-top: 0.9rem;
 }
 
 .editor-count-strip .editor-count-box {
