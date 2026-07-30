@@ -2823,7 +2823,7 @@ body.is-away-locked {
 
 .editor-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 13.5rem;
+  grid-template-columns: minmax(0, 1fr);
   min-height: calc(100svh - 8.8rem);
 }
 
@@ -2831,7 +2831,13 @@ body.is-away-locked {
   position: relative;
   min-width: 0;
   padding: 0.85rem;
-  border-right: 1px solid rgba(216, 234, 251, 0.9);
+}
+
+.editor-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .editor-title-input {
@@ -3091,6 +3097,16 @@ body.is-away-locked {
   font: inherit;
   font-weight: 650;
   outline: none;
+}
+
+.editor-title-visibility {
+  width: 8.4rem;
+}
+
+.editor-title-visibility .editor-visibility-button {
+  min-height: 2.35rem;
+  padding-inline: 0.55rem;
+  white-space: nowrap;
 }
 
 .editor-find-field input:focus {
@@ -3688,6 +3704,26 @@ body.editor-page .editor-color-menu {
 .editor-count-box strong {
   color: #183047;
   font-size: 0.78rem;
+}
+
+.editor-count-strip {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.32rem;
+  padding-top: 0.4rem;
+}
+
+.editor-count-strip .editor-count-box {
+  min-width: 7.4rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.editor-count-strip .editor-message {
+  flex: 1 1 100%;
+  min-height: 0.9rem;
+  text-align: right;
 }
 
 .editor-message {
@@ -11535,7 +11571,7 @@ body.editor-page .editor-canvas {
   flex-direction: column;
 }
 
-body.editor-page .editor-title-input,
+body.editor-page .editor-title-row,
 body.editor-page .editor-toolbar {
   flex: 0 0 auto;
 }
@@ -11571,6 +11607,14 @@ body.is-editor-side-collapsed .editor-grid {
 }
 
 @media (max-width: 620px) {
+  .editor-title-row {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-title-visibility {
+    width: 100%;
+  }
+
   .editor-side-content {
     grid-template-columns: 1fr;
   }

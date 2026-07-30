@@ -36,14 +36,21 @@
         <div class="editor-grid">
           <section class="editor-canvas">
             <label class="sr-only" for="editor-title">제목</label>
-            <input
-              class="editor-title-input"
-              id="editor-title"
-              type="text"
-              data-editor-title
-              placeholder="제목을 입력하세요"
-              autocomplete="off"
-            >
+            <div class="editor-title-row">
+              <input
+                class="editor-title-input"
+                id="editor-title"
+                type="text"
+                data-editor-title
+                placeholder="제목을 입력하세요"
+                autocomplete="off"
+              >
+              <div class="editor-visibility-group editor-title-visibility" aria-label="공개 상태">
+                <button class="editor-visibility-button is-active" type="button" data-editor-visibility="public">공개</button>
+                <button class="editor-visibility-button" type="button" data-editor-visibility="private">비공개</button>
+              </div>
+              <input type="checkbox" data-editor-published checked hidden>
+            </div>
 
             <div class="editor-toolbar" data-editor-toolbar role="toolbar" aria-label="글 편집 도구">
               <div class="editor-toolbar-row">
@@ -193,6 +200,21 @@
               aria-multiline="true"
               data-placeholder="여기에 글을 작성하세요..."
             ></div>
+            <div class="editor-count-strip" data-editor-side-content>
+              <div class="editor-count-box">
+                <p class="editor-side-label">공백 포함</p>
+                <strong data-editor-char-spaces>0자</strong>
+              </div>
+              <div class="editor-count-box">
+                <p class="editor-side-label">공백 미포함</p>
+                <strong data-editor-char-nospace>0자</strong>
+              </div>
+              <div class="editor-count-box">
+                <p class="editor-side-label">선택 영역</p>
+                <strong data-editor-char-selection>0자</strong>
+              </div>
+              <p class="editor-message" data-editor-message aria-live="polite"></p>
+            </div>
             <div class="editor-find-popover" data-editor-findbar hidden>
               <label class="editor-find-field">
                 <span>검색</span>
@@ -209,35 +231,6 @@
               <button class="editor-find-close" type="button" data-editor-find-close aria-label="닫기">×</button>
             </div>
           </section>
-
-          <aside class="editor-side-panel" data-editor-side-panel>
-            <div class="editor-side-controls">
-              <div class="editor-visibility-group" aria-label="공개 상태">
-                <button class="editor-visibility-button is-active" type="button" data-editor-visibility="public">공개</button>
-                <button class="editor-visibility-button" type="button" data-editor-visibility="private">비공개</button>
-              </div>
-              <button class="editor-side-toggle" type="button" data-editor-side-toggle aria-expanded="true">
-                <span class="sr-only">상태 정보 접기</span>
-                <span aria-hidden="true">▾</span>
-              </button>
-            </div>
-            <div class="editor-side-content" data-editor-side-content>
-              <div class="editor-count-box">
-                <p class="editor-side-label">공백 포함</p>
-                <strong data-editor-char-spaces>0자</strong>
-              </div>
-              <div class="editor-count-box">
-                <p class="editor-side-label">공백 미포함</p>
-                <strong data-editor-char-nospace>0자</strong>
-              </div>
-              <div class="editor-count-box">
-                <p class="editor-side-label">선택 영역</p>
-                <strong data-editor-char-selection>0자</strong>
-              </div>
-              <p class="editor-message" data-editor-message aria-live="polite"></p>
-            </div>
-            <input type="checkbox" data-editor-published checked hidden>
-          </aside>
         </div>
       </form>
     </main>
