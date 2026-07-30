@@ -3587,7 +3587,8 @@ body.editor-page .editor-color-menu {
 
 .editor-side-panel {
   display: grid;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
   gap: 0.7rem;
   padding: 0.85rem;
   background: linear-gradient(180deg, #eaf7ff 0%, #f8fcff 100%);
@@ -3632,7 +3633,8 @@ body.editor-page .editor-color-menu {
 
 .editor-side-content {
   display: grid;
-  gap: 0.7rem;
+  align-self: end;
+  gap: 0.38rem;
   min-width: 0;
 }
 
@@ -3665,22 +3667,27 @@ body.editor-page .editor-color-menu {
 }
 
 .editor-count-box {
-  padding: 0.72rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-height: 1.7rem;
+  padding: 0.34rem 0.48rem;
   border: 1px solid rgba(216, 234, 251, 0.95);
-  border-radius: 8px;
+  border-radius: 7px;
   background: rgba(255, 255, 255, 0.86);
 }
 
 .editor-side-label {
-  margin: 0 0 0.2rem;
+  margin: 0;
   color: #6f8497;
-  font-size: 0.75rem;
+  font-size: 0.66rem;
   font-weight: 720;
 }
 
 .editor-count-box strong {
   color: #183047;
-  font-size: 0.98rem;
+  font-size: 0.78rem;
 }
 
 .editor-message {
