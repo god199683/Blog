@@ -13166,3 +13166,46 @@ body.editor-page.is-editor-writing-focus .editor-surface {
   min-height: 8rem;
   margin-top: 0;
 }
+
+/* Keep the reader commands compact and aligned before the back button. */
+.ebook-page .ebook-sidebar-head,
+.ebook-page .is-ebook-sidebar-collapsed .ebook-sidebar-head {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 0.22rem;
+}
+
+.ebook-page .ebook-sidebar-head .ebook-sidebar-title {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ebook-page .ebook-sidebar-head .ebook-sidebar-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.ebook-page .ebook-sidebar-head .ebook-sidebar-actions button,
+.ebook-page .ebook-sidebar-head > button {
+  display: grid;
+  width: 1.28rem;
+  min-width: 1.28rem;
+  height: 1.28rem;
+  min-height: 1.28rem;
+  padding: 0;
+  place-items: center;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.ebook-page .ebook-sidebar-head .ebook-sidebar-actions button[hidden] {
+  display: none;
+}
+
+.ebook-page .ebook-sidebar-head .ebook-opacity-control {
+  flex: 0 0 auto;
+}

@@ -734,7 +734,11 @@ function syncBookmarkButton() {
   const active = isCurrentBookmark();
   els.bookmark.disabled = !hasCurrent;
   els.bookmark.setAttribute("aria-pressed", String(active));
-  els.bookmark.textContent = active ? "북마크 해제" : "북마크";
+  const label = active ? "북마크 해제" : "북마크";
+  els.bookmark.setAttribute("aria-label", label);
+  els.bookmark.title = label;
+  const icon = els.bookmark.querySelector("[aria-hidden='true']");
+  if (icon) icon.textContent = active ? "★" : "☆";
 }
 
 function toggleBookmark() {

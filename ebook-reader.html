@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="폴더 안의 글을 Ebook 형식으로 이어 읽는 페이지">
     <title>책 뷰어 | Blog</title>
-    <link rel="stylesheet" href="./styles.css?v=20260807-toolbar-opacity-zero">
+    <link rel="stylesheet" href="./styles.css?v=20260807-reader-head-icons">
   </head>
   <body class="ebook-page">
     <header class="site-header">
@@ -26,31 +26,31 @@
     <main class="ebook-main">
       <aside class="ebook-sidebar" aria-label="책 뷰어 폴더와 글 목록">
         <div class="ebook-sidebar-head">
-          <div>
+          <div class="ebook-sidebar-title">
             <strong>책 뷰어</strong>
             <span data-ebook-owner>@blog</span>
+          </div>
+          <div class="ebook-sidebar-actions" aria-label="책 뷰어 기능">
+            <button type="button" data-ebook-folder-open aria-label="폴더 선택" title="폴더 선택"><span aria-hidden="true">▱</span></button>
+            <button type="button" data-ebook-bookmark aria-label="북마크" title="북마크" aria-pressed="false"><span aria-hidden="true">☆</span></button>
+            <button type="button" data-ebook-write aria-label="글쓰기" title="글쓰기" hidden><span aria-hidden="true">✎</span></button>
+            <div class="ebook-opacity-control" data-ebook-opacity-control>
+              <button type="button" data-ebook-opacity-toggle aria-label="상단바 투명도 조절" title="상단바 투명도 조절" aria-expanded="false">
+                <span aria-hidden="true">◐</span>
+              </button>
+              <div class="ebook-opacity-popover" data-ebook-opacity-popover hidden>
+                <label>
+                  <span>상단바 투명도</span>
+                  <output data-ebook-opacity-value>100%</output>
+                </label>
+                <input type="range" min="0" max="100" step="5" value="100" data-ebook-opacity aria-label="상단바 투명도">
+              </div>
+            </div>
           </div>
           <button class="ebook-back-button" type="button" data-ebook-back aria-label="뒤로가기" title="뒤로가기">
             <span aria-hidden="true">&larr;</span>
           </button>
           <button type="button" data-ebook-sidebar-toggle aria-label="사이드바 접기" aria-expanded="true">‹</button>
-        </div>
-        <div class="ebook-sidebar-actions" aria-label="책 뷰어 기능">
-          <button type="button" data-ebook-folder-open>폴더 선택</button>
-          <button type="button" data-ebook-bookmark aria-pressed="false">북마크</button>
-          <button type="button" data-ebook-write hidden>글쓰기</button>
-          <div class="ebook-opacity-control" data-ebook-opacity-control>
-            <button type="button" data-ebook-opacity-toggle aria-label="상단바 투명도 조절" title="상단바 투명도 조절" aria-expanded="false">
-              <span aria-hidden="true">◐</span>
-            </button>
-            <div class="ebook-opacity-popover" data-ebook-opacity-popover hidden>
-              <label>
-                <span>상단바 투명도</span>
-                <output data-ebook-opacity-value>100%</output>
-              </label>
-              <input type="range" min="0" max="100" step="5" value="100" data-ebook-opacity aria-label="상단바 투명도">
-            </div>
-          </div>
         </div>
         <section class="ebook-selected-folder" aria-label="선택한 폴더" data-ebook-selected-folder>
           <small data-ebook-selected-folder-path></small>
@@ -118,6 +118,6 @@
     </main>
 
     <script src="./session.js" defer></script>
-    <script src="./ebook-reader.js?v=20260807-reader-opacity" defer></script>
+    <script src="./ebook-reader.js?v=20260807-reader-head-icons" defer></script>
   </body>
 </html>
