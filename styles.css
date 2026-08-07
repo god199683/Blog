@@ -12970,3 +12970,60 @@ body.is-ebook-reader-fullscreen {
   padding-bottom: max(0.18rem, env(safe-area-inset-bottom));
   padding-left: max(0.74rem, env(safe-area-inset-left));
 }
+
+/* Half-height editor title and formatting controls. */
+body.editor-page .editor-title-row {
+  gap: 0.32rem;
+}
+
+body.editor-page .editor-title-input,
+body.editor-page .editor-title-visibility button {
+  height: 1.72rem;
+  min-height: 1.72rem;
+}
+
+body.editor-page .editor-title-input {
+  padding-inline: 0.58rem;
+  font-size: 0.88rem;
+}
+
+body.editor-page .editor-title-visibility button {
+  padding-inline: 0.52rem;
+  font-size: 0.72rem;
+}
+
+body.editor-page .editor-toolbar {
+  gap: 0.16rem;
+  margin-top: 0.32rem;
+  padding: 0.2rem 0.28rem;
+}
+
+body.editor-page .editor-toolbar-row {
+  gap: 0.16rem;
+}
+
+body.editor-page .editor-toolbar .editor-fields {
+  gap: 0.24rem;
+}
+
+body.editor-page .editor-toolbar .editor-fields label {
+  gap: 0.08rem;
+}
+
+body.editor-page :where(
+  .editor-font-select,
+  .editor-size-select,
+  .editor-toolbar .editor-fields select,
+  .editor-add-font-button,
+  .editor-tool-button,
+  .editor-table-button,
+  .editor-find-button
+) {
+  height: 1.55rem;
+  min-height: 1.55rem;
+}
+
+body.editor-page .editor-toolbar-row:nth-child(2) :where(.editor-tool-button, .editor-table-button) {
+  height: 1.42rem;
+  min-height: 1.42rem;
+}
