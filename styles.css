@@ -11752,6 +11752,10 @@ body.is-editor-side-collapsed .editor-grid {
   display: none;
 }
 
+.is-ebook-sidebar-collapsed .ebook-selected-folder {
+  display: none;
+}
+
 .ebook-sidebar-head span,
 .ebook-select-label span,
 .ebook-selected-folder span,
@@ -12682,11 +12686,12 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
 
   .ebook-sidebar,
   html.is-android-app-view .ebook-sidebar {
-    position: relative;
-    top: auto;
+    position: sticky;
+    top: var(--ebook-sticky-offset);
     width: auto;
     max-height: none;
     overflow: hidden;
+    z-index: 9;
   }
 
   .ebook-reader {
