@@ -12911,3 +12911,62 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
     padding-top: 0.28rem;
   }
 }
+
+/* Page-contained fullscreen mode for the ebook reading surface. */
+.ebook-fullscreen-button {
+  width: 1.55rem;
+  min-width: 1.55rem;
+  padding: 0 !important;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.ebook-fullscreen-button span {
+  display: grid;
+  place-items: center;
+}
+
+.ebook-fullscreen-button[aria-pressed="true"] {
+  border-color: rgba(14, 165, 233, 0.58);
+  background: #e0f4ff;
+  color: #0369a1;
+}
+
+body.is-ebook-reader-fullscreen {
+  overflow: hidden;
+}
+
+.ebook-reader.is-page-fullscreen {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  width: 100%;
+  height: 100svh;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.ebook-reader.is-page-fullscreen .ebook-toolbar {
+  padding-top: max(0.3rem, env(safe-area-inset-top));
+  padding-right: max(0.78rem, env(safe-area-inset-right));
+  padding-left: max(0.78rem, env(safe-area-inset-left));
+}
+
+.ebook-reader.is-page-fullscreen .ebook-stage {
+  min-height: 0;
+}
+
+.ebook-reader.is-page-fullscreen .ebook-page-surface {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+.ebook-reader.is-page-fullscreen .ebook-footer {
+  padding-right: max(0.74rem, env(safe-area-inset-right));
+  padding-bottom: max(0.18rem, env(safe-area-inset-bottom));
+  padding-left: max(0.74rem, env(safe-area-inset-left));
+}

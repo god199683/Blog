@@ -49,6 +49,7 @@ const els = {
   postList: document.querySelector("[data-ebook-post-list]"),
   folderPath: document.querySelector("[data-ebook-folder-path]"),
   title: document.querySelector("[data-ebook-title]"),
+  reader: document.querySelector(".ebook-reader"),
   stage: document.querySelector("[data-ebook-stage]"),
   content: document.querySelector("[data-ebook-content]"),
   prevPage: document.querySelector("[data-ebook-prev-page]"),
@@ -60,6 +61,7 @@ const els = {
   fontDown: document.querySelector("[data-ebook-font-down]"),
   fontUp: document.querySelector("[data-ebook-font-up]"),
   fontSize: document.querySelector("[data-ebook-font-size]"),
+  fullscreen: document.querySelector("[data-ebook-fullscreen]"),
   bookmark: document.querySelector("[data-ebook-bookmark]"),
   message: document.querySelector("[data-ebook-message]"),
 };
@@ -1106,6 +1108,22 @@ function goBack() {
   window.location.href = state.id ? "./my-blog.html" : "./";
 }
 
+function setReaderFullscreen(active) {
+  const nextState = Boolean(active);
+  document.body.classList.toggle("is-ebook-reader-fullscreen", nextState);
+  els.reader?.classList.toggle("is-page-fullscreen", nextState);
+  if (els.fullscreen) {
+    els.fullscreen.setAttribute("aria-pressed", String(nextState));
+    els.fullscreen.setAttribute("aria-label", nextState ? "책 읽기 영역 전체화면 종료" : "책 읽기 영역 전체화면");
+    els.fullscreen.title = nextState ? "전체화면 종료" : "전체화면";
+  }
+  requestAnimationFrame(() => schedulePagination(false));
+}
+
+function toggleReaderFullscreen() {
+  setReaderFullscreen(!document.body.classList.contains("is-ebook-reader-fullscreen"));
+}
+
 async function toggleBookmark() {
   if (isCurrentBookmark()) {
     try {
@@ -1176,6 +1194,7 @@ function bindEvents() {
     state.fontSize += 1;
     updateReaderFont();
   });
+  els.fullscreen?.addEventListener("click", toggleReaderFullscreen);
   els.bookmark?.addEventListener("click", toggleBookmark);
   els.progress?.addEventListener("input", (event) => {
     state.pageIndex = Math.min(Math.max(Number(event.target.value) - 1, 0), state.pageCount - 1);
@@ -1187,6 +1206,11 @@ function bindEvents() {
   els.stage?.addEventListener("touchcancel", cancelSwipe, { passive: true });
   window.addEventListener("resize", () => schedulePagination(false));
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.body.classList.contains("is-ebook-reader-fullscreen")) {
+      event.preventDefault();
+      setReaderFullscreen(false);
+      return;
+    }
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
       event.preventDefault();
