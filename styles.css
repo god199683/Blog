@@ -12672,3 +12672,82 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
     padding-top: 0.38rem;
   }
 }
+
+/* Keep the ebook reader usable in short, medium-width browser windows. */
+@media (max-width: 1040px) {
+  .ebook-main,
+  .is-ebook-sidebar-collapsed .ebook-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ebook-sidebar,
+  html.is-android-app-view .ebook-sidebar {
+    position: relative;
+    top: auto;
+    width: auto;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .ebook-reader {
+    min-height: min(44rem, calc(100svh - 4.8rem));
+  }
+}
+
+@media (max-height: 620px) {
+  .ebook-main {
+    gap: 0.4rem;
+    margin-block: 0.35rem 0.55rem;
+  }
+
+  .ebook-sidebar {
+    gap: 0.32rem;
+    padding: 0.4rem;
+  }
+
+  .ebook-sidebar-head {
+    padding-block: 0.08rem 0.22rem;
+  }
+
+  .ebook-sidebar-actions button {
+    min-height: 1.62rem;
+  }
+
+  .ebook-selected-folder {
+    gap: 0.08rem;
+    padding: 0.36rem 0.48rem;
+  }
+
+  .ebook-post-list {
+    max-height: 8rem;
+    padding-top: 0.35rem;
+  }
+
+  .ebook-reader {
+    min-height: 22rem;
+  }
+
+  .ebook-toolbar {
+    min-height: 2.25rem;
+    padding-block: 0.22rem;
+  }
+
+  .ebook-stage {
+    padding-block: 0.5rem;
+  }
+
+  .ebook-page-surface {
+    height: max(18rem, calc(100svh - 12rem));
+    min-height: 18rem;
+    padding-block: 1rem;
+  }
+
+  .ebook-footer {
+    min-height: 1.75rem;
+    padding-block: 0.1rem;
+  }
+
+  .ebook-message:empty {
+    display: none;
+  }
+}
