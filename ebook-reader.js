@@ -28,7 +28,7 @@ const state = {
   bookmark: null,
   remoteBookmarkSupported: true,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true",
-  opacity: Math.min(100, Math.max(35, Number(localStorage.getItem(OPACITY_KEY)) || 100)),
+  opacity: Math.min(100, Math.max(0, Number(localStorage.getItem(OPACITY_KEY) ?? 100))),
 };
 
 let swipeState = null;
@@ -76,7 +76,8 @@ function clampFontSize(value) {
 }
 
 function applyReaderOpacity(value = state.opacity) {
-  state.opacity = Math.min(100, Math.max(35, Number(value) || 100));
+  const numericValue = Number(value);
+  state.opacity = Number.isFinite(numericValue) ? Math.min(100, Math.max(0, numericValue)) : 100;
   document.documentElement.style.setProperty("--ebook-toolbar-opacity", String(state.opacity / 100));
   if (els.opacityInput) els.opacityInput.value = String(state.opacity);
   if (els.opacityValue) els.opacityValue.value = `${state.opacity}%`;

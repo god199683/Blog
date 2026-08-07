@@ -13123,7 +13123,7 @@ body.editor-page .editor-topbar .editor-icon-button {
 .ebook-sidebar,
 .ebook-page.is-ebook-scrolled .ebook-sidebar {
   background: rgba(255, 255, 255, var(--ebook-toolbar-opacity, 1));
-  backdrop-filter: blur(14px);
+  backdrop-filter: none;
 }
 
 @media (max-width: 420px) {
