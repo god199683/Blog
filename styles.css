@@ -12396,3 +12396,279 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
   visibility: visible;
   opacity: 1;
 }
+
+/* Compact viewport stability */
+@media (max-width: 760px) {
+  :where(
+    .home-main,
+    .auth-main,
+    .account-main,
+    .blog-main,
+    .editor-page-main,
+    .viewer-main,
+    .trash-page-main,
+    .materials-main,
+    .space-dashboard-main,
+    .garden-main
+  ) {
+    box-sizing: border-box;
+    width: min(100% - 1rem, 100%);
+    margin-inline: auto;
+  }
+
+  .site-header {
+    align-items: center;
+    padding-inline: max(0.65rem, env(safe-area-inset-left)) max(0.65rem, env(safe-area-inset-right));
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .top-nav {
+    display: flex;
+    gap: 0.3rem;
+    overflow-x: auto;
+    padding-bottom: 0.1rem;
+    scrollbar-width: thin;
+  }
+
+  .top-nav a,
+  .auth-actions > * {
+    flex: 0 0 auto;
+  }
+
+  .blog-body-layout,
+  .blog-body-layout.is-sidebar-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .blog-side-panel {
+    position: relative;
+    top: auto;
+    width: 100%;
+    max-height: min(42svh, 24rem);
+  }
+
+  .blog-board,
+  .blog-board-head,
+  .blog-board-body,
+  .blog-list-row,
+  .blog-feature-card,
+  .materials-shell,
+  .viewer-shell {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .blog-board-head {
+    gap: 0.45rem;
+    padding-inline: 0.65rem;
+  }
+
+  .blog-board-head h2 {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.88rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .blog-board-actions {
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
+
+  .editor-canvas {
+    padding: 0.58rem;
+  }
+
+  .editor-title-row {
+    gap: 0.42rem;
+  }
+
+  .editor-toolbar {
+    padding: 0.5rem;
+  }
+
+  .editor-toolbar-row {
+    max-width: 100%;
+    gap: 0.28rem;
+  }
+
+  .editor-toolbar-row:first-child {
+    align-items: end;
+  }
+
+  .editor-font-select {
+    width: min(10rem, 42vw);
+  }
+
+  .editor-size-select {
+    width: 3.7rem;
+  }
+
+  .editor-toolbar .editor-fields {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .editor-toolbar .editor-fields label {
+    min-width: 0;
+  }
+
+  .editor-toolbar .editor-fields select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .editor-count-strip {
+    gap: 0.24rem;
+    padding-top: 0.5rem;
+  }
+
+  .editor-count-strip .editor-count-box {
+    min-width: 0;
+    padding-inline: 0.48rem;
+  }
+
+  .ebook-main,
+  .is-ebook-sidebar-collapsed .ebook-main {
+    grid-template-columns: minmax(0, 1fr);
+    width: calc(100% - 0.7rem);
+    margin-top: 0.35rem;
+  }
+
+  .ebook-sidebar {
+    position: sticky;
+    top: 0.35rem;
+    width: auto;
+    max-height: min(45svh, 22rem);
+  }
+
+  .ebook-toolbar {
+    align-items: center;
+    gap: 0.3rem;
+    padding-inline: 0.5rem;
+  }
+
+  .ebook-toolbar-right {
+    gap: 0.22rem;
+  }
+
+  .ebook-stage {
+    padding-inline: 2.25rem;
+  }
+
+  .ebook-page-surface {
+    width: 100%;
+    padding: 1rem 0.9rem;
+  }
+
+  .ebook-page-arrow {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .ebook-page-arrow-prev {
+    left: 0.25rem;
+  }
+
+  .ebook-page-arrow-next {
+    right: 0.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .site-header {
+    gap: 0.38rem;
+  }
+
+  .auth-actions {
+    gap: 0.25rem;
+  }
+
+  .auth-button,
+  .account-menu-button {
+    padding-inline: 0.55rem;
+  }
+
+  .editor-title-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .editor-title-visibility {
+    width: auto;
+  }
+
+  .editor-title-visibility button {
+    padding-inline: 0.55rem;
+  }
+
+  .editor-toolbar-row:nth-child(2) :where(.editor-tool-button, .editor-table-button) {
+    width: 1.78rem;
+    min-width: 1.78rem;
+    height: 1.78rem;
+  }
+
+  .editor-count-strip {
+    justify-content: stretch;
+  }
+
+  .editor-count-strip .editor-count-box {
+    flex: 1 1 auto;
+    justify-content: center;
+    font-size: 0.68rem;
+  }
+
+  .ebook-sidebar-head strong,
+  .ebook-toolbar h1 {
+    font-size: 0.8rem;
+  }
+
+  .ebook-toolbar p {
+    max-width: 42vw;
+  }
+
+  .ebook-stage {
+    padding: 0.5rem 2rem;
+  }
+
+  .ebook-page-surface {
+    min-height: 22rem;
+    padding: 0.9rem 0.72rem;
+  }
+
+  .ebook-footer {
+    gap: 0.2rem;
+    padding-inline: 0.35rem;
+  }
+
+  .ebook-progress span {
+    font-size: 0.64rem;
+  }
+}
+
+@media (max-height: 700px) and (min-width: 761px) {
+  body.editor-page .editor-page-main {
+    padding-block: 0.42rem;
+  }
+
+  .editor-canvas {
+    padding-block: 0.55rem;
+  }
+
+  .editor-toolbar {
+    padding-block: 0.42rem;
+  }
+
+  .editor-count-strip {
+    padding-top: 0.38rem;
+  }
+}
