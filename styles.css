@@ -13022,3 +13022,35 @@ body.editor-page .editor-toolbar-row:nth-child(2) :where(.editor-tool-button, .e
   height: 1.42rem;
   min-height: 1.42rem;
 }
+
+/* Match the editor action bar to the compact title and toolbar rows. */
+body.editor-page .editor-topbar {
+  min-height: 1.85rem;
+  gap: 0.35rem;
+  padding: 0.16rem 0.42rem 0.16rem 0.58rem;
+}
+
+body.editor-page .editor-kicker {
+  font-size: 0.75rem;
+}
+
+body.editor-page .editor-topbar-actions {
+  gap: 0.24rem;
+}
+
+body.editor-page .editor-save-state {
+  font-size: 0.68rem;
+}
+
+body.editor-page :where(.editor-topbar .editor-ghost-button, .editor-topbar .editor-primary-button) {
+  min-height: 1.52rem;
+  padding-inline: 0.5rem;
+  font-size: 0.72rem;
+}
+
+body.editor-page .editor-topbar .editor-icon-button {
+  width: 1.52rem;
+  min-height: 1.52rem;
+  padding: 0;
+  font-size: 0.88rem;
+}
