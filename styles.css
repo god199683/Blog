@@ -13054,3 +13054,67 @@ body.editor-page .editor-topbar .editor-icon-button {
   padding: 0;
   font-size: 0.88rem;
 }
+
+/* Ebook paper opacity control */
+.ebook-opacity-control {
+  position: relative;
+  min-width: 0;
+}
+
+.ebook-sidebar-actions:has(.ebook-opacity-control) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ebook-sidebar-actions .ebook-opacity-control > button {
+  width: 100%;
+  min-width: 2rem;
+  padding-inline: 0.38rem;
+  font-size: 0.92rem;
+}
+
+.ebook-opacity-popover {
+  position: absolute;
+  top: calc(100% + 0.38rem);
+  right: 0;
+  z-index: 30;
+  width: min(13rem, calc(100vw - 1.4rem));
+  padding: 0.62rem 0.7rem;
+  border: 1px solid rgba(125, 211, 252, 0.8);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 12px 30px rgba(15, 79, 120, 0.16);
+}
+
+.ebook-opacity-popover[hidden] {
+  display: none;
+}
+
+.ebook-opacity-popover label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.42rem;
+  color: #557085;
+  font-size: 0.72rem;
+  font-weight: 730;
+}
+
+.ebook-opacity-popover input {
+  width: 100%;
+  accent-color: #0ea5e9;
+}
+
+.ebook-page-surface {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, var(--ebook-paper-opacity, 1)),
+      rgba(251, 254, 255, var(--ebook-paper-opacity, 1))
+    );
+}
+
+@media (max-width: 420px) {
+  .ebook-sidebar-actions:has(.ebook-opacity-control) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

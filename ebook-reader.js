@@ -6,6 +6,7 @@ const FONT_SIZE_KEY = "blog.ebookFontSize";
 const BOOKMARK_KEY_PREFIX = "blog.ebookBookmark.";
 const BOOKMARK_COOKIE_PREFIX = "blog_ebook_bookmark_";
 const SIDEBAR_COLLAPSED_KEY = "blog.ebookSidebarCollapsed";
+const OPACITY_KEY = "blog.ebookPaperOpacity";
 const SWIPE_MIN_DISTANCE = 48;
 const SWIPE_DOMINANCE_RATIO = 1.25;
 
@@ -27,6 +28,7 @@ const state = {
   bookmark: null,
   remoteBookmarkSupported: true,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true",
+  opacity: Math.min(100, Math.max(35, Number(localStorage.getItem(OPACITY_KEY)) || 100)),
 };
 
 let swipeState = null;
@@ -39,6 +41,11 @@ const els = {
   sidebarToggle: document.querySelector("[data-ebook-sidebar-toggle]"),
   folderOpen: document.querySelector("[data-ebook-folder-open]"),
   write: document.querySelector("[data-ebook-write]"),
+  opacityControl: document.querySelector("[data-ebook-opacity-control]"),
+  opacityToggle: document.querySelector("[data-ebook-opacity-toggle]"),
+  opacityPopover: document.querySelector("[data-ebook-opacity-popover]"),
+  opacityInput: document.querySelector("[data-ebook-opacity]"),
+  opacityValue: document.querySelector("[data-ebook-opacity-value]"),
   folderDialog: document.querySelector("[data-ebook-folder-dialog]"),
   folderClose: document.querySelector("[data-ebook-folder-close]"),
   folderSelect: document.querySelector("[data-ebook-folder-select]"),
@@ -66,6 +73,20 @@ const els = {
 
 function clampFontSize(value) {
   return Math.min(28, Math.max(12, Number(value) || 18));
+}
+
+function applyReaderOpacity(value = state.opacity) {
+  state.opacity = Math.min(100, Math.max(35, Number(value) || 100));
+  document.documentElement.style.setProperty("--ebook-paper-opacity", String(state.opacity / 100));
+  if (els.opacityInput) els.opacityInput.value = String(state.opacity);
+  if (els.opacityValue) els.opacityValue.value = `${state.opacity}%`;
+  localStorage.setItem(OPACITY_KEY, String(state.opacity));
+}
+
+function setOpacityPopover(open) {
+  if (!els.opacityPopover || !els.opacityToggle) return;
+  els.opacityPopover.hidden = !open;
+  els.opacityToggle.setAttribute("aria-expanded", String(open));
 }
 
 function escapeHtml(value = "") {
@@ -1163,6 +1184,14 @@ function bindEvents() {
   els.sidebarToggle?.addEventListener("click", toggleSidebar);
   els.folderOpen?.addEventListener("click", openFolderDialog);
   els.write?.addEventListener("click", openWriteEditor);
+  els.opacityToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setOpacityPopover(els.opacityPopover?.hidden !== false);
+  });
+  els.opacityInput?.addEventListener("input", (event) => applyReaderOpacity(event.target.value));
+  document.addEventListener("click", (event) => {
+    if (!els.opacityControl?.contains(event.target)) setOpacityPopover(false);
+  });
   els.folderClose?.addEventListener("click", closeFolderDialog);
   els.folderDialog?.addEventListener("click", (event) => {
     if (event.target === els.folderDialog) closeFolderDialog();
@@ -1216,6 +1245,7 @@ async function init() {
   bindEvents();
   syncScrollToolbox();
   applySidebarCollapsed();
+  applyReaderOpacity();
   updateReaderFont();
   const session = await window.blogSession?.ready;
   const id = getSessionId(session);
