@@ -12912,63 +12912,58 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
   }
 }
 
-/* Page-contained fullscreen mode for the ebook reading surface. */
-.ebook-fullscreen-button {
-  width: 1.55rem;
-  min-width: 1.55rem;
-  padding: 0 !important;
-  font-size: 0.9rem;
-  line-height: 1;
+/* Condense the sticky reader panel into a toolbox while the page is scrolled. */
+.ebook-page.is-ebook-scrolled .ebook-sidebar {
+  gap: 0.25rem;
+  padding: 0.34rem;
+  border-color: rgba(125, 211, 252, 0.72);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 10px 28px rgba(15, 79, 120, 0.14);
+  backdrop-filter: blur(14px);
 }
 
-.ebook-fullscreen-button span {
-  display: grid;
-  place-items: center;
+.ebook-page.is-ebook-scrolled .ebook-sidebar-head {
+  padding: 0.08rem 0.12rem 0.18rem;
 }
 
-.ebook-fullscreen-button[aria-pressed="true"] {
-  border-color: rgba(14, 165, 233, 0.58);
-  background: #e0f4ff;
-  color: #0369a1;
+.ebook-page.is-ebook-scrolled .ebook-sidebar-actions {
+  grid-template-columns: repeat(auto-fit, minmax(4.6rem, 1fr));
+  gap: 0.25rem;
 }
 
-body.is-ebook-reader-fullscreen {
-  overflow: hidden;
+.ebook-page.is-ebook-scrolled .ebook-sidebar-actions button {
+  min-height: 1.55rem;
+  padding-inline: 0.38rem;
+  font-size: 0.71rem;
 }
 
-.ebook-reader.is-page-fullscreen {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  width: 100%;
-  height: 100svh;
-  min-height: 0;
-  border: 0;
-  border-radius: 0;
-  background: #fff;
-  box-shadow: none;
+.ebook-page.is-ebook-scrolled :where(.ebook-selected-folder, .ebook-post-list) {
+  display: none;
 }
 
-.ebook-reader.is-page-fullscreen .ebook-toolbar {
-  padding-top: max(0.3rem, env(safe-area-inset-top));
-  padding-right: max(0.78rem, env(safe-area-inset-right));
-  padding-left: max(0.78rem, env(safe-area-inset-left));
+@media (max-width: 1040px) {
+  .ebook-page.is-ebook-scrolled .ebook-sidebar {
+    grid-template-columns: minmax(8.5rem, 0.38fr) minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .ebook-page.is-ebook-scrolled .ebook-sidebar-head {
+    padding: 0.08rem 0.35rem 0.08rem 0.12rem;
+    border-right: 1px solid rgba(216, 234, 251, 0.86);
+    border-bottom: 0;
+  }
 }
 
-.ebook-reader.is-page-fullscreen .ebook-stage {
-  min-height: 0;
-}
+@media (max-width: 480px) {
+  .ebook-page.is-ebook-scrolled .ebook-sidebar {
+    grid-template-columns: 1fr;
+  }
 
-.ebook-reader.is-page-fullscreen .ebook-page-surface {
-  height: 100%;
-  min-height: 0;
-  max-height: none;
-}
-
-.ebook-reader.is-page-fullscreen .ebook-footer {
-  padding-right: max(0.74rem, env(safe-area-inset-right));
-  padding-bottom: max(0.18rem, env(safe-area-inset-bottom));
-  padding-left: max(0.74rem, env(safe-area-inset-left));
+  .ebook-page.is-ebook-scrolled .ebook-sidebar-head {
+    padding-bottom: 0.18rem;
+    border-right: 0;
+    border-bottom: 1px solid rgba(216, 234, 251, 0.8);
+  }
 }
 
 /* Half-height editor title and formatting controls. */
