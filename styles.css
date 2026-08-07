@@ -12756,3 +12756,54 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
     display: none;
   }
 }
+
+/* Compact site header for the ebook reader. */
+.ebook-page {
+  --ebook-sticky-offset: 2.65rem;
+}
+
+.ebook-page > .site-header {
+  min-height: 2.25rem;
+  flex-wrap: nowrap;
+  gap: 0.38rem;
+  padding-block: 0.12rem;
+  padding-inline: max(0.65rem, env(safe-area-inset-left)) max(0.65rem, env(safe-area-inset-right));
+}
+
+.ebook-page > .site-header .brand {
+  gap: 0.38rem;
+  font-size: 0.82rem;
+}
+
+.ebook-page > .site-header .brand-mark {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.ebook-page > .site-header .top-nav {
+  order: initial;
+  width: auto;
+  margin-left: auto;
+  padding-bottom: 0;
+}
+
+.ebook-page > .site-header :where(.top-nav a, .auth-button, .account-menu-button) {
+  min-height: 1.55rem;
+  padding-block: 0.08rem;
+  padding-inline: 0.52rem;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 520px) {
+  .ebook-page > .site-header {
+    padding-inline: max(0.42rem, env(safe-area-inset-left)) max(0.42rem, env(safe-area-inset-right));
+  }
+
+  .ebook-page > .site-header .brand > span:last-child {
+    max-width: 5.4rem;
+  }
+
+  .ebook-page > .site-header :where(.top-nav a, .auth-button, .account-menu-button) {
+    padding-inline: 0.4rem;
+  }
+}
