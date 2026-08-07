@@ -9,6 +9,7 @@ const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
 const EDITOR_SIDE_COLLAPSED_KEY = "blog.editorSidePanelCollapsed";
+const EDITOR_TOPBAR_COLLAPSED_KEY = "blog.editorTopbarCollapsed";
 const EDITOR_HISTORY_LIMIT = 120;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
@@ -50,6 +51,8 @@ const els = {
   draft: document.querySelector("[data-editor-draft]"),
   saveState: document.querySelector("[data-editor-save-state]"),
   submit: document.querySelector("[data-editor-submit]"),
+  topbar: document.querySelector(".editor-topbar"),
+  topbarToggle: document.querySelector("[data-editor-topbar-toggle]"),
   message: document.querySelector("[data-editor-message]"),
   sidePanel: document.querySelector("[data-editor-side-panel]"),
   sideToggle: document.querySelector("[data-editor-side-toggle]"),
@@ -3392,6 +3395,20 @@ function initEditorSidePanelToggle() {
   setEditorSidePanelCollapsed(isEditorSidePanelCollapsed());
 }
 
+function setEditorTopbarCollapsed(collapsed) {
+  const isCollapsed = Boolean(collapsed);
+  const label = isCollapsed ? "상단 작업 상자 펼치기" : "상단 작업 상자 접기";
+  document.body.classList.toggle("is-editor-topbar-collapsed", isCollapsed);
+  els.topbarToggle?.setAttribute("aria-expanded", String(!isCollapsed));
+  els.topbarToggle?.setAttribute("aria-label", label);
+  if (els.topbarToggle) els.topbarToggle.title = label;
+  localStorage.setItem(EDITOR_TOPBAR_COLLAPSED_KEY, isCollapsed ? "1" : "0");
+}
+
+function initEditorTopbarToggle() {
+  setEditorTopbarCollapsed(localStorage.getItem(EDITOR_TOPBAR_COLLAPSED_KEY) === "1");
+}
+
 function nodeIsInEditor(node) {
   if (!node) return false;
   return node === els.content || els.content.contains(node);
@@ -5317,6 +5334,7 @@ async function handleEditorSubmit(event) {
 
 async function initEditor() {
   initEditorSidePanelToggle();
+  initEditorTopbarToggle();
   const session = await getFreshSession();
   state.id = getSessionId(session);
 
@@ -5400,6 +5418,9 @@ async function initEditor() {
 }
 
 els.close.addEventListener("click", returnToBlog);
+els.topbarToggle?.addEventListener("click", () => {
+  setEditorTopbarCollapsed(!document.body.classList.contains("is-editor-topbar-collapsed"));
+});
 els.form.addEventListener("submit", handleEditorSubmit);
 els.draft.addEventListener("click", () => {
   saveEditorDraft();

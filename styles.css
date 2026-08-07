@@ -13054,3 +13054,48 @@ body.editor-page .editor-topbar .editor-icon-button {
   padding: 0;
   font-size: 0.88rem;
 }
+
+/* Floating, collapsible top toolboxes. */
+.ebook-sidebar,
+body.editor-page .editor-topbar {
+  border: 1px solid rgba(125, 211, 252, 0.72);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 30px rgba(15, 79, 120, 0.13);
+  backdrop-filter: blur(14px);
+}
+
+body.editor-page .editor-topbar {
+  position: relative;
+  z-index: 24;
+  margin: 0.42rem 0.52rem 0;
+  border-radius: 9px;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+body.editor-page .editor-topbar-toggle {
+  flex: 0 0 auto;
+}
+
+body.editor-page .editor-topbar-toggle span {
+  display: grid;
+  place-items: center;
+  transition: transform 160ms ease;
+}
+
+body.is-editor-topbar-collapsed .editor-topbar {
+  min-height: 1.8rem;
+}
+
+body.is-editor-topbar-collapsed .editor-topbar-actions > :not(.editor-topbar-toggle) {
+  display: none;
+}
+
+body.is-editor-topbar-collapsed .editor-topbar-toggle span {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 620px) {
+  body.editor-page .editor-topbar {
+    margin-inline: 0.35rem;
+  }
+}
