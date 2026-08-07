@@ -12937,8 +12937,20 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
   font-size: 0.71rem;
 }
 
-.ebook-page.is-ebook-scrolled :where(.ebook-selected-folder, .ebook-post-list) {
+.ebook-page.is-ebook-scrolled.is-ebook-sidebar-collapsed :where(.ebook-selected-folder, .ebook-post-list) {
   display: none;
+}
+
+.ebook-page.is-ebook-scrolled:not(.is-ebook-sidebar-collapsed) .ebook-sidebar {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  max-height: calc(100svh - var(--ebook-sticky-offset) - 0.8rem);
+}
+
+.ebook-page.is-ebook-scrolled:not(.is-ebook-sidebar-collapsed) .ebook-sidebar-head {
+  padding-bottom: 0.18rem;
+  border-right: 0;
+  border-bottom: 1px solid rgba(216, 234, 251, 0.8);
 }
 
 @media (max-width: 1040px) {
