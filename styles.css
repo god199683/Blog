@@ -13067,7 +13067,7 @@ body.editor-page .editor-topbar .editor-icon-button {
   font-size: 0.88rem;
 }
 
-/* Ebook paper opacity control */
+/* Ebook toolbar opacity control */
 .ebook-opacity-control {
   position: relative;
   min-width: 0;
@@ -13101,6 +13101,10 @@ body.editor-page .editor-topbar .editor-icon-button {
   display: none;
 }
 
+.ebook-page.is-ebook-opacity-open .ebook-sidebar {
+  overflow: visible;
+}
+
 .ebook-opacity-popover label {
   display: flex;
   align-items: center;
@@ -13116,13 +13120,10 @@ body.editor-page .editor-topbar .editor-icon-button {
   accent-color: #0ea5e9;
 }
 
-.ebook-page-surface {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, var(--ebook-paper-opacity, 1)),
-      rgba(251, 254, 255, var(--ebook-paper-opacity, 1))
-    );
+.ebook-sidebar,
+.ebook-page.is-ebook-scrolled .ebook-sidebar {
+  background: rgba(255, 255, 255, var(--ebook-toolbar-opacity, 1));
+  backdrop-filter: blur(14px);
 }
 
 @media (max-width: 420px) {

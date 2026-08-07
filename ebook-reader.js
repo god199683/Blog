@@ -6,7 +6,7 @@ const FONT_SIZE_KEY = "blog.ebookFontSize";
 const BOOKMARK_KEY_PREFIX = "blog.ebookBookmark.";
 const BOOKMARK_COOKIE_PREFIX = "blog_ebook_bookmark_";
 const SIDEBAR_COLLAPSED_KEY = "blog.ebookSidebarCollapsed";
-const OPACITY_KEY = "blog.ebookPaperOpacity";
+const OPACITY_KEY = "blog.ebookToolbarOpacity";
 const SWIPE_MIN_DISTANCE = 48;
 const SWIPE_DOMINANCE_RATIO = 1.25;
 
@@ -77,7 +77,7 @@ function clampFontSize(value) {
 
 function applyReaderOpacity(value = state.opacity) {
   state.opacity = Math.min(100, Math.max(35, Number(value) || 100));
-  document.documentElement.style.setProperty("--ebook-paper-opacity", String(state.opacity / 100));
+  document.documentElement.style.setProperty("--ebook-toolbar-opacity", String(state.opacity / 100));
   if (els.opacityInput) els.opacityInput.value = String(state.opacity);
   if (els.opacityValue) els.opacityValue.value = `${state.opacity}%`;
   localStorage.setItem(OPACITY_KEY, String(state.opacity));
@@ -87,6 +87,7 @@ function setOpacityPopover(open) {
   if (!els.opacityPopover || !els.opacityToggle) return;
   els.opacityPopover.hidden = !open;
   els.opacityToggle.setAttribute("aria-expanded", String(open));
+  document.body.classList.toggle("is-ebook-opacity-open", open);
 }
 
 function escapeHtml(value = "") {

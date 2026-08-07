@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="폴더 안의 글을 Ebook 형식으로 이어 읽는 페이지">
     <title>책 뷰어 | Blog</title>
-    <link rel="stylesheet" href="./styles.css?v=20260807-scroll-toolbox-expand">
+    <link rel="stylesheet" href="./styles.css?v=20260807-toolbar-opacity">
   </head>
   <body class="ebook-page">
     <header class="site-header">
@@ -40,15 +40,15 @@
           <button type="button" data-ebook-bookmark aria-pressed="false">북마크</button>
           <button type="button" data-ebook-write hidden>글쓰기</button>
           <div class="ebook-opacity-control" data-ebook-opacity-control>
-            <button type="button" data-ebook-opacity-toggle aria-label="본문 투명도 조절" title="본문 투명도 조절" aria-expanded="false">
+            <button type="button" data-ebook-opacity-toggle aria-label="상단바 투명도 조절" title="상단바 투명도 조절" aria-expanded="false">
               <span aria-hidden="true">◐</span>
             </button>
             <div class="ebook-opacity-popover" data-ebook-opacity-popover hidden>
               <label>
-                <span>투명도</span>
+                <span>상단바 투명도</span>
                 <output data-ebook-opacity-value>100%</output>
               </label>
-              <input type="range" min="35" max="100" step="5" value="100" data-ebook-opacity aria-label="본문 투명도">
+              <input type="range" min="35" max="100" step="5" value="100" data-ebook-opacity aria-label="상단바 투명도">
             </div>
           </div>
         </div>
