@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="블로그 글쓰기">
     <title>글쓰기 | Blog</title>
-    <link rel="stylesheet" href="./styles.css?v=20260807-compact-editor-actionbar">
+    <link rel="stylesheet" href="./styles.css?v=20260807-editor-writing-focus">
   </head>
   <body class="editor-page">
     <header class="site-header">
@@ -29,6 +29,7 @@
             <span class="editor-save-state" data-editor-save-state>임시 저장 준비</span>
             <button class="editor-ghost-button" type="button" data-editor-draft>임시 저장</button>
             <button class="editor-primary-button" type="submit" data-editor-submit>게시</button>
+            <button class="editor-icon-button editor-writing-focus-button" type="button" data-editor-writing-focus aria-label="본문 크게 보기" title="본문 크게 보기" aria-pressed="false">⛶</button>
             <button class="editor-icon-button" type="button" data-editor-close aria-label="내 블로그로 돌아가기">×</button>
           </div>
         </header>
@@ -250,7 +251,7 @@
     </div>
 
     <script src="./session.js" defer></script>
-    <script src="./editor.js" defer></script>
+    <script src="./editor.js?v=20260807-editor-writing-focus" defer></script>
     <script src="./scroll-jump.js" defer></script>
   </body>
 </html>

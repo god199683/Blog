@@ -38,6 +38,7 @@ const state = {
 const els = {
   form: document.querySelector("[data-editor-form]"),
   close: document.querySelector("[data-editor-close]"),
+  writingFocus: document.querySelector("[data-editor-writing-focus]"),
   title: document.querySelector("[data-editor-title]"),
   category: document.querySelector("[data-editor-category]"),
   folder: document.querySelector("[data-editor-folder]"),
@@ -5283,6 +5284,20 @@ function returnToBlog() {
   window.location.href = getEditorReturnHref();
 }
 
+function setEditorWritingFocus(active) {
+  document.body.classList.toggle("is-editor-writing-focus", active);
+  if (els.writingFocus) {
+    els.writingFocus.setAttribute("aria-pressed", String(active));
+    els.writingFocus.setAttribute("aria-label", active ? "편집 도구 표시" : "본문 크게 보기");
+    els.writingFocus.title = active ? "편집 도구 표시" : "본문 크게 보기";
+    els.writingFocus.textContent = active ? "↙" : "⛶";
+  }
+  requestAnimationFrame(() => {
+    els.content?.focus({ preventScroll: true });
+    restoreEditorSelection();
+  });
+}
+
 async function handleEditorSubmit(event) {
   event.preventDefault();
 
@@ -5400,6 +5415,10 @@ async function initEditor() {
 }
 
 els.close.addEventListener("click", returnToBlog);
+els.writingFocus?.addEventListener("click", () => {
+  saveCurrentSelection();
+  setEditorWritingFocus(!document.body.classList.contains("is-editor-writing-focus"));
+});
 els.form.addEventListener("submit", handleEditorSubmit);
 els.draft.addEventListener("click", () => {
   saveEditorDraft();
@@ -5426,6 +5445,11 @@ els.content.addEventListener("mouseup", syncEditorFindPopoverPosition);
 els.content.addEventListener("keyup", syncEditorFindPopoverPosition);
 els.content.addEventListener("scroll", syncEditorFindPopoverPosition);
 document.addEventListener("selectionchange", syncEditorFindPopoverPosition);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.body.classList.contains("is-editor-writing-focus")) {
+    setEditorWritingFocus(false);
+  }
+});
 window.addEventListener("resize", syncEditorFindPopoverPosition);
 window.addEventListener("resize", repositionOpenColorMenus);
 

@@ -13131,3 +13131,38 @@ body.editor-page .editor-topbar .editor-icon-button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Writing focus keeps the content large in short browser windows. */
+body.editor-page .editor-writing-focus-button {
+  font-size: 0.8rem;
+}
+
+body.editor-page.is-editor-writing-focus {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+body.editor-page.is-editor-writing-focus > .site-header,
+body.editor-page.is-editor-writing-focus .editor-title-row,
+body.editor-page.is-editor-writing-focus .editor-toolbar,
+body.editor-page.is-editor-writing-focus .editor-kicker,
+body.editor-page.is-editor-writing-focus .editor-save-state {
+  display: none;
+}
+
+body.editor-page.is-editor-writing-focus .editor-page-main {
+  width: min(100% - 0.5rem, 1280px);
+  padding-block: 0.25rem;
+}
+
+body.editor-page.is-editor-writing-focus .editor-topbar {
+  justify-content: flex-end;
+}
+
+body.editor-page.is-editor-writing-focus .editor-canvas {
+  padding-top: 0.28rem;
+}
+
+body.editor-page.is-editor-writing-focus .editor-surface {
+  min-height: 8rem;
+  margin-top: 0;
+}
