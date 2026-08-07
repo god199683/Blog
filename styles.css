@@ -12807,3 +12807,107 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
     padding-inline: 0.4rem;
   }
 }
+
+/* Preserve a usable writing surface in short browser windows. */
+@media (max-height: 620px) {
+  body.editor-page {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  body.editor-page > .site-header {
+    min-height: 2.25rem;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    padding-block: 0.12rem;
+    padding-inline: 0.65rem;
+  }
+
+  body.editor-page > .site-header .brand {
+    gap: 0.38rem;
+    font-size: 0.82rem;
+  }
+
+  body.editor-page > .site-header .brand-mark {
+    width: 1.55rem;
+    height: 1.55rem;
+  }
+
+  body.editor-page > .site-header :where(.top-nav a, .auth-button, .account-menu-button) {
+    min-height: 1.55rem;
+    padding-block: 0.08rem;
+    padding-inline: 0.5rem;
+    font-size: 0.74rem;
+  }
+
+  body.editor-page .editor-page-main {
+    padding-block: 0.3rem;
+  }
+
+  body.editor-page .editor-topbar {
+    min-height: 2.2rem;
+    gap: 0.45rem;
+    padding: 0.25rem 0.55rem 0.25rem 0.7rem;
+  }
+
+  body.editor-page .editor-topbar-actions {
+    gap: 0.28rem;
+  }
+
+  body.editor-page :where(.editor-ghost-button, .editor-primary-button, .editor-icon-button) {
+    min-height: 1.65rem;
+    padding-inline: 0.55rem;
+  }
+
+  body.editor-page .editor-icon-button {
+    width: 1.65rem;
+    padding-inline: 0;
+  }
+
+  body.editor-page .editor-canvas {
+    padding: 0.4rem 0.55rem 0.45rem;
+  }
+
+  body.editor-page .editor-title-input {
+    min-height: 1.95rem;
+    padding-inline: 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  body.editor-page .editor-title-visibility button {
+    min-height: 1.95rem;
+    padding-inline: 0.58rem;
+  }
+
+  body.editor-page .editor-toolbar {
+    gap: 0.22rem;
+    margin-top: 0.38rem;
+    padding: 0.28rem 0.34rem;
+  }
+
+  body.editor-page .editor-toolbar-row {
+    gap: 0.2rem;
+  }
+
+  body.editor-page :where(.editor-font-select, .editor-size-select, .editor-toolbar .editor-fields select) {
+    min-height: 1.7rem;
+  }
+
+  body.editor-page :where(.editor-add-font-button, .editor-tool-button, .editor-table-button, .editor-find-button) {
+    height: 1.7rem;
+    min-height: 1.7rem;
+  }
+
+  body.editor-page .editor-toolbar-row:nth-child(2) :where(.editor-tool-button, .editor-table-button) {
+    height: 1.58rem;
+    min-height: 1.58rem;
+  }
+
+  body.editor-page .editor-surface {
+    margin-top: 0.38rem;
+    padding: 0.72rem;
+  }
+
+  body.editor-page .editor-count-strip {
+    padding-top: 0.28rem;
+  }
+}
