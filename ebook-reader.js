@@ -414,18 +414,18 @@ function getFolderSubtreePosts(folderId) {
   return collectFolderPostsInReadingOrder(found.node);
 }
 
-function getReadingFolderNodes(folderId) {
+function getFolderDepth(folderId) {
   const found = findNode(state.tree, folderId);
-  if (!found) return [];
-  const parent = found.path[found.path.length - 2] || null;
-  const siblings = Array.isArray(parent?.children) ? parent.children : state.tree;
-  const startIndex = siblings.findIndex((node) => node.id === folderId);
-  if (startIndex < 0) return [found.node];
-  return siblings.slice(startIndex).filter((node) => node.type === "folder");
+  if (!found) return 0;
+  return found.path.filter((node) => node.type === "folder").length;
 }
 
 function getFolderPosts(folderId) {
-  return getReadingFolderNodes(folderId).reduce((posts, folder) => collectFolderPostsInReadingOrder(folder, posts), []);
+  const found = findNode(state.tree, folderId);
+  if (!found || found.node.type !== "folder") return [];
+  return getFolderDepth(folderId) === 1
+    ? collectFolderPostsInReadingOrder(found.node)
+    : getDirectFolderPosts(folderId);
 }
 
 function getFolderPathById(folderId) {
@@ -476,15 +476,15 @@ function collectFolderOptions() {
     nodes.forEach((node) => {
       const nextPath = [...path, node];
       if (node.type === "folder") {
-        const posts = getFolderSubtreePosts(node.id);
-        if (posts.length > 0) {
-          folders.push({
-            id: node.id,
-            label: node.label,
-            path: getPathLabel(nextPath),
-            count: posts.length,
-          });
-        }
+        const folderDepth = nextPath.filter((item) => item.type === "folder").length;
+        const posts = folderDepth === 1 ? getFolderSubtreePosts(node.id) : getDirectFolderPosts(node.id);
+        folders.push({
+          id: node.id,
+          label: node.label,
+          path: getPathLabel(nextPath),
+          count: posts.length,
+          isTopLevel: folderDepth === 1,
+        });
       }
       walk(node.children || [], nextPath);
     });
