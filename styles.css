@@ -13143,7 +13143,6 @@ body.editor-page.is-editor-writing-focus {
 
 body.editor-page.is-editor-writing-focus > .site-header,
 body.editor-page.is-editor-writing-focus .editor-title-row,
-body.editor-page.is-editor-writing-focus .editor-toolbar,
 body.editor-page.is-editor-writing-focus .editor-kicker,
 body.editor-page.is-editor-writing-focus .editor-save-state {
   display: none;
@@ -13162,9 +13161,19 @@ body.editor-page.is-editor-writing-focus .editor-canvas {
   padding-top: 0.28rem;
 }
 
+body.editor-page.is-editor-writing-focus .editor-toolbar {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 auto;
+  margin-top: 0;
+  border-color: rgba(125, 211, 252, 0.78);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 10px 28px rgba(15, 79, 120, 0.13);
+}
+
 body.editor-page.is-editor-writing-focus .editor-surface {
   min-height: 8rem;
-  margin-top: 0;
+  margin-top: 0.28rem;
 }
 
 /* Keep the reader commands compact and aligned before the back button. */
