@@ -1,12 +1,30 @@
 const SUPABASE_URL = "https://ipylqxcmajrwtvvmrvfy.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
+const PUBLIC_HOME_CACHE_KEY = "blog.publicHomeCache.v1";
 
 const els = {
   feedList: document.querySelector(".feed-list"),
   feedEmpty: document.querySelector(".feed-empty"),
   publicProfiles: document.querySelector("[data-public-profiles]"),
 };
+
+function readPublicHomeCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(PUBLIC_HOME_CACHE_KEY) || "null");
+    return cached && Array.isArray(cached.posts) && Array.isArray(cached.profiles) ? cached : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePublicHomeCache(posts, profiles) {
+  try {
+    localStorage.setItem(PUBLIC_HOME_CACHE_KEY, JSON.stringify({ posts, profiles, savedAt: Date.now() }));
+  } catch {
+    // Storage can be blocked in private or embedded browsers.
+  }
+}
 
 function escapeHtml(value = "") {
   return String(value)
@@ -238,12 +256,19 @@ function renderPublicPosts(posts = []) {
 async function initPublicHome() {
   const initialSession = window.blogSession?.read?.() || null;
   const sessionPromise = Promise.resolve(window.blogSession?.ready).catch(() => initialSession);
-  try {
+  const cached = readPublicHomeCache();
+  if (cached) {
+    renderPublicProfiles(cached.posts, cached.profiles, initialSession);
+    renderPublicPosts(cached.posts);
+  } else {
     renderEmpty("공개 글을 불러오는 중입니다.");
+  }
+  try {
     const [posts, profiles] = await Promise.all([
       fetchPublicPosts(),
       fetchPublicProfiles().catch(() => []),
     ]);
+    writePublicHomeCache(posts, profiles);
     renderPublicProfiles(posts, profiles, initialSession);
     renderPublicPosts(posts);
     sessionPromise.then((session) => renderPublicProfiles(posts, profiles, session || initialSession));

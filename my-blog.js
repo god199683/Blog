@@ -2734,10 +2734,18 @@ document.addEventListener("keydown", (event) => {
 async function ensureBlogProfile(session, id) {
   if (!session?.access_token || !session.user?.id) return null;
 
-  await requestRest("blog_profiles?on_conflict=user_id", session.access_token, {
+  const rows = await requestRest(
+    `blog_profiles?select=login_id,blog_title&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
+    session.access_token
+  );
+  const profile = Array.isArray(rows) ? rows[0] : null;
+  if (profile) return profile;
+
+  const fallback = { login_id: id, blog_title: `${id}'s Blog` };
+  requestRest("blog_profiles?on_conflict=user_id", session.access_token, {
     method: "POST",
     headers: {
-      Prefer: "resolution=merge-duplicates,return=representation",
+      Prefer: "resolution=merge-duplicates,return=minimal",
     },
     body: JSON.stringify({
       user_id: session.user.id,
@@ -2745,13 +2753,8 @@ async function ensureBlogProfile(session, id) {
       blog_title: `${id}'s Blog`,
       updated_at: new Date().toISOString(),
     }),
-  });
-
-  const rows = await requestRest(
-    `blog_profiles?select=login_id,blog_title&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
-    session.access_token
-  );
-  return Array.isArray(rows) ? rows[0] : null;
+  }).catch(() => {});
+  return fallback;
 }
 
 window.blogSession?.ready.then(async (session) => {
