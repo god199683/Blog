@@ -1147,27 +1147,29 @@ function scheduleScrollToolbox() {
 
 async function toggleBookmark() {
   if (isCurrentBookmark()) {
+    writeLocalBookmark(null);
+    renderPostList();
+    syncBookmarkButton();
+    setMessage("북마크를 해제했습니다.");
     try {
-      await writeBookmark(null);
-      setMessage("북마크를 해제했습니다.");
+      await saveBookmarkRemote(null);
     } catch (error) {
       setMessage(error.message || "북마크를 해제하지 못했습니다.");
     }
-    renderPostList();
-    syncBookmarkButton();
     return;
   }
 
   const current = getCurrentBookmark();
   if (!current) return;
+  writeLocalBookmark(current);
+  renderPostList();
+  syncBookmarkButton();
+  setMessage("북마크를 저장했습니다.");
   try {
-    await writeBookmark(current);
-    setMessage("북마크를 저장했습니다.");
+    await saveBookmarkRemote(current);
   } catch (error) {
     setMessage(error.message || "북마크를 저장하지 못했습니다.");
   }
-  renderPostList();
-  syncBookmarkButton();
 }
 
 async function openWriteEditor() {
