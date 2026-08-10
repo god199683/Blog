@@ -10,6 +10,7 @@ const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
 const EDITOR_SIDE_COLLAPSED_KEY = "blog.editorSidePanelCollapsed";
 const EDITOR_HISTORY_LIMIT = 120;
+const EDITOR_AUTO_DRAFT_DELAY = 2 * 60 * 1000;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
 const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th";
@@ -97,6 +98,8 @@ let pasteMenu = null;
 let editorFindMatches = [];
 let editorFindIndex = -1;
 let editorFindQuery = "";
+let editorAutoDraftTimer = 0;
+let editorDraftDirty = false;
 
 const BUILTIN_EDITOR_FONTS = [
   DEFAULT_EDITOR_FONT,
@@ -3292,10 +3295,21 @@ function markEditorDirty() {
   if (els.message.dataset.type === "success") {
     setEditorMessage("");
   }
+  scheduleEditorAutoDraft();
 }
 
-function saveEditorDraft() {
-  if (!state.id) return;
+function scheduleEditorAutoDraft() {
+  editorDraftDirty = true;
+  window.clearTimeout(editorAutoDraftTimer);
+  editorAutoDraftTimer = window.setTimeout(() => {
+    saveEditorDraft({ automatic: true });
+  }, EDITOR_AUTO_DRAFT_DELAY);
+}
+
+function saveEditorDraft({ automatic = false } = {}) {
+  if (!state.id || !editorDraftDirty && automatic) return false;
+  window.clearTimeout(editorAutoDraftTimer);
+  editorAutoDraftTimer = 0;
   const draft = {
     context_id: getEditorDraftContextId(),
     title: els.title.value,
@@ -3306,8 +3320,10 @@ function saveEditorDraft() {
     saved_at: new Date().toISOString(),
   };
   localStorage.setItem(editorDraftKey(), JSON.stringify(draft));
-  setEditorSaveState("임시 저장됨");
-  setEditorMessage("임시 저장했습니다.", "success");
+  editorDraftDirty = false;
+  setEditorSaveState(automatic ? "자동 임시 저장됨" : "임시 저장됨");
+  if (!automatic) setEditorMessage("임시 저장했습니다.", "success");
+  return true;
 }
 
 function loadEditorDraft() {
@@ -3326,6 +3342,9 @@ function loadEditorDraft() {
 }
 
 function clearEditorDraft() {
+  window.clearTimeout(editorAutoDraftTimer);
+  editorAutoDraftTimer = 0;
+  editorDraftDirty = false;
   localStorage.removeItem(editorDraftKey());
   const legacyDraft = safeParseJson(localStorage.getItem(legacyEditorDraftKey()), null);
   if (!legacyDraft || !legacyDraft.context_id || legacyDraft.context_id === getEditorDraftContextId()) {
@@ -5495,6 +5514,16 @@ document.addEventListener("keydown", (event) => {
     setEditorWritingFocus(false);
   }
 });
+
+window.addEventListener("pagehide", () => {
+  if (editorDraftDirty) saveEditorDraft({ automatic: true });
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && editorDraftDirty) {
+    saveEditorDraft({ automatic: true });
+  }
+});
 window.addEventListener("resize", syncEditorFindPopoverPosition);
 window.addEventListener("resize", repositionOpenColorMenus);
 
@@ -5917,13 +5946,6 @@ els.locationDialog?.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && els.locationDialog && !els.locationDialog.hidden) {
     closeLocationDialog(null);
-  }
-});
-
-els.form.addEventListener("keydown", (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    saveEditorDraft();
   }
 });
 
