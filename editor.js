@@ -917,8 +917,18 @@ function getEditorDefaults() {
   };
 }
 
-function editorDraftKey() {
+function getEditorDraftContextId() {
+  if (state.editPostId) return `post:${state.editPostId}`;
+  if (state.editMaterialId) return `material:${state.editMaterialId}`;
+  return "new";
+}
+
+function legacyEditorDraftKey() {
   return `${EDITOR_DRAFT_PREFIX}${state.target}.${state.id || "guest"}`;
+}
+
+function editorDraftKey() {
+  return `${legacyEditorDraftKey()}.${encodeURIComponent(getEditorDraftContextId())}`;
 }
 
 function editorFontKey() {
@@ -3287,6 +3297,7 @@ function markEditorDirty() {
 function saveEditorDraft() {
   if (!state.id) return;
   const draft = {
+    context_id: getEditorDraftContextId(),
     title: els.title.value,
     category: els.category.value,
     folder_id: getSelectedEditorFolderId(),
@@ -3300,11 +3311,26 @@ function saveEditorDraft() {
 }
 
 function loadEditorDraft() {
-  return safeParseJson(localStorage.getItem(editorDraftKey()), null);
+  const contextualDraft = safeParseJson(localStorage.getItem(editorDraftKey()), null);
+  if (contextualDraft) return contextualDraft;
+
+  const legacyDraft = safeParseJson(localStorage.getItem(legacyEditorDraftKey()), null);
+  if (!legacyDraft) return null;
+
+  const contextId = getEditorDraftContextId();
+  if (legacyDraft.context_id && legacyDraft.context_id !== contextId) return null;
+  if (!legacyDraft.context_id && contextId !== "new") return null;
+
+  localStorage.setItem(editorDraftKey(), JSON.stringify({ ...legacyDraft, context_id: contextId }));
+  return legacyDraft;
 }
 
 function clearEditorDraft() {
   localStorage.removeItem(editorDraftKey());
+  const legacyDraft = safeParseJson(localStorage.getItem(legacyEditorDraftKey()), null);
+  if (!legacyDraft || !legacyDraft.context_id || legacyDraft.context_id === getEditorDraftContextId()) {
+    localStorage.removeItem(legacyEditorDraftKey());
+  }
 }
 
 function getEditorTextForCounting() {
@@ -5381,8 +5407,8 @@ async function initEditor() {
   if (state.editingPost && !state.posts.some((post) => String(post.id) === String(state.editingPost.id))) {
     state.posts.unshift(state.editingPost);
   }
-  const draft = state.editingPost || state.editingMaterial || state.forceNewPost ? null : loadEditorDraft();
-  const source = state.editingPost || state.editingMaterial || draft || null;
+  const draft = loadEditorDraft();
+  const source = draft || state.editingPost || state.editingMaterial || null;
 
   if (state.editPostId && !state.editingPost) {
     setEditorMessage("수정할 글을 찾지 못했습니다.", "error");
@@ -5403,7 +5429,7 @@ async function initEditor() {
   resetEditorHistory();
   els.published.checked = source?.published ?? true;
   els.submit.textContent = isMaterialEditor() ? (state.editingMaterial ? "수정" : "저장") : state.editingPost ? "수정" : "게시";
-  setEditorSaveState(state.editingPost || state.editingMaterial ? "수정 준비" : draft ? "임시 저장 불러옴" : "임시 저장 준비");
+  setEditorSaveState(draft ? "임시 저장 불러옴" : state.editingPost || state.editingMaterial ? "수정 준비" : "임시 저장 준비");
   renderEditorFontOptions();
   renderColorMenus();
   if ((!state.editPostId && !state.editMaterialId) || state.editingPost || state.editingMaterial) {
