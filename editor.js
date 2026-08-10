@@ -4604,25 +4604,29 @@ function selectEditorFindMatch(match, indexData) {
   return true;
 }
 
-function findNextEditorMatch() {
+function findNextEditorMatch({ keepSearchFocus = false } = {}) {
   const query = getEditorFindQuery().trim();
   if (!query) {
     editorFindMatches = [];
     editorFindIndex = -1;
     updateEditorFindState();
     setEditorMessage("검색어를 입력해주세요.", "error");
-    return;
+    return false;
   }
 
   const indexData = refreshEditorFindMatches({ preserveIndex: true });
   if (editorFindMatches.length === 0) {
     setEditorMessage("검색 결과가 없습니다.", "error");
-    return;
+    return false;
   }
 
   editorFindIndex = (editorFindIndex + 1) % editorFindMatches.length;
   selectEditorFindMatch(editorFindMatches[editorFindIndex], indexData);
+  if (keepSearchFocus) {
+    els.findQuery?.focus({ preventScroll: true });
+  }
   setEditorMessage("");
+  return true;
 }
 
 function replaceEditorTextRange(range, replacement, { selectAfter = false } = {}) {
@@ -5655,7 +5659,9 @@ els.toolbar.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("[data-editor-find-next]")) {
-    findNextEditorMatch();
+    if (findNextEditorMatch()) {
+      closeEditorFindPopover({ restoreFocus: true });
+    }
     closeAllToolbarMenus();
     return;
   }
@@ -5772,21 +5778,27 @@ els.findbar?.addEventListener("mousedown", (event) => {
 
 els.findbar?.addEventListener("click", (event) => {
   if (event.target.closest("[data-editor-find-close]")) {
+    event.stopPropagation();
     closeEditorFindPopover({ restoreFocus: true });
     return;
   }
 
   if (event.target.closest("[data-editor-find-next]")) {
-    findNextEditorMatch();
+    event.stopPropagation();
+    if (findNextEditorMatch()) {
+      closeEditorFindPopover({ restoreFocus: true });
+    }
     return;
   }
 
   if (event.target.closest("[data-editor-replace-one]")) {
+    event.stopPropagation();
     replaceCurrentEditorMatch();
     return;
   }
 
   if (event.target.closest("[data-editor-replace-all]")) {
+    event.stopPropagation();
     replaceAllEditorMatches();
   }
 });
@@ -5800,7 +5812,7 @@ els.findbar?.addEventListener("keydown", (event) => {
 
   if (event.target.closest("[data-editor-find-query]") && event.key === "Enter") {
     event.preventDefault();
-    findNextEditorMatch();
+    findNextEditorMatch({ keepSearchFocus: true });
     return;
   }
 
@@ -5811,9 +5823,11 @@ els.findbar?.addEventListener("keydown", (event) => {
 });
 
 els.toolbar.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented) return;
+
   if (event.target.closest("[data-editor-find-query]") && event.key === "Enter") {
     event.preventDefault();
-    findNextEditorMatch();
+    findNextEditorMatch({ keepSearchFocus: true });
     return;
   }
 
