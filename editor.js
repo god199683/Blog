@@ -10,7 +10,7 @@ const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
 const EDITOR_SIDE_COLLAPSED_KEY = "blog.editorSidePanelCollapsed";
 const EDITOR_HISTORY_LIMIT = 120;
-const EDITOR_AUTO_DRAFT_DELAY = 2 * 60 * 1000;
+const EDITOR_AUTO_DRAFT_DELAY = 500;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
 const EDITOR_BLOCK_SELECTOR = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, td, th";
