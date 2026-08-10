@@ -5446,6 +5446,25 @@ els.content.addEventListener("keyup", syncEditorFindPopoverPosition);
 els.content.addEventListener("scroll", syncEditorFindPopoverPosition);
 document.addEventListener("selectionchange", syncEditorFindPopoverPosition);
 document.addEventListener("keydown", (event) => {
+  const key = String(event.key || "").toLowerCase();
+  const isPrimarySave = key === "s" && (event.ctrlKey || event.metaKey) && !event.altKey;
+  const isDraftSave = key === "s" && event.altKey && !event.ctrlKey && !event.metaKey;
+
+  if (isPrimarySave || isDraftSave) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.repeat || state.editorSaving) return;
+    saveCurrentSelection();
+    if (isDraftSave) {
+      els.draft?.click();
+    } else if (typeof els.form?.requestSubmit === "function") {
+      els.form.requestSubmit(els.submit);
+    } else {
+      els.submit?.click();
+    }
+    return;
+  }
+
   if (event.key === "Escape" && document.body.classList.contains("is-editor-writing-focus")) {
     setEditorWritingFocus(false);
   }
