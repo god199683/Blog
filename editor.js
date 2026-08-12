@@ -1456,7 +1456,13 @@ function buildBasicEditorPasteHtml(html = "") {
 
   walk(template.content, {});
   const content = output.join("").replace(/\n{4,}/g, "\n\n\n").replace(/^\n+|\n+$/g, "");
-  return content.replace(/<[^>]+>/g, "").trim() ? `<p style="white-space: pre-wrap">${content}</p>` : "";
+  if (!content.replace(/<[^>]+>/g, "").trim()) return "";
+
+  // Keep only the character emphasis from the source. The surrounding paragraph
+  // always takes the editor's current default typography.
+  const currentStyle = getCurrentPlainTextPasteStyle();
+  const paragraphStyle = ["white-space: pre-wrap", currentStyle].filter(Boolean).join("; ");
+  return `<p style="${paragraphStyle}">${content}</p>`;
 }
 
 function buildBasicPasteHtmlFromPayload(payload = {}) {
@@ -1470,7 +1476,7 @@ function buildBasicPasteHtmlFromPayload(payload = {}) {
     if (basicRtfHtml) return basicRtfHtml;
   }
 
-  return text ? textToEditorHtml(text) : "";
+  return text ? textToEditorHtmlWithCurrentStyle(text) : "";
 }
 
 function getCurrentPlainTextPasteStyle() {
