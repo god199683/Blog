@@ -98,6 +98,8 @@ let pasteMenu = null;
 let editorFindMatches = [];
 let editorFindIndex = -1;
 let editorFindQuery = "";
+const EDITOR_FIND_HIGHLIGHT_KEY = "blog-editor-find-matches";
+const EDITOR_FIND_CURRENT_HIGHLIGHT_KEY = "blog-editor-find-current";
 let editorAutoDraftTimer = 0;
 let editorDraftDirty = false;
 
@@ -4414,6 +4416,33 @@ function updateEditorFindState() {
   els.findState.textContent = total > 0 && editorFindIndex >= 0 ? `${editorFindIndex + 1} / ${total}` : `0 / ${total}`;
 }
 
+function clearEditorFindHighlights() {
+  if (!window.CSS?.highlights) return;
+  window.CSS.highlights.delete(EDITOR_FIND_HIGHLIGHT_KEY);
+  window.CSS.highlights.delete(EDITOR_FIND_CURRENT_HIGHLIGHT_KEY);
+}
+
+function syncEditorFindHighlights(indexData = getEditorTextIndex()) {
+  if (!window.CSS?.highlights || typeof window.Highlight !== "function") return;
+
+  const ranges = editorFindMatches
+    .map((match) => createEditorTextRange(match, indexData))
+    .filter(Boolean);
+
+  if (ranges.length === 0) {
+    clearEditorFindHighlights();
+    return;
+  }
+
+  window.CSS.highlights.set(EDITOR_FIND_HIGHLIGHT_KEY, new window.Highlight(...ranges));
+  const currentRange = editorFindIndex >= 0 ? createEditorTextRange(editorFindMatches[editorFindIndex], indexData) : null;
+  if (currentRange) {
+    window.CSS.highlights.set(EDITOR_FIND_CURRENT_HIGHLIGHT_KEY, new window.Highlight(currentRange));
+  } else {
+    window.CSS.highlights.delete(EDITOR_FIND_CURRENT_HIGHLIGHT_KEY);
+  }
+}
+
 function getEditorFindAnchorRect() {
   const range = rangeIsInEditor(savedEditorRange) ? savedEditorRange.cloneRange() : null;
   if (range) {
@@ -4470,6 +4499,7 @@ function openEditorFindPopover({ mode = "find" } = {}) {
 function closeEditorFindPopover({ restoreFocus = false } = {}) {
   if (!els.findbar) return;
   els.findbar.hidden = true;
+  clearEditorFindHighlights();
   if (restoreFocus) {
     restoreEditorSelection();
     els.content.focus({ preventScroll: true });
@@ -4589,6 +4619,7 @@ function refreshEditorFindMatches({ preserveIndex = true } = {}) {
     editorFindIndex = editorFindMatches.length - 1;
   }
 
+  syncEditorFindHighlights(indexData);
   updateEditorFindState();
   return indexData;
 }
@@ -4627,6 +4658,7 @@ function findNextEditorMatch({ keepSearchFocus = false } = {}) {
   }
 
   editorFindIndex = (editorFindIndex + 1) % editorFindMatches.length;
+  syncEditorFindHighlights(indexData);
   selectEditorFindMatch(editorFindMatches[editorFindIndex], indexData);
   if (keepSearchFocus) {
     els.findQuery?.focus({ preventScroll: true });

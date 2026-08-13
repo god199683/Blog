@@ -3064,6 +3064,17 @@ body.is-away-locked {
   display: none !important;
 }
 
+/* Search highlights are drawn without changing the editor's HTML or selection. */
+::highlight(blog-editor-find-matches) {
+  background-color: rgba(250, 204, 21, 0.42);
+  color: inherit;
+}
+
+::highlight(blog-editor-find-current) {
+  background-color: rgba(56, 189, 248, 0.62);
+  color: #123047;
+}
+
 .editor-find-popover::after {
   position: absolute;
   bottom: -0.42rem;
