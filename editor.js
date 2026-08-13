@@ -5552,6 +5552,9 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  // Esc belongs to the search popover first. Do not also leave writing focus.
+  if (event.key === "Escape" && els.findbar && !els.findbar.hidden) return;
+
   if (event.key === "Escape" && document.body.classList.contains("is-editor-writing-focus")) {
     setEditorWritingFocus(false);
   }
@@ -5844,6 +5847,7 @@ els.findbar?.addEventListener("click", (event) => {
 els.findbar?.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     event.preventDefault();
+    event.stopPropagation();
     closeEditorFindPopover({ restoreFocus: true });
     return;
   }
