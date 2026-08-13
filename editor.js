@@ -3678,7 +3678,7 @@ function scheduleEditorToolbarStateSync({ force = false } = {}) {
 }
 
 function scheduleEditorFindRefresh() {
-  if (!getEditorFindQuery()) return;
+  if (!els.findbar || els.findbar.hidden || !getEditorFindQuery()) return;
   window.clearTimeout(editorFindRefreshTimer);
   editorFindRefreshTimer = window.setTimeout(() => {
     editorFindRefreshTimer = 0;
@@ -4499,7 +4499,13 @@ function openEditorFindPopover({ mode = "find" } = {}) {
 function closeEditorFindPopover({ restoreFocus = false } = {}) {
   if (!els.findbar) return;
   els.findbar.hidden = true;
+  window.clearTimeout(editorFindRefreshTimer);
+  editorFindRefreshTimer = 0;
+  editorFindMatches = [];
+  editorFindIndex = -1;
+  editorFindQuery = "";
   clearEditorFindHighlights();
+  updateEditorFindState();
   if (restoreFocus) {
     restoreEditorSelection();
     els.content.focus({ preventScroll: true });
