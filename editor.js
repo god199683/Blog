@@ -4530,18 +4530,11 @@ function handleEditorFindShortcut(event) {
 function getEditorTextIndex() {
   const parts = [];
   const textParts = [];
-  const walker = document.createTreeWalker(els.content, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
-      if (node.parentElement?.closest?.("[contenteditable='false']")) return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-
   let offset = 0;
-  let node = walker.nextNode();
-  while (node) {
+
+  const appendText = (node) => {
     const value = node.nodeValue || "";
+    if (!value) return;
     parts.push({
       node,
       start: offset,
@@ -4549,8 +4542,39 @@ function getEditorTextIndex() {
     });
     textParts.push(value);
     offset += value.length;
-    node = walker.nextNode();
-  }
+  };
+
+  const appendBoundary = () => {
+    // Boundaries deliberately have no DOM range. They prevent a search from
+    // treating the end of one paragraph and the next as one continuous word.
+    textParts.push("\n");
+    offset += 1;
+  };
+
+  const blockTags = new Set([
+    "ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DIV", "DL", "DT", "DD",
+    "FIELDSET", "FIGCAPTION", "FIGURE", "FOOTER", "FORM", "H1", "H2", "H3",
+    "H4", "H5", "H6", "HEADER", "HR", "LI", "MAIN", "NAV", "OL", "P",
+    "PRE", "SECTION", "TABLE", "UL",
+  ]);
+
+  const visit = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      appendText(node);
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (node !== els.content && node.closest?.("[contenteditable='false']")) return;
+    if (node.tagName === "BR") {
+      appendBoundary();
+      return;
+    }
+
+    for (const child of node.childNodes) visit(child);
+    if (node !== els.content && blockTags.has(node.tagName)) appendBoundary();
+  };
+
+  for (const child of els.content.childNodes) visit(child);
 
   return {
     text: textParts.join(""),
