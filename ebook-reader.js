@@ -40,6 +40,13 @@ const els = {
   back: document.querySelector("[data-ebook-back]"),
   sidebarToggle: document.querySelector("[data-ebook-sidebar-toggle]"),
   folderOpen: document.querySelector("[data-ebook-folder-open]"),
+  bookmarkManage: document.querySelector("[data-ebook-bookmark-manage]"),
+  bookmarkDialog: document.querySelector("[data-ebook-bookmark-dialog]"),
+  bookmarkClose: document.querySelector("[data-ebook-bookmark-close]"),
+  bookmarkDetails: document.querySelector("[data-ebook-bookmark-details]"),
+  bookmarkDialogActions: document.querySelector("[data-ebook-bookmark-dialog-actions]"),
+  bookmarkResume: document.querySelector("[data-ebook-bookmark-resume]"),
+  bookmarkClear: document.querySelector("[data-ebook-bookmark-clear]"),
   search: document.querySelector("[data-ebook-search]"),
   searchDialog: document.querySelector("[data-ebook-search-dialog]"),
   searchClose: document.querySelector("[data-ebook-search-close]"),
@@ -768,6 +775,7 @@ function syncBookmarkButton() {
   els.bookmark.title = label;
   const icon = els.bookmark.querySelector("[aria-hidden='true']");
   if (icon) icon.textContent = active ? "★" : "☆";
+  if (els.bookmarkManage) els.bookmarkManage.disabled = !state.id;
 }
 
 function toggleBookmark() {
@@ -1156,6 +1164,69 @@ function closeFolderDialog() {
   els.folderDialog.removeAttribute("open");
 }
 
+function renderBookmarkManager() {
+  if (!els.bookmarkDetails || !els.bookmarkDialogActions) return;
+  const bookmark = state.bookmark;
+  if (!bookmark) {
+    els.bookmarkDetails.innerHTML = `<p class="ebook-empty">저장된 북마크가 없습니다.</p>`;
+    els.bookmarkDialogActions.hidden = true;
+    return;
+  }
+
+  const post = state.posts.find((item) => String(item.id) === String(bookmark.postId));
+  const folderPath = getFolderPathById(bookmark.folderId) || "선택한 폴더";
+  els.bookmarkDetails.innerHTML = `
+    <small>${escapeHtml(folderPath)}</small>
+    <strong>${escapeHtml(post?.title || "삭제되었거나 찾을 수 없는 글")}</strong>
+    <span>${Math.max(1, Number(bookmark.pageIndex || 0) + 1)}페이지</span>
+  `;
+  els.bookmarkDialogActions.hidden = false;
+}
+
+function openBookmarkManager() {
+  if (!els.bookmarkDialog) return;
+  renderBookmarkManager();
+  if (typeof els.bookmarkDialog.showModal === "function") {
+    if (!els.bookmarkDialog.open) els.bookmarkDialog.showModal();
+    return;
+  }
+  els.bookmarkDialog.setAttribute("open", "");
+}
+
+function closeBookmarkManager() {
+  if (!els.bookmarkDialog) return;
+  if (typeof els.bookmarkDialog.close === "function") {
+    if (els.bookmarkDialog.open) els.bookmarkDialog.close();
+    return;
+  }
+  els.bookmarkDialog.removeAttribute("open");
+}
+
+async function clearManagedBookmark() {
+  writeLocalBookmark(null);
+  renderPostList();
+  syncBookmarkButton();
+  renderBookmarkManager();
+  setMessage("북마크를 해제했습니다.");
+  try {
+    await saveBookmarkRemote(null);
+  } catch (error) {
+    setMessage(error.message || "북마크를 해제하지 못했습니다.");
+  }
+}
+
+function resumeManagedBookmark() {
+  const bookmark = state.bookmark;
+  if (!bookmark) return;
+  const postExists = state.posts.some((post) => String(post.id) === String(bookmark.postId));
+  if (!postExists || !findNode(state.tree, bookmark.folderId)) {
+    setMessage("북마크의 글 또는 폴더를 찾을 수 없습니다.");
+    return;
+  }
+  selectFolder(bookmark.folderId, { postId: bookmark.postId, pageIndex: bookmark.pageIndex });
+  closeBookmarkManager();
+}
+
 function getEbookSearchText(post = {}) {
   const documentFragment = document.createElement("div");
   documentFragment.innerHTML = getPostHtml(post);
@@ -1295,6 +1366,7 @@ function bindEvents() {
   els.back?.addEventListener("click", goBack);
   els.sidebarToggle?.addEventListener("click", toggleSidebar);
   els.folderOpen?.addEventListener("click", openFolderDialog);
+  els.bookmarkManage?.addEventListener("click", openBookmarkManager);
   els.search?.addEventListener("click", openSearchDialog);
   els.write?.addEventListener("click", openWriteEditor);
   els.edit?.addEventListener("click", openEditEditor);
@@ -1310,6 +1382,12 @@ function bindEvents() {
   els.folderDialog?.addEventListener("click", (event) => {
     if (event.target === els.folderDialog) closeFolderDialog();
   });
+  els.bookmarkClose?.addEventListener("click", closeBookmarkManager);
+  els.bookmarkDialog?.addEventListener("click", (event) => {
+    if (event.target === els.bookmarkDialog) closeBookmarkManager();
+  });
+  els.bookmarkResume?.addEventListener("click", resumeManagedBookmark);
+  els.bookmarkClear?.addEventListener("click", clearManagedBookmark);
   els.searchClose?.addEventListener("click", closeSearchDialog);
   els.searchDialog?.addEventListener("click", (event) => {
     if (event.target === els.searchDialog) closeSearchDialog();

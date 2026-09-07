@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://ipylqxcmajrwtvvmrvfy.supabase.co" crossorigin>
     <meta name="description" content="폴더 안의 글을 Ebook 형식으로 이어 읽는 페이지">
     <title>책 뷰어 | Blog</title>
-    <link rel="stylesheet" href="./styles.css?v=20260907-folder-search">
+    <link rel="stylesheet" href="./styles.css?v=20260907-bookmark-manager">
   </head>
   <body class="ebook-page">
     <header class="site-header">
@@ -33,6 +33,7 @@
           </div>
           <div class="ebook-sidebar-actions" aria-label="책 뷰어 기능">
             <button type="button" data-ebook-folder-open aria-label="폴더 선택" title="폴더 선택"><span aria-hidden="true">▱</span></button>
+            <button type="button" data-ebook-bookmark-manage aria-label="북마크 관리" title="북마크 관리"><span aria-hidden="true">▣</span></button>
             <button type="button" data-ebook-search aria-label="선택한 폴더에서 검색" title="선택한 폴더에서 검색"><span aria-hidden="true">⌕</span></button>
             <button type="button" data-ebook-bookmark aria-label="북마크" title="북마크" aria-pressed="false"><span aria-hidden="true">☆</span></button>
             <button type="button" data-ebook-write aria-label="글쓰기" title="글쓰기" hidden><span aria-hidden="true">✎</span></button>
@@ -75,6 +76,20 @@
             </select>
           </label>
           <div class="ebook-folder-list" data-ebook-folder-list></div>
+        </form>
+      </dialog>
+
+      <dialog class="ebook-folder-dialog ebook-bookmark-dialog" data-ebook-bookmark-dialog aria-labelledby="ebook-bookmark-dialog-title">
+        <form method="dialog">
+          <header>
+            <strong id="ebook-bookmark-dialog-title">북마크 관리</strong>
+            <button type="button" data-ebook-bookmark-close aria-label="닫기">×</button>
+          </header>
+          <div class="ebook-bookmark-details" data-ebook-bookmark-details></div>
+          <div class="ebook-bookmark-dialog-actions" data-ebook-bookmark-dialog-actions hidden>
+            <button type="button" data-ebook-bookmark-resume>이어보기</button>
+            <button type="button" data-ebook-bookmark-clear>북마크 해제</button>
+          </div>
         </form>
       </dialog>
 
@@ -136,6 +151,6 @@
     </main>
 
     <script src="./session.js" defer></script>
-    <script src="./ebook-reader.js?v=20260907-folder-search" defer></script>
+    <script src="./ebook-reader.js?v=20260907-bookmark-manager" defer></script>
   </body>
 </html>
