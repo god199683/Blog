@@ -27,6 +27,7 @@ const state = {
   pendingPageIndex: null,
   bookmark: null,
   remoteBookmarkSupported: true,
+  readerLoaded: false,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true",
   opacity: Math.min(100, Math.max(0, Number(localStorage.getItem(OPACITY_KEY) ?? 100))),
 };
@@ -466,6 +467,22 @@ function getEbookReturnHref() {
   if (state.pageIndex > 0) params.set("page", String(state.pageIndex + 1));
   const query = params.toString();
   return `./ebook-reader.html${query ? `?${query}` : ""}`;
+}
+
+function syncReaderLocationUrl() {
+  if (!state.readerLoaded) return;
+  const url = new URL(window.location.href);
+  const post = state.activePosts[state.postIndex] || null;
+  if (!state.activeFolderId || !post?.id) {
+    url.searchParams.delete("node");
+    url.searchParams.delete("post");
+    url.searchParams.delete("page");
+  } else {
+    url.searchParams.set("node", state.activeFolderId);
+    url.searchParams.set("post", post.id);
+    url.searchParams.set("page", String(Math.max(1, state.pageIndex + 1)));
+  }
+  history.replaceState(null, "", url);
 }
 
 function getWriteEditorHref() {
@@ -927,6 +944,7 @@ function updatePagination() {
   state.pageIndex = Math.min(Math.max(state.pageIndex, 0), state.pageCount - 1);
   els.content.style.transform = `translate3d(${-state.pageIndex * state.pageStep}px, 0, 0)`;
   renderProgress();
+  syncReaderLocationUrl();
 }
 
 function schedulePagination(resetPage = false) {
@@ -1026,6 +1044,8 @@ function clearFolderSelection({ updateUrl = true } = {}) {
   if (updateUrl) {
     const url = new URL(window.location.href);
     url.searchParams.delete("node");
+    url.searchParams.delete("post");
+    url.searchParams.delete("page");
     history.replaceState(null, "", url);
   }
 }
@@ -1477,6 +1497,7 @@ async function init() {
 
   try {
     await loadTreeAndPosts(session);
+    state.readerLoaded = true;
     renderFolders();
     if (state.folders.length > 0) {
       if (restoreReaderLocationFromUrl()) {
