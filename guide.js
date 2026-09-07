@@ -1,5 +1,7 @@
 (() => {
   const page = location.pathname.split("/").pop() || "index.html";
+  const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
+  const AUTO_MOVE_DELAY = 11000;
 
   const guides = {
     "editor.html": {
@@ -86,6 +88,7 @@
         <div class="site-guide-actions">
           ${guide.actions.map(([label, action]) => `<button type="button" data-guide-action="${action}">${label}</button>`).join("")}
         </div>
+        <label class="site-guide-auto-toggle"><input type="checkbox" data-guide-auto-move> <span>자동 이동</span></label>
         <small>캐릭터를 끌어서 편한 곳에 놓을 수 있어요.</small>
       </div>
     `;
@@ -93,14 +96,50 @@
 
     const launcher = root.querySelector(".site-guide-launcher");
     const panel = root.querySelector(".site-guide-panel");
+    const autoMove = root.querySelector("[data-guide-auto-move]");
+    let autoMoveTimer = 0;
+    let lastInteractionAt = Date.now();
+    try {
+      autoMove.checked = localStorage.getItem(AUTO_MOVE_KEY) === "true";
+    } catch {
+      autoMove.checked = false;
+    }
     const setOpen = (open) => {
       panel.hidden = !open;
       launcher.setAttribute("aria-expanded", String(open));
     };
 
+    const noteInteraction = () => {
+      lastInteractionAt = Date.now();
+    };
+
+    const moveTowardEdge = () => {
+      if (!autoMove.checked || !panel.hidden || Date.now() - lastInteractionAt < AUTO_MOVE_DELAY) return;
+      const rect = root.getBoundingClientRect();
+      const edge = 10;
+      const x = rect.left < window.innerWidth / 2 ? Math.max(edge, rect.left - 18) : Math.min(window.innerWidth - rect.width - edge, rect.left + 18);
+      const y = rect.top < window.innerHeight / 2 ? Math.max(edge, rect.top - 14) : Math.min(window.innerHeight - rect.height - edge, rect.top + 14);
+      root.style.left = `${x}px`;
+      root.style.top = `${y}px`;
+      root.style.right = "auto";
+      root.style.bottom = "auto";
+      lastInteractionAt = Date.now();
+    };
+
+    autoMove.addEventListener("change", () => {
+      try {
+        localStorage.setItem(AUTO_MOVE_KEY, String(autoMove.checked));
+      } catch {
+        // The guide still works when local storage is unavailable.
+      }
+      noteInteraction();
+    });
+    autoMoveTimer = window.setInterval(moveTowardEdge, 1000);
+
     let dragStart = null;
     let moved = false;
     launcher.addEventListener("pointerdown", (event) => {
+      noteInteraction();
       dragStart = { x: event.clientX, y: event.clientY, left: root.offsetLeft, top: root.offsetTop };
       moved = false;
       launcher.setPointerCapture?.(event.pointerId);
@@ -124,6 +163,7 @@
       root.classList.remove("is-guide-dragging");
     });
     launcher.addEventListener("click", () => {
+      noteInteraction();
       if (moved) {
         moved = false;
         return;
@@ -133,10 +173,12 @@
     root.querySelector("[data-guide-close]").addEventListener("click", () => setOpen(false));
     root.querySelectorAll("[data-guide-action]").forEach((button) => {
       button.addEventListener("click", () => {
+        noteInteraction();
         setOpen(false);
         runAction(button.dataset.guideAction);
       });
     });
+    window.addEventListener("beforeunload", () => window.clearInterval(autoMoveTimer), { once: true });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountGuide, { once: true });

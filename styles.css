@@ -3192,6 +3192,22 @@ body.is-away-locked {
   font-size: 0.68rem;
 }
 
+.site-guide-auto-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  margin-top: 0.6rem;
+  color: #52708b;
+  font-size: 0.75rem;
+  font-weight: 720;
+}
+
+.site-guide-auto-toggle input {
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: #0ea5e9;
+}
+
 @media (max-width: 520px) {
   .site-guide {
     right: 0.7rem;
