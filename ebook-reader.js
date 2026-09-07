@@ -41,6 +41,7 @@ const els = {
   sidebarToggle: document.querySelector("[data-ebook-sidebar-toggle]"),
   folderOpen: document.querySelector("[data-ebook-folder-open]"),
   write: document.querySelector("[data-ebook-write]"),
+  edit: document.querySelector("[data-ebook-edit]"),
   opacityControl: document.querySelector("[data-ebook-opacity-control]"),
   opacityToggle: document.querySelector("[data-ebook-opacity-toggle]"),
   opacityPopover: document.querySelector("[data-ebook-opacity-popover]"),
@@ -462,11 +463,28 @@ function getWriteEditorHref() {
   return `./editor.html?${params.toString()}`;
 }
 
+function getEditEditorHref() {
+  const post = state.activePosts[state.postIndex];
+  if (!post?.id) return "";
+
+  const params = new URLSearchParams();
+  params.set("post", post.id);
+  params.set("return", getEbookReturnHref());
+  return `./editor.html?${params.toString()}`;
+}
+
 function syncWriteButton() {
   if (!els.write) return;
   const visible = Boolean(state.id);
   els.write.hidden = !visible;
   els.write.disabled = !visible;
+}
+
+function syncEditButton() {
+  if (!els.edit) return;
+  const visible = Boolean(state.id && state.activePosts[state.postIndex]?.id);
+  els.edit.hidden = !visible;
+  els.edit.disabled = !visible;
 }
 
 function collectFolderOptions() {
@@ -947,6 +965,7 @@ function enhanceEbookContentTypography() {
 
 function renderCurrentPost({ lastPage = false } = {}) {
   const post = state.activePosts[state.postIndex] || null;
+  syncEditButton();
   if (!post) {
     if (els.content) {
       els.content.innerHTML = `<p>${state.activeFolderId ? "선택한 폴더에 표시할 글이 없습니다." : "폴더를 선택하면 글을 이어 읽을 수 있습니다."}</p>`;
@@ -1187,11 +1206,28 @@ async function openWriteEditor() {
   window.location.href = getWriteEditorHref();
 }
 
+async function openEditEditor() {
+  const session = await getFreshSession();
+  const id = getSessionId(session);
+  const href = getEditEditorHref();
+  if (!id || !href) {
+    syncEditButton();
+    if (!id) window.location.href = "./login.html";
+    return;
+  }
+
+  state.session = session;
+  state.id = id;
+  syncEditButton();
+  window.location.href = href;
+}
+
 function bindEvents() {
   els.back?.addEventListener("click", goBack);
   els.sidebarToggle?.addEventListener("click", toggleSidebar);
   els.folderOpen?.addEventListener("click", openFolderDialog);
   els.write?.addEventListener("click", openWriteEditor);
+  els.edit?.addEventListener("click", openEditEditor);
   els.opacityToggle?.addEventListener("click", (event) => {
     event.stopPropagation();
     setOpacityPopover(els.opacityPopover?.hidden !== false);
@@ -1262,6 +1298,7 @@ async function init() {
     state.id = "";
     syncIdentity();
     syncWriteButton();
+    syncEditButton();
     renderFolders();
     renderPostList();
     renderCurrentPost();
@@ -1272,6 +1309,7 @@ async function init() {
   state.id = id;
   syncIdentity();
   syncWriteButton();
+  syncEditButton();
   state.bookmark = readLocalBookmark();
   setMessage("글과 폴더를 불러오는 중입니다.");
 
