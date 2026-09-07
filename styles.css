@@ -3075,6 +3075,130 @@ body.is-away-locked {
   color: #123047;
 }
 
+.site-guide {
+  position: fixed;
+  z-index: 80;
+  right: clamp(0.85rem, 2.2vw, 1.6rem);
+  bottom: clamp(0.85rem, 2.2vw, 1.6rem);
+}
+
+.site-guide-launcher,
+.site-guide-panel button {
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  background: #fff;
+  color: #075985;
+  font: inherit;
+  font-weight: 760;
+}
+
+.site-guide-launcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-height: 2.45rem;
+  padding: 0.22rem 0.62rem 0.22rem 0.26rem;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(14, 116, 144, 0.16);
+  cursor: grab;
+  touch-action: none;
+}
+
+.site-guide.is-guide-dragging .site-guide-launcher {
+  cursor: grabbing;
+}
+
+.site-guide-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 1.82rem;
+  height: 1.82rem;
+  border-radius: 50%;
+  background: #fff4d8;
+  color: #9a5b12;
+  font-size: 1.05rem;
+  font-weight: 860;
+}
+
+.site-guide-launcher-label {
+  font-size: 0.78rem;
+}
+
+.site-guide-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.55rem);
+  width: min(19rem, calc(100vw - 1.7rem));
+  padding: 0.78rem;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 42px rgba(14, 116, 144, 0.18);
+}
+
+.site-guide-panel header,
+.site-guide-panel header > div {
+  display: flex;
+  align-items: center;
+}
+
+.site-guide-panel header {
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.site-guide-panel header > div {
+  gap: 0.42rem;
+}
+
+.site-guide-panel header button {
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.site-guide-panel p {
+  margin: 0.7rem 0;
+  color: #516d86;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.site-guide-actions {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.site-guide-actions button {
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 0.78rem;
+}
+
+.site-guide-panel button:hover,
+.site-guide-panel button:focus-visible,
+.site-guide-launcher:hover,
+.site-guide-launcher:focus-visible {
+  border-color: rgba(14, 165, 233, 0.72);
+  background: #f0f9ff;
+}
+
+.site-guide-panel small {
+  display: block;
+  margin-top: 0.65rem;
+  color: #7891a8;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 520px) {
+  .site-guide {
+    right: 0.7rem;
+    bottom: 0.7rem;
+  }
+}
+
 .editor-find-popover::after {
   position: absolute;
   bottom: -0.42rem;
