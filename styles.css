@@ -12952,6 +12952,56 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
   display: none;
 }
 
+.ebook-search-dialog {
+  width: min(92vw, 38rem);
+}
+
+.ebook-search-dialog input[type="search"] {
+  width: 100%;
+  min-height: 2.2rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  border-radius: 7px;
+  color: #1d3146;
+  font: inherit;
+}
+
+.ebook-search-state {
+  margin: -0.2rem 0 0;
+  color: #627f9a;
+  font-size: 0.78rem;
+}
+
+.ebook-search-results {
+  display: grid;
+  gap: 0.38rem;
+  max-height: min(50vh, 24rem);
+  overflow: auto;
+}
+
+.ebook-search-results button {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  min-height: 0;
+  padding: 0.58rem 0.66rem;
+  text-align: left;
+}
+
+.ebook-search-results button strong {
+  color: #0f3f61;
+  font-size: 0.84rem;
+}
+
+.ebook-search-results button span {
+  overflow: hidden;
+  color: #607c96;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ebook-page.is-ebook-scrolled:not(.is-ebook-sidebar-collapsed) .ebook-sidebar {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;

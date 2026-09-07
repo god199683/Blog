@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://ipylqxcmajrwtvvmrvfy.supabase.co" crossorigin>
     <meta name="description" content="폴더 안의 글을 Ebook 형식으로 이어 읽는 페이지">
     <title>책 뷰어 | Blog</title>
-    <link rel="stylesheet" href="./styles.css?v=20260807-reader-head-icons">
+    <link rel="stylesheet" href="./styles.css?v=20260907-folder-search">
   </head>
   <body class="ebook-page">
     <header class="site-header">
@@ -33,6 +33,7 @@
           </div>
           <div class="ebook-sidebar-actions" aria-label="책 뷰어 기능">
             <button type="button" data-ebook-folder-open aria-label="폴더 선택" title="폴더 선택"><span aria-hidden="true">▱</span></button>
+            <button type="button" data-ebook-search aria-label="선택한 폴더에서 검색" title="선택한 폴더에서 검색"><span aria-hidden="true">⌕</span></button>
             <button type="button" data-ebook-bookmark aria-label="북마크" title="북마크" aria-pressed="false"><span aria-hidden="true">☆</span></button>
             <button type="button" data-ebook-write aria-label="글쓰기" title="글쓰기" hidden><span aria-hidden="true">✎</span></button>
             <button type="button" data-ebook-edit aria-label="현재 글 수정" title="현재 글 수정" hidden><span aria-hidden="true">✐</span></button>
@@ -74,6 +75,21 @@
             </select>
           </label>
           <div class="ebook-folder-list" data-ebook-folder-list></div>
+        </form>
+      </dialog>
+
+      <dialog class="ebook-folder-dialog ebook-search-dialog" data-ebook-search-dialog aria-labelledby="ebook-search-dialog-title">
+        <form method="dialog">
+          <header>
+            <strong id="ebook-search-dialog-title">선택한 폴더에서 검색</strong>
+            <button type="button" data-ebook-search-close aria-label="닫기">×</button>
+          </header>
+          <label class="ebook-select-label">
+            <span>검색어</span>
+            <input type="search" data-ebook-search-query placeholder="제목 또는 본문 검색" autocomplete="off">
+          </label>
+          <p class="ebook-search-state" data-ebook-search-state>검색어를 입력해주세요.</p>
+          <div class="ebook-search-results" data-ebook-search-results></div>
         </form>
       </dialog>
 
@@ -120,6 +136,6 @@
     </main>
 
     <script src="./session.js" defer></script>
-    <script src="./ebook-reader.js?v=20260809-folder-reading-order" defer></script>
+    <script src="./ebook-reader.js?v=20260907-folder-search" defer></script>
   </body>
 </html>

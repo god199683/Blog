@@ -40,6 +40,12 @@ const els = {
   back: document.querySelector("[data-ebook-back]"),
   sidebarToggle: document.querySelector("[data-ebook-sidebar-toggle]"),
   folderOpen: document.querySelector("[data-ebook-folder-open]"),
+  search: document.querySelector("[data-ebook-search]"),
+  searchDialog: document.querySelector("[data-ebook-search-dialog]"),
+  searchClose: document.querySelector("[data-ebook-search-close]"),
+  searchQuery: document.querySelector("[data-ebook-search-query]"),
+  searchState: document.querySelector("[data-ebook-search-state]"),
+  searchResults: document.querySelector("[data-ebook-search-results]"),
   write: document.querySelector("[data-ebook-write]"),
   edit: document.querySelector("[data-ebook-edit]"),
   opacityControl: document.querySelector("[data-ebook-opacity-control]"),
@@ -487,6 +493,11 @@ function syncEditButton() {
   els.edit.disabled = !visible;
 }
 
+function syncSearchButton() {
+  if (!els.search) return;
+  els.search.disabled = !state.activeFolderId || state.activePosts.length === 0;
+}
+
 function collectFolderOptions() {
   const folders = [];
 
@@ -931,6 +942,7 @@ function renderProgress() {
   if (els.prevPost) els.prevPost.disabled = state.postIndex <= 0;
   if (els.nextPost) els.nextPost.disabled = state.postIndex >= state.activePosts.length - 1;
   syncWriteButton();
+  syncSearchButton();
   syncBookmarkButton();
 }
 
@@ -1144,6 +1156,63 @@ function closeFolderDialog() {
   els.folderDialog.removeAttribute("open");
 }
 
+function getEbookSearchText(post = {}) {
+  const documentFragment = document.createElement("div");
+  documentFragment.innerHTML = getPostHtml(post);
+  return `${post.title || ""}\n${documentFragment.textContent || ""}`.replace(/\s+/g, " ").trim();
+}
+
+function renderSearchResults() {
+  if (!els.searchResults || !els.searchState) return;
+  const query = String(els.searchQuery?.value || "").trim();
+  if (!query) {
+    els.searchState.textContent = "검색어를 입력해주세요.";
+    els.searchResults.innerHTML = "";
+    return;
+  }
+
+  const normalizedQuery = query.toLocaleLowerCase();
+  const results = state.activePosts
+    .map((post, index) => {
+      const text = getEbookSearchText(post);
+      const matchIndex = text.toLocaleLowerCase().indexOf(normalizedQuery);
+      return matchIndex < 0 ? null : { post, index, text, matchIndex };
+    })
+    .filter(Boolean);
+
+  els.searchState.textContent = `${results.length}개의 글에서 찾았습니다.`;
+  els.searchResults.innerHTML = results.length
+    ? results
+        .map(({ post, index, text, matchIndex }) => {
+          const start = Math.max(0, matchIndex - 46);
+          const end = Math.min(text.length, matchIndex + query.length + 72);
+          const excerpt = `${start > 0 ? "..." : ""}${text.slice(start, end)}${end < text.length ? "..." : ""}`;
+          return `<button type="button" data-ebook-search-result="${index}"><strong>${escapeHtml(post.title)}</strong><span>${escapeHtml(excerpt)}</span></button>`;
+        })
+        .join("")
+    : `<p class="ebook-empty">선택한 폴더의 글에서 검색 결과를 찾지 못했습니다.</p>`;
+}
+
+function openSearchDialog() {
+  if (!els.searchDialog || !state.activeFolderId || state.activePosts.length === 0) return;
+  if (typeof els.searchDialog.showModal === "function") {
+    if (!els.searchDialog.open) els.searchDialog.showModal();
+  } else {
+    els.searchDialog.setAttribute("open", "");
+  }
+  renderSearchResults();
+  window.setTimeout(() => els.searchQuery?.focus(), 0);
+}
+
+function closeSearchDialog() {
+  if (!els.searchDialog) return;
+  if (typeof els.searchDialog.close === "function") {
+    if (els.searchDialog.open) els.searchDialog.close();
+    return;
+  }
+  els.searchDialog.removeAttribute("open");
+}
+
 function goBack() {
   if (state.activeFolderId) {
     window.location.href = getBlogReturnHref();
@@ -1226,6 +1295,7 @@ function bindEvents() {
   els.back?.addEventListener("click", goBack);
   els.sidebarToggle?.addEventListener("click", toggleSidebar);
   els.folderOpen?.addEventListener("click", openFolderDialog);
+  els.search?.addEventListener("click", openSearchDialog);
   els.write?.addEventListener("click", openWriteEditor);
   els.edit?.addEventListener("click", openEditEditor);
   els.opacityToggle?.addEventListener("click", (event) => {
@@ -1239,6 +1309,20 @@ function bindEvents() {
   els.folderClose?.addEventListener("click", closeFolderDialog);
   els.folderDialog?.addEventListener("click", (event) => {
     if (event.target === els.folderDialog) closeFolderDialog();
+  });
+  els.searchClose?.addEventListener("click", closeSearchDialog);
+  els.searchDialog?.addEventListener("click", (event) => {
+    if (event.target === els.searchDialog) closeSearchDialog();
+  });
+  els.searchQuery?.addEventListener("input", renderSearchResults);
+  els.searchQuery?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") event.preventDefault();
+  });
+  els.searchResults?.addEventListener("click", (event) => {
+    const result = event.target.closest("[data-ebook-search-result]");
+    if (!result) return;
+    selectPost(Number(result.dataset.ebookSearchResult) || 0);
+    closeSearchDialog();
   });
   els.folderSelect?.addEventListener("change", (event) => selectFolder(event.target.value));
   els.folderList?.addEventListener("click", (event) => {
