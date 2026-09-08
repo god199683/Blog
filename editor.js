@@ -3742,6 +3742,7 @@ function restoreEditorHistorySelection(selectionState) {
     const range = document.createRange();
     range.setStart(startNode, Math.min(selectionState.startOffset, startNode.nodeType === Node.TEXT_NODE ? startNode.data.length : startNode.childNodes.length));
     range.setEnd(endNode, Math.min(selectionState.endOffset, endNode.nodeType === Node.TEXT_NODE ? endNode.data.length : endNode.childNodes.length));
+    range.collapse(true);
     els.content.focus({ preventScroll: true });
     const selection = window.getSelection();
     selection.removeAllRanges();
@@ -3752,6 +3753,13 @@ function restoreEditorHistorySelection(selectionState) {
     if (rangeRect.height && (rangeRect.top < contentRect.top || rangeRect.bottom > contentRect.bottom)) {
       els.content.scrollTop += rangeRect.top - contentRect.top - contentRect.height / 3;
     }
+    window.requestAnimationFrame(() => {
+      if (!rangeIsInEditor(savedEditorRange)) return;
+      els.content.focus({ preventScroll: true });
+      const activeSelection = window.getSelection();
+      activeSelection.removeAllRanges();
+      activeSelection.addRange(savedEditorRange);
+    });
   } catch {
     placeEditorCaretAtEnd();
   }
