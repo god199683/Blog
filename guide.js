@@ -302,10 +302,13 @@
     }, { passive: true });
 
     let dragStart = null;
+    let dragPointerId = null;
     let moved = false;
     launcher.addEventListener("pointerdown", (event) => {
       noteInteraction();
+      event.preventDefault();
       dragStart = { x: event.clientX, y: event.clientY, left: root.offsetLeft, top: root.offsetTop };
+      dragPointerId = event.pointerId;
       moved = false;
       launcher.setPointerCapture?.(event.pointerId);
     });
@@ -315,8 +318,8 @@
     document.addEventListener("pointerdown", (event) => {
       if (!root.contains(event.target)) noteInteraction();
     }, { passive: true });
-    launcher.addEventListener("pointermove", (event) => {
-      if (!dragStart) return;
+    const moveGuide = (event) => {
+      if (!dragStart || event.pointerId !== dragPointerId) return;
       const dx = event.clientX - dragStart.x;
       const dy = event.clientY - dragStart.y;
       if (Math.abs(dx) + Math.abs(dy) < 6) return;
@@ -326,13 +329,17 @@
       root.style.top = `${Math.max(8, Math.min(window.innerHeight - root.offsetHeight - 8, dragStart.top + dy))}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
-    });
-    launcher.addEventListener("pointerup", (event) => {
-      if (!dragStart) return;
+    };
+    const finishGuideMove = (event) => {
+      if (!dragStart || event.pointerId !== dragPointerId) return;
       launcher.releasePointerCapture?.(event.pointerId);
       dragStart = null;
+      dragPointerId = null;
       root.classList.remove("is-guide-dragging");
-    });
+    };
+    window.addEventListener("pointermove", moveGuide, { passive: true });
+    window.addEventListener("pointerup", finishGuideMove, { passive: true });
+    window.addEventListener("pointercancel", finishGuideMove, { passive: true });
     launcher.addEventListener("click", () => {
       noteInteraction();
       if (moved) {
