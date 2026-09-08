@@ -3131,6 +3131,15 @@ body.is-away-locked {
   animation: site-guide-cat-step 0.42s ease-in-out infinite;
 }
 
+.site-guide.is-guide-auto-moving .site-guide-launcher {
+  width: 5.15rem;
+}
+
+.site-guide.is-guide-auto-moving .site-guide-cat {
+  width: 5.15rem;
+  height: 3.2rem;
+}
+
 .site-guide.is-guide-being-playful .site-guide-cat {
   animation: site-guide-cat-affection 0.62s ease-in-out infinite;
 }
@@ -3146,8 +3155,8 @@ body.is-away-locked {
 }
 
 @keyframes site-guide-cat-step {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-0.17rem) rotate(-4deg); }
+  0%, 100% { transform: scaleX(var(--guide-facing, 1)) translateY(0) rotate(0deg); }
+  50% { transform: scaleX(var(--guide-facing, 1)) translateY(-0.17rem) rotate(-4deg); }
 }
 
 @keyframes site-guide-cat-affection {

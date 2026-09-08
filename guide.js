@@ -4,6 +4,11 @@
   const AUTO_MOVE_DELAY = 9000;
   const CURSOR_NOTICE_DELAY = 650;
   const CURSOR_NOTICE_DISTANCE = 132;
+  const CAT_ASSETS = {
+    resting: "./assets/cat-guide.png",
+    walking: "./assets/cat-guide-walk.png",
+    greeting: "./assets/cat-guide-wave.png",
+  };
   const catMarkup = '<img class="site-guide-cat" data-guide-cat src="./assets/cat-guide.png" alt="" aria-hidden="true">';
 
   const guides = {
@@ -176,6 +181,13 @@
       launcher.setAttribute("aria-expanded", String(open));
     };
 
+    const setCatPose = (pose) => {
+      const source = CAT_ASSETS[pose] || CAT_ASSETS.resting;
+      root.querySelectorAll("[data-guide-cat]").forEach((cat) => {
+        cat.src = source;
+      });
+    };
+
     const stopGuideMotion = () => {
       if (root.classList.contains("is-guide-auto-moving")) {
         const rect = root.getBoundingClientRect();
@@ -191,9 +203,7 @@
       cursorNoticeTimer = 0;
       root.classList.remove("is-guide-being-playful");
       root.classList.remove("is-guide-curious");
-      root.querySelectorAll("[data-guide-cat]").forEach((cat) => {
-        cat.src = "./assets/cat-guide.png";
-      });
+      setCatPose("resting");
     };
 
     const noteInteraction = () => {
@@ -210,15 +220,10 @@
 
     const playAffection = () => {
       if (!canPlay() || playfulTimer) return;
-      const cats = root.querySelectorAll("[data-guide-cat]");
-      cats.forEach((cat) => {
-        cat.src = "./assets/cat-guide-wave.png";
-      });
+      setCatPose("greeting");
       root.classList.add("is-guide-being-playful");
       playfulTimer = window.setTimeout(() => {
-        cats.forEach((cat) => {
-          cat.src = "./assets/cat-guide.png";
-        });
+        setCatPose(root.classList.contains("is-guide-auto-moving") ? "walking" : "resting");
         root.classList.remove("is-guide-being-playful");
         playfulTimer = 0;
       }, 1900);
@@ -255,13 +260,17 @@
       ].filter((target) => Math.hypot(target.x - rect.left, target.y - rect.top) > 96);
       const target = targets[Math.floor(Math.random() * targets.length)];
       if (!target) return;
+      root.style.setProperty("--guide-facing", target.x < rect.left ? "-1" : "1");
       root.style.left = `${Math.round(target.x)}px`;
       root.style.top = `${Math.round(target.y)}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
       root.classList.add("is-guide-auto-moving");
-      if (Math.random() < 0.55) window.setTimeout(playAffection, 900);
-      window.setTimeout(() => root.classList.remove("is-guide-auto-moving"), 3400);
+      setCatPose("walking");
+      window.setTimeout(() => {
+        root.classList.remove("is-guide-auto-moving");
+        if (!playfulTimer) setCatPose("resting");
+      }, 3400);
       lastInteractionAt = Date.now();
     };
 
