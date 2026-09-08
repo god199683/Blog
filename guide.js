@@ -71,6 +71,39 @@
     if (destinations[action]) location.href = destinations[action];
   }
 
+  function getChatReply(message = "") {
+    const text = String(message).trim().toLocaleLowerCase();
+    if (/(글쓰기|작성|새 글|게시|수정)/.test(text)) {
+      return { text: "글을 쓰거나 수정하려면 글쓰기 화면으로 이동하면 돼요. 저장 전에는 임시 저장도 챙겨드릴게요.", action: "write", label: "글쓰기 열기" };
+    }
+    if (/(검색|찾기|단어)/.test(text)) {
+      if (page === "ebook-reader.html") return { text: "선택한 폴더 안의 제목과 본문을 모두 찾을 수 있어요.", action: "search", label: "폴더에서 검색" };
+      if (page === "editor.html") return { text: "본문 검색은 Ctrl+F, 바꾸기는 Ctrl+H로 열 수 있어요.", action: "find", label: "본문에서 찾기" };
+      return { text: "원하는 글을 빠르게 찾을 수 있도록 검색창을 열어드릴게요.", action: "search", label: "글 검색하기" };
+    }
+    if (/(북마크|이어보기)/.test(text)) {
+      return { text: "책 뷰어에서는 현재 페이지를 북마크로 저장하고, 나중에 같은 위치에서 이어볼 수 있어요.", action: "bookmark", label: "북마크 관리" };
+    }
+    if (/(폴더|카테고리|분류)/.test(text)) {
+      return { text: "글은 카테고리와 폴더로 정리할 수 있어요. 책 뷰어에서는 선택한 폴더의 글을 순서대로 읽습니다.", action: page === "ebook-reader.html" ? "folder" : "blog", label: page === "ebook-reader.html" ? "폴더 선택" : "내 블로그 열기" };
+    }
+    if (/(책|이북|뷰어|읽기)/.test(text)) {
+      return { text: "책 뷰어에서 폴더를 고르면 글을 페이지처럼 넘기며 읽을 수 있어요.", action: "reader", label: "책 뷰어 열기" };
+    }
+    if (/(붙여넣기|서식|글씨|색|글꼴)/.test(text)) {
+      return { text: "에디터에서는 붙여넣은 글의 줄바꿈과 기본 서식을 다룰 수 있고, 글꼴과 글자색도 바꿀 수 있어요.", action: "write", label: "에디터 열기" };
+    }
+    if (/(임시|저장|복구)/.test(text)) {
+      const inEditor = page === "editor.html";
+      return {
+        text: "글쓰기 화면에서는 Alt+S로 임시 저장할 수 있고, 입력을 멈추면 자동 임시 저장도 진행돼요.",
+        action: inEditor ? "draft" : "write",
+        label: inEditor ? "임시 저장하기" : "글쓰기 열기",
+      };
+    }
+    return { text: "제가 도울 수 있는 건 글쓰기, 검색, 폴더 정리, 책 뷰어, 북마크예요. 하고 싶은 일을 짧게 말해 주세요." };
+  }
+
   function mountGuide() {
     const root = document.createElement("section");
     root.className = "site-guide";
@@ -89,6 +122,15 @@
         <div class="site-guide-actions">
           ${guide.actions.map(([label, action]) => `<button type="button" data-guide-action="${action}">${label}</button>`).join("")}
         </div>
+        <div class="site-guide-chat" aria-label="고양이 도우미 채팅">
+          <div class="site-guide-chat-log" data-guide-chat-log aria-live="polite">
+            <p class="is-assistant">안녕하세요. 이 웹에서 필요한 일을 말씀해 주세요.</p>
+          </div>
+          <form data-guide-chat-form>
+            <input type="text" data-guide-chat-input placeholder="예: 북마크는 어떻게 해?" autocomplete="off">
+            <button type="submit" aria-label="보내기" title="보내기">↑</button>
+          </form>
+        </div>
         <label class="site-guide-auto-toggle"><input type="checkbox" data-guide-auto-move> <span>자동 이동</span></label>
         <small>캐릭터를 끌어서 편한 곳에 놓을 수 있어요.</small>
       </div>
@@ -98,6 +140,9 @@
     const launcher = root.querySelector(".site-guide-launcher");
     const panel = root.querySelector(".site-guide-panel");
     const autoMove = root.querySelector("[data-guide-auto-move]");
+    const chatLog = root.querySelector("[data-guide-chat-log]");
+    const chatForm = root.querySelector("[data-guide-chat-form]");
+    const chatInput = root.querySelector("[data-guide-chat-input]");
     let autoMoveTimer = 0;
     let lastInteractionAt = Date.now();
     try {
@@ -180,6 +225,27 @@
         setOpen(false);
         runAction(button.dataset.guideAction);
       });
+    });
+    chatForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const message = String(chatInput.value || "").trim();
+      if (!message) return;
+      noteInteraction();
+      const userMessage = document.createElement("p");
+      userMessage.className = "is-user";
+      userMessage.textContent = message;
+      chatLog.append(userMessage);
+      const reply = getChatReply(message);
+      const assistantMessage = document.createElement("div");
+      assistantMessage.className = "is-assistant";
+      assistantMessage.innerHTML = `<p>${reply.text}</p>${reply.action ? `<button type="button" data-guide-action="${reply.action}">${reply.label}</button>` : ""}`;
+      chatLog.append(assistantMessage);
+      assistantMessage.querySelector("[data-guide-action]")?.addEventListener("click", () => {
+        setOpen(false);
+        runAction(reply.action);
+      });
+      chatInput.value = "";
+      chatLog.scrollTop = chatLog.scrollHeight;
     });
     window.addEventListener("beforeunload", () => window.clearInterval(autoMoveTimer), { once: true });
   }
