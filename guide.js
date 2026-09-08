@@ -1,8 +1,8 @@
 (() => {
   const page = location.pathname.split("/").pop() || "index.html";
   const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
-  const AUTO_MOVE_DELAY = 11000;
-  const catMarkup = '<img class="site-guide-cat" src="./assets/cat-guide.png" alt="" aria-hidden="true">';
+  const AUTO_MOVE_DELAY = 9000;
+  const catMarkup = '<img class="site-guide-cat" data-guide-cat src="./assets/cat-guide.png" alt="" aria-hidden="true">';
 
   const guides = {
     "editor.html": {
@@ -136,6 +136,15 @@
       </div>
     `;
     document.body.append(root);
+    root.classList.add("is-guide-positioning");
+    window.requestAnimationFrame(() => {
+      const rect = root.getBoundingClientRect();
+      root.style.left = `${Math.round(rect.left)}px`;
+      root.style.top = `${Math.round(rect.top)}px`;
+      root.style.right = "auto";
+      root.style.bottom = "auto";
+      window.requestAnimationFrame(() => root.classList.remove("is-guide-positioning"));
+    });
 
     const launcher = root.querySelector(".site-guide-launcher");
     const panel = root.querySelector(".site-guide-panel");
@@ -146,6 +155,7 @@
     const chatInput = root.querySelector("[data-guide-chat-input]");
     let autoMoveTimer = 0;
     let lastInteractionAt = Date.now();
+    let playfulTimer = 0;
     try {
       const savedAutoMove = localStorage.getItem(AUTO_MOVE_KEY);
       autoMove.checked = savedAutoMove === null ? true : savedAutoMove === "true";
@@ -161,22 +171,72 @@
       launcher.setAttribute("aria-expanded", String(open));
     };
 
-    const noteInteraction = () => {
-      lastInteractionAt = Date.now();
+    const stopGuideMotion = () => {
+      if (root.classList.contains("is-guide-auto-moving")) {
+        const rect = root.getBoundingClientRect();
+        root.classList.add("is-guide-paused");
+        root.style.left = `${Math.round(rect.left)}px`;
+        root.style.top = `${Math.round(rect.top)}px`;
+        window.requestAnimationFrame(() => root.classList.remove("is-guide-paused"));
+      }
+      root.classList.remove("is-guide-auto-moving");
+      if (playfulTimer) window.clearTimeout(playfulTimer);
+      playfulTimer = 0;
+      root.classList.remove("is-guide-being-playful");
+      root.querySelectorAll("[data-guide-cat]").forEach((cat) => {
+        cat.src = "./assets/cat-guide.png";
+      });
     };
 
-    const moveTowardEdge = () => {
-      if (!autoMove.checked || !panel.hidden || Date.now() - lastInteractionAt < AUTO_MOVE_DELAY) return;
+    const noteInteraction = () => {
+      lastInteractionAt = Date.now();
+      stopGuideMotion();
+    };
+
+    const canPlay = () => {
+      const active = document.activeElement;
+      if (!panel.hidden || !autoMove.checked) return false;
+      if (active?.matches?.("input, textarea, select, [contenteditable='true']")) return false;
+      return !document.body.classList.contains("is-editor-writing-focus");
+    };
+
+    const playAffection = () => {
+      if (!canPlay() || playfulTimer) return;
+      const cats = root.querySelectorAll("[data-guide-cat]");
+      cats.forEach((cat) => {
+        cat.src = "./assets/cat-guide-wave.png";
+      });
+      root.classList.add("is-guide-being-playful");
+      playfulTimer = window.setTimeout(() => {
+        cats.forEach((cat) => {
+          cat.src = "./assets/cat-guide.png";
+        });
+        root.classList.remove("is-guide-being-playful");
+        playfulTimer = 0;
+      }, 1900);
+    };
+
+    const wanderAlongEdge = () => {
+      if (!canPlay() || Date.now() - lastInteractionAt < AUTO_MOVE_DELAY) return;
       const rect = root.getBoundingClientRect();
       const edge = 10;
-      const x = rect.left < window.innerWidth / 2 ? Math.max(edge, rect.left - 18) : Math.min(window.innerWidth - rect.width - edge, rect.left + 18);
-      const y = rect.top < window.innerHeight / 2 ? Math.max(edge, rect.top - 14) : Math.min(window.innerHeight - rect.height - edge, rect.top + 14);
-      root.style.left = `${x}px`;
-      root.style.top = `${y}px`;
+      const maxX = Math.max(edge, window.innerWidth - rect.width - edge);
+      const maxY = Math.max(edge, window.innerHeight - rect.height - edge);
+      const targets = [
+        { x: edge, y: edge + Math.random() * (maxY - edge) },
+        { x: maxX, y: edge + Math.random() * (maxY - edge) },
+        { x: edge + Math.random() * (maxX - edge), y: edge },
+        { x: edge + Math.random() * (maxX - edge), y: maxY },
+      ].filter((target) => Math.hypot(target.x - rect.left, target.y - rect.top) > 96);
+      const target = targets[Math.floor(Math.random() * targets.length)];
+      if (!target) return;
+      root.style.left = `${Math.round(target.x)}px`;
+      root.style.top = `${Math.round(target.y)}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
       root.classList.add("is-guide-auto-moving");
-      window.setTimeout(() => root.classList.remove("is-guide-auto-moving"), 560);
+      if (Math.random() < 0.55) window.setTimeout(playAffection, 900);
+      window.setTimeout(() => root.classList.remove("is-guide-auto-moving"), 3400);
       lastInteractionAt = Date.now();
     };
 
@@ -189,7 +249,7 @@
       syncAutoMoveLabel();
       noteInteraction();
     });
-    autoMoveTimer = window.setInterval(moveTowardEdge, 1000);
+    autoMoveTimer = window.setInterval(wanderAlongEdge, 700);
 
     let dragStart = null;
     let moved = false;
@@ -199,6 +259,12 @@
       moved = false;
       launcher.setPointerCapture?.(event.pointerId);
     });
+    document.addEventListener("focusin", (event) => {
+      if (!root.contains(event.target) && event.target.matches?.("input, textarea, select, [contenteditable='true']")) noteInteraction();
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (!root.contains(event.target)) noteInteraction();
+    }, { passive: true });
     launcher.addEventListener("pointermove", (event) => {
       if (!dragStart) return;
       const dx = event.clientX - dragStart.x;
@@ -254,7 +320,10 @@
       chatInput.value = "";
       chatLog.scrollTop = chatLog.scrollHeight;
     });
-    window.addEventListener("beforeunload", () => window.clearInterval(autoMoveTimer), { once: true });
+    window.addEventListener("beforeunload", () => {
+      window.clearInterval(autoMoveTimer);
+      window.clearTimeout(playfulTimer);
+    }, { once: true });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountGuide, { once: true });

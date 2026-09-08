@@ -3080,6 +3080,7 @@ body.is-away-locked {
   z-index: 80;
   right: clamp(0.85rem, 2.2vw, 1.6rem);
   bottom: clamp(0.85rem, 2.2vw, 1.6rem);
+  transition: left 3.2s cubic-bezier(0.45, 0, 0.2, 1), top 3.2s cubic-bezier(0.45, 0, 0.2, 1);
 }
 
 .site-guide-launcher,
@@ -3110,6 +3111,12 @@ body.is-away-locked {
   cursor: grabbing;
 }
 
+.site-guide.is-guide-positioning,
+.site-guide.is-guide-paused,
+.site-guide.is-guide-dragging {
+  transition: none !important;
+}
+
 .site-guide-cat {
   display: block;
   width: 3.2rem;
@@ -3121,7 +3128,11 @@ body.is-away-locked {
 }
 
 .site-guide.is-guide-auto-moving .site-guide-cat {
-  animation: site-guide-cat-step 0.28s ease-in-out 2;
+  animation: site-guide-cat-step 0.42s ease-in-out infinite;
+}
+
+.site-guide.is-guide-being-playful .site-guide-cat {
+  animation: site-guide-cat-affection 0.62s ease-in-out infinite;
 }
 
 @keyframes site-guide-cat-breathe {
@@ -3132,6 +3143,11 @@ body.is-away-locked {
 @keyframes site-guide-cat-step {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-0.17rem) rotate(-4deg); }
+}
+
+@keyframes site-guide-cat-affection {
+  0%, 100% { transform: rotate(-5deg) translateY(0); }
+  50% { transform: rotate(5deg) translateY(-0.18rem); }
 }
 
 .site-guide-launcher-label {
