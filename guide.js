@@ -131,7 +131,7 @@
             <button type="submit" aria-label="보내기" title="보내기">↑</button>
           </form>
         </div>
-        <label class="site-guide-auto-toggle"><input type="checkbox" data-guide-auto-move> <span>자동 이동</span></label>
+        <label class="site-guide-auto-toggle"><input type="checkbox" data-guide-auto-move> <span data-guide-auto-move-label></span></label>
         <small>캐릭터를 끌어서 편한 곳에 놓을 수 있어요.</small>
       </div>
     `;
@@ -140,16 +140,22 @@
     const launcher = root.querySelector(".site-guide-launcher");
     const panel = root.querySelector(".site-guide-panel");
     const autoMove = root.querySelector("[data-guide-auto-move]");
+    const autoMoveLabel = root.querySelector("[data-guide-auto-move-label]");
     const chatLog = root.querySelector("[data-guide-chat-log]");
     const chatForm = root.querySelector("[data-guide-chat-form]");
     const chatInput = root.querySelector("[data-guide-chat-input]");
     let autoMoveTimer = 0;
     let lastInteractionAt = Date.now();
     try {
-      autoMove.checked = localStorage.getItem(AUTO_MOVE_KEY) === "true";
+      const savedAutoMove = localStorage.getItem(AUTO_MOVE_KEY);
+      autoMove.checked = savedAutoMove === null ? true : savedAutoMove === "true";
     } catch {
-      autoMove.checked = false;
+      autoMove.checked = true;
     }
+    const syncAutoMoveLabel = () => {
+      autoMoveLabel.textContent = autoMove.checked ? "움직임 멈추기" : "움직이게 하기";
+    };
+    syncAutoMoveLabel();
     const setOpen = (open) => {
       panel.hidden = !open;
       launcher.setAttribute("aria-expanded", String(open));
@@ -180,6 +186,7 @@
       } catch {
         // The guide still works when local storage is unavailable.
       }
+      syncAutoMoveLabel();
       noteInteraction();
     });
     autoMoveTimer = window.setInterval(moveTowardEdge, 1000);
