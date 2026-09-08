@@ -3206,6 +3206,18 @@ body.is-away-locked {
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 18px 42px rgba(14, 116, 144, 0.18);
+  max-height: min(70vh, 31rem);
+  overflow-y: auto;
+}
+
+.site-guide.is-guide-panel-below .site-guide-panel {
+  top: calc(100% + 0.55rem);
+  bottom: auto;
+}
+
+.site-guide.is-guide-panel-left .site-guide-panel {
+  right: auto;
+  left: 0;
 }
 
 .site-guide-panel header,

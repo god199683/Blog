@@ -189,9 +189,19 @@
       autoMoveLabel.textContent = autoMove.checked ? "움직임 멈추기" : "움직이게 하기";
     };
     syncAutoMoveLabel();
+    const positionGuidePanel = () => {
+      if (panel.hidden) return;
+      root.classList.remove("is-guide-panel-below", "is-guide-panel-left");
+      const guideRect = root.getBoundingClientRect();
+      const panelWidth = panel.offsetWidth;
+      const panelHeight = panel.offsetHeight;
+      if (guideRect.top < panelHeight + 16) root.classList.add("is-guide-panel-below");
+      if (guideRect.left + guideRect.width < panelWidth + 12) root.classList.add("is-guide-panel-left");
+    };
     const setOpen = (open) => {
       panel.hidden = !open;
       launcher.setAttribute("aria-expanded", String(open));
+      if (open) window.requestAnimationFrame(positionGuidePanel);
     };
 
     const setCatPose = (pose) => {
@@ -489,6 +499,7 @@
       stopWalkingCycle();
       stopIdleBehavior();
     }, { once: true });
+    window.addEventListener("resize", positionGuidePanel, { passive: true });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountGuide, { once: true });
