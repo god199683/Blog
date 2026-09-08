@@ -3131,12 +3131,17 @@ body.is-away-locked {
   animation: site-guide-cat-step 0.42s ease-in-out infinite;
 }
 
-.site-guide.is-guide-auto-moving .site-guide-launcher {
+.site-guide.is-guide-auto-moving.is-guide-walking-side .site-guide-launcher {
   width: 5.15rem;
 }
 
-.site-guide.is-guide-auto-moving .site-guide-cat {
+.site-guide.is-guide-auto-moving.is-guide-walking-side .site-guide-cat {
   width: 5.15rem;
+  height: 3.2rem;
+}
+
+.site-guide.is-guide-auto-moving.is-guide-walking-vertical .site-guide-cat {
+  width: 3.2rem;
   height: 3.2rem;
 }
 

@@ -6,7 +6,9 @@
   const CURSOR_NOTICE_DISTANCE = 132;
   const CAT_ASSETS = {
     resting: "./assets/cat-guide.png",
-    walking: ["./assets/cat-guide-walk.png", "./assets/cat-guide-walk-alt.png"],
+    walkingSide: ["./assets/cat-guide-walk.png", "./assets/cat-guide-walk-alt.png"],
+    walkingFront: ["./assets/cat-guide-walk-front.png", "./assets/cat-guide-walk-front-alt.png"],
+    walkingBack: ["./assets/cat-guide-walk-back.png", "./assets/cat-guide-walk-back-alt.png"],
     greeting: "./assets/cat-guide-wave.png",
   };
   const catMarkup = '<img class="site-guide-cat" data-guide-cat src="./assets/cat-guide.png" alt="" aria-hidden="true">';
@@ -168,6 +170,7 @@
     let pointerPosition = null;
     let walkingFrame = 0;
     let walkingFrameTimer = 0;
+    let walkingPose = "walkingSide";
     try {
       const savedAutoMove = localStorage.getItem(AUTO_MOVE_KEY);
       autoMove.checked = savedAutoMove === null ? true : savedAutoMove === "true";
@@ -196,13 +199,14 @@
       walkingFrameTimer = 0;
     };
 
-    const startWalkingCycle = () => {
+    const startWalkingCycle = (pose) => {
       stopWalkingCycle();
+      walkingPose = pose || walkingPose;
       walkingFrame = 0;
-      setCatPose("walking");
+      setCatPose(walkingPose);
       walkingFrameTimer = window.setInterval(() => {
-        walkingFrame = (walkingFrame + 1) % CAT_ASSETS.walking.length;
-        setCatPose("walking");
+        walkingFrame = (walkingFrame + 1) % CAT_ASSETS[walkingPose].length;
+        setCatPose(walkingPose);
       }, 240);
     };
 
@@ -215,6 +219,7 @@
         window.requestAnimationFrame(() => root.classList.remove("is-guide-paused"));
       }
       root.classList.remove("is-guide-auto-moving");
+      root.classList.remove("is-guide-walking-side", "is-guide-walking-vertical");
       if (playfulTimer) window.clearTimeout(playfulTimer);
       if (cursorNoticeTimer) window.clearTimeout(cursorNoticeTimer);
       playfulTimer = 0;
@@ -243,7 +248,7 @@
       setCatPose("greeting");
       root.classList.add("is-guide-being-playful");
       playfulTimer = window.setTimeout(() => {
-        if (root.classList.contains("is-guide-auto-moving")) startWalkingCycle();
+        if (root.classList.contains("is-guide-auto-moving")) startWalkingCycle(walkingPose);
         else setCatPose("resting");
         root.classList.remove("is-guide-being-playful");
         playfulTimer = 0;
@@ -281,15 +286,27 @@
       ].filter((target) => Math.hypot(target.x - rect.left, target.y - rect.top) > 96);
       const target = targets[Math.floor(Math.random() * targets.length)];
       if (!target) return;
-      root.style.setProperty("--guide-facing", target.x < rect.left ? "-1" : "1");
+      const deltaX = target.x - rect.left;
+      const deltaY = target.y - rect.top;
+      let pose = "walkingSide";
+      root.classList.remove("is-guide-walking-side", "is-guide-walking-vertical");
+      if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+        root.classList.add("is-guide-walking-side");
+        root.style.setProperty("--guide-facing", deltaX < 0 ? "-1" : "1");
+      } else {
+        pose = deltaY < 0 ? "walkingBack" : "walkingFront";
+        root.classList.add("is-guide-walking-vertical");
+        root.style.setProperty("--guide-facing", "1");
+      }
       root.style.left = `${Math.round(target.x)}px`;
       root.style.top = `${Math.round(target.y)}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
       root.classList.add("is-guide-auto-moving");
-      startWalkingCycle();
+      startWalkingCycle(pose);
       window.setTimeout(() => {
         root.classList.remove("is-guide-auto-moving");
+        root.classList.remove("is-guide-walking-side", "is-guide-walking-vertical");
         stopWalkingCycle();
         if (!playfulTimer) setCatPose("resting");
       }, 3400);
