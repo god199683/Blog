@@ -3686,15 +3686,89 @@ function scheduleEditorFindRefresh() {
   }, 180);
 }
 
+function getEditorNodePath(node) {
+  const path = [];
+  let current = node;
+  while (current && current !== els.content) {
+    const parent = current.parentNode;
+    if (!parent) return null;
+    path.unshift(Array.prototype.indexOf.call(parent.childNodes, current));
+    current = parent;
+  }
+  return current === els.content ? path : null;
+}
+
+function getEditorNodeFromPath(path) {
+  if (!Array.isArray(path)) return null;
+  return path.reduce((current, index) => current?.childNodes?.[index] || null, els.content);
+}
+
+function captureEditorHistorySelection() {
+  const selection = window.getSelection();
+  const range = selection?.rangeCount && rangeIsInEditor(selection.getRangeAt(0))
+    ? selection.getRangeAt(0)
+    : rangeIsInEditor(savedEditorRange)
+      ? savedEditorRange
+      : null;
+  if (!range) return null;
+
+  const startPath = getEditorNodePath(range.startContainer);
+  const endPath = getEditorNodePath(range.endContainer);
+  if (!startPath || !endPath) return null;
+  return {
+    startPath,
+    startOffset: range.startOffset,
+    endPath,
+    endOffset: range.endOffset,
+  };
+}
+
+function createEditorHistorySnapshot() {
+  return {
+    html: els.content.innerHTML,
+    selection: captureEditorHistorySelection(),
+  };
+}
+
+function restoreEditorHistorySelection(selectionState) {
+  const startNode = getEditorNodeFromPath(selectionState?.startPath);
+  const endNode = getEditorNodeFromPath(selectionState?.endPath);
+  if (!startNode || !endNode) {
+    placeEditorCaretAtEnd();
+    return;
+  }
+
+  try {
+    const range = document.createRange();
+    range.setStart(startNode, Math.min(selectionState.startOffset, startNode.nodeType === Node.TEXT_NODE ? startNode.data.length : startNode.childNodes.length));
+    range.setEnd(endNode, Math.min(selectionState.endOffset, endNode.nodeType === Node.TEXT_NODE ? endNode.data.length : endNode.childNodes.length));
+    els.content.focus({ preventScroll: true });
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    savedEditorRange = range.cloneRange();
+    const rangeRect = range.getBoundingClientRect();
+    const contentRect = els.content.getBoundingClientRect();
+    if (rangeRect.height && (rangeRect.top < contentRect.top || rangeRect.bottom > contentRect.bottom)) {
+      els.content.scrollTop += rangeRect.top - contentRect.top - contentRect.height / 3;
+    }
+  } catch {
+    placeEditorCaretAtEnd();
+  }
+}
+
 function resetEditorHistory() {
-  editorHistoryStack = [els.content.innerHTML];
+  editorHistoryStack = [createEditorHistorySnapshot()];
   editorHistoryIndex = 0;
 }
 
 function pushEditorHistorySnapshot() {
   if (editorHistoryRestoring || !els.content) return;
-  const snapshot = els.content.innerHTML;
-  if (editorHistoryStack[editorHistoryIndex] === snapshot) return;
+  const snapshot = createEditorHistorySnapshot();
+  if (editorHistoryStack[editorHistoryIndex]?.html === snapshot.html) {
+    editorHistoryStack[editorHistoryIndex].selection = snapshot.selection;
+    return;
+  }
 
   editorHistoryStack = editorHistoryStack.slice(0, editorHistoryIndex + 1);
   editorHistoryStack.push(snapshot);
@@ -3723,15 +3797,16 @@ function restoreEditorHistory(step) {
   const nextIndex = editorHistoryIndex + step;
   if (nextIndex < 0 || nextIndex >= editorHistoryStack.length) return false;
 
+  const snapshot = editorHistoryStack[nextIndex];
   editorHistoryRestoring = true;
   clearEditorSelectionHold({ unwrap: true });
-  els.content.innerHTML = editorHistoryStack[nextIndex];
+  els.content.innerHTML = snapshot.html;
   editorHistoryIndex = nextIndex;
   editorHistoryRestoring = false;
 
   syncEditorStats();
   markEditorDirty();
-  placeEditorCaretAtEnd();
+  restoreEditorHistorySelection(snapshot.selection);
   return true;
 }
 
@@ -3744,17 +3819,17 @@ function isEditorHistoryShortcut(event) {
   return "";
 }
 
-function handleEditorHistoryShortcut(event) {
+function handleEditorHistoryShortcut(event, { allowOutsideEditor = false } = {}) {
   const action = isEditorHistoryShortcut(event);
-  if (!action) return;
+  if (!action) return false;
 
   const selection = window.getSelection();
   const selectionInEditor = selection?.rangeCount && nodeIsInEditor(selection.anchorNode);
-  if (!nodeIsInEditor(event.target) && !selectionInEditor) return;
+  if (!allowOutsideEditor && !nodeIsInEditor(event.target) && !selectionInEditor) return false;
 
   event.preventDefault();
   flushEditorHistorySnapshot();
-  restoreEditorHistory(action === "undo" ? -1 : 1);
+  return restoreEditorHistory(action === "undo" ? -1 : 1);
 }
 
 function getLastTextNode(node) {
@@ -5549,6 +5624,10 @@ els.form.addEventListener("input", (event) => {
   saveCurrentSelection();
 });
 
+els.content.addEventListener("beforeinput", () => {
+  saveCurrentSelection();
+  pushEditorHistorySnapshot();
+});
 els.content.addEventListener("input", handleEditorContentInput);
 els.content.addEventListener("keydown", handleEditorKeydown);
 els.content.addEventListener("paste", handleEditorPaste);
@@ -5932,6 +6011,14 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (!event.defaultPrevented && isEditorHistoryShortcut(event)) {
+    const nativeTextField = event.target.closest?.("input, textarea, select, [contenteditable='true']");
+    if (!nativeTextField || nodeIsInEditor(nativeTextField)) {
+      handleEditorHistoryShortcut(event, { allowOutsideEditor: true });
+      if (event.defaultPrevented) return;
+    }
+  }
+
   if (!event.defaultPrevented && handleEditorFindShortcut(event)) return;
 
   if (event.key === "Escape" && els.findbar && !els.findbar.hidden) {
