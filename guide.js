@@ -2,6 +2,14 @@
   const page = location.pathname.split("/").pop() || "index.html";
   const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
   const AUTO_MOVE_DELAY = 11000;
+  const catMarkup = `
+    <span class="site-guide-cat" aria-hidden="true">
+      <span class="site-guide-cat-ear site-guide-cat-ear-left"></span>
+      <span class="site-guide-cat-ear site-guide-cat-ear-right"></span>
+      <span class="site-guide-cat-face"><i></i><i></i><b></b></span>
+      <span class="site-guide-cat-tail"></span>
+    </span>
+  `;
 
   const guides = {
     "editor.html": {
@@ -76,12 +84,12 @@
     root.setAttribute("aria-label", "고양이 웹 사용 도우미");
     root.innerHTML = `
       <button class="site-guide-launcher" type="button" aria-expanded="false" aria-controls="site-guide-panel" title="도움말 열기 또는 드래그해 이동">
-        <span class="site-guide-avatar" aria-hidden="true">🐱</span>
+        ${catMarkup}
         <span class="site-guide-launcher-label">도움</span>
       </button>
       <div class="site-guide-panel" id="site-guide-panel" hidden>
         <header>
-          <div><span class="site-guide-avatar" aria-hidden="true">🐱</span><strong>${guide.title}</strong></div>
+          <div>${catMarkup}<strong>${guide.title}</strong></div>
           <button type="button" data-guide-close aria-label="도움말 닫기">×</button>
         </header>
         <p>${guide.intro}</p>
@@ -123,6 +131,8 @@
       root.style.top = `${y}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
+      root.classList.add("is-guide-auto-moving");
+      window.setTimeout(() => root.classList.remove("is-guide-auto-moving"), 560);
       lastInteractionAt = Date.now();
     };
 
