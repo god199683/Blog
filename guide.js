@@ -2,6 +2,7 @@
   const page = location.pathname.split("/").pop() || "index.html";
   const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
   const AUTO_MOVE_DELAY = 9000;
+  const IDLE_BEHAVIOR_DELAY = 4400;
   const CURSOR_NOTICE_DELAY = 650;
   const CURSOR_NOTICE_DISTANCE = 132;
   const CAT_ASSETS = {
@@ -9,6 +10,8 @@
     walkingSide: ["./assets/cat-guide-walk.png", "./assets/cat-guide-walk-alt.png"],
     walkingFront: ["./assets/cat-guide-walk-front.png", "./assets/cat-guide-walk-front-alt.png"],
     walkingBack: ["./assets/cat-guide-walk-back.png", "./assets/cat-guide-walk-back-alt.png"],
+    stretch: "./assets/cat-guide-stretch.png",
+    groom: "./assets/cat-guide-groom.png",
     greeting: "./assets/cat-guide-wave.png",
   };
   const catMarkup = '<img class="site-guide-cat" data-guide-cat src="./assets/cat-guide.png" alt="" aria-hidden="true">';
@@ -171,6 +174,8 @@
     let walkingFrame = 0;
     let walkingFrameTimer = 0;
     let walkingPose = "walkingSide";
+    let idleBehaviorTimer = 0;
+    let idleActivityTimer = 0;
     try {
       const savedAutoMove = localStorage.getItem(AUTO_MOVE_KEY);
       autoMove.checked = savedAutoMove === null ? true : savedAutoMove === "true";
@@ -210,6 +215,13 @@
       }, 240);
     };
 
+    const stopIdleBehavior = (restorePose = false) => {
+      if (idleActivityTimer) window.clearTimeout(idleActivityTimer);
+      idleActivityTimer = 0;
+      root.classList.remove("is-guide-being-idle", "is-guide-stretching", "is-guide-grooming");
+      if (restorePose) setCatPose("resting");
+    };
+
     const stopGuideMotion = () => {
       if (root.classList.contains("is-guide-auto-moving")) {
         const rect = root.getBoundingClientRect();
@@ -227,6 +239,7 @@
       root.classList.remove("is-guide-being-playful");
       root.classList.remove("is-guide-curious");
       stopWalkingCycle();
+      stopIdleBehavior();
       setCatPose("resting");
     };
 
@@ -244,6 +257,7 @@
 
     const playAffection = () => {
       if (!canPlay() || playfulTimer) return;
+      stopIdleBehavior();
       stopWalkingCycle();
       setCatPose("greeting");
       root.classList.add("is-guide-being-playful");
@@ -253,6 +267,17 @@
         root.classList.remove("is-guide-being-playful");
         playfulTimer = 0;
       }, 1900);
+    };
+
+    const playIdleBehavior = () => {
+      if (!canPlay() || playfulTimer || idleActivityTimer) return;
+      const pose = Math.random() < 0.5 ? "stretch" : "groom";
+      setCatPose(pose);
+      root.classList.add("is-guide-being-idle", pose === "stretch" ? "is-guide-stretching" : "is-guide-grooming");
+      idleActivityTimer = window.setTimeout(() => {
+        stopIdleBehavior();
+        setCatPose("resting");
+      }, pose === "stretch" ? 2300 : 2700);
     };
 
     const reactToNearbyCursor = () => {
@@ -274,6 +299,7 @@
 
     const wanderAlongEdge = () => {
       if (!canPlay() || Date.now() - lastInteractionAt < AUTO_MOVE_DELAY) return;
+      stopIdleBehavior();
       const rect = root.getBoundingClientRect();
       const edge = 10;
       const maxX = Math.max(edge, window.innerWidth - rect.width - edge);
@@ -323,6 +349,9 @@
       noteInteraction();
     });
     autoMoveTimer = window.setInterval(wanderAlongEdge, 700);
+    idleBehaviorTimer = window.setInterval(() => {
+      if (Date.now() - lastInteractionAt >= IDLE_BEHAVIOR_DELAY) playIdleBehavior();
+    }, 900);
 
     document.addEventListener("pointermove", (event) => {
       pointerPosition = { x: event.clientX, y: event.clientY };
@@ -366,6 +395,7 @@
     document.addEventListener("pointerdown", (event) => {
       if (!root.contains(event.target)) noteInteraction();
     }, { passive: true });
+    document.addEventListener("wheel", noteInteraction, { passive: true });
     const moveGuide = (event) => {
       if (!dragStart || event.pointerId !== dragPointerId) return;
       const dx = event.clientX - dragStart.x;
@@ -427,10 +457,12 @@
     });
     window.addEventListener("beforeunload", () => {
       window.clearInterval(autoMoveTimer);
+      window.clearInterval(idleBehaviorTimer);
       window.clearTimeout(playfulTimer);
       window.clearTimeout(cursorNoticeTimer);
       window.cancelAnimationFrame(pointerFrame);
       stopWalkingCycle();
+      stopIdleBehavior();
     }, { once: true });
   }
 

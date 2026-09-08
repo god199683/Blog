@@ -3149,6 +3149,14 @@ body.is-away-locked {
   animation: site-guide-cat-affection 0.62s ease-in-out infinite;
 }
 
+.site-guide.is-guide-being-idle .site-guide-cat {
+  animation: site-guide-cat-idle 0.78s ease-in-out infinite;
+}
+
+.site-guide.is-guide-stretching .site-guide-cat {
+  animation-duration: 1.05s;
+}
+
 .site-guide.is-guide-curious .site-guide-cat {
   animation: site-guide-cat-curious 0.72s ease-in-out 2;
   filter: brightness(1.04) drop-shadow(0 5px 7px rgba(14, 116, 144, 0.18));
@@ -3167,6 +3175,11 @@ body.is-away-locked {
 @keyframes site-guide-cat-affection {
   0%, 100% { transform: rotate(-5deg) translateY(0); }
   50% { transform: rotate(5deg) translateY(-0.18rem); }
+}
+
+@keyframes site-guide-cat-idle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-0.08rem) rotate(-2deg); }
 }
 
 @keyframes site-guide-cat-curious {
