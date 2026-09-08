@@ -3,6 +3,7 @@
   const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
   const AUTO_MOVE_DELAY = 9000;
   const IDLE_BEHAVIOR_DELAY = 4400;
+  const IDLE_SETTLE_DELAY = 4800;
   const CURSOR_NOTICE_DELAY = 650;
   const CURSOR_NOTICE_DISTANCE = 132;
   const CAT_ASSETS = {
@@ -167,6 +168,7 @@
     const chatInput = root.querySelector("[data-guide-chat-input]");
     let autoMoveTimer = 0;
     let lastInteractionAt = Date.now();
+    let lastMovementEndedAt = Date.now();
     let playfulTimer = 0;
     let cursorNoticeTimer = 0;
     let pointerFrame = 0;
@@ -232,6 +234,7 @@
       }
       root.classList.remove("is-guide-auto-moving");
       root.classList.remove("is-guide-walking-side", "is-guide-walking-vertical");
+      lastMovementEndedAt = Date.now();
       if (playfulTimer) window.clearTimeout(playfulTimer);
       if (cursorNoticeTimer) window.clearTimeout(cursorNoticeTimer);
       playfulTimer = 0;
@@ -334,6 +337,7 @@
         root.classList.remove("is-guide-auto-moving");
         root.classList.remove("is-guide-walking-side", "is-guide-walking-vertical");
         stopWalkingCycle();
+        lastMovementEndedAt = Date.now();
         if (!playfulTimer) setCatPose("resting");
       }, 3400);
       lastInteractionAt = Date.now();
@@ -350,7 +354,10 @@
     });
     autoMoveTimer = window.setInterval(wanderAlongEdge, 700);
     idleBehaviorTimer = window.setInterval(() => {
-      if (Date.now() - lastInteractionAt >= IDLE_BEHAVIOR_DELAY) playIdleBehavior();
+      if (
+        Date.now() - lastInteractionAt >= IDLE_BEHAVIOR_DELAY
+        && Date.now() - lastMovementEndedAt >= IDLE_SETTLE_DELAY
+      ) playIdleBehavior();
     }, 900);
 
     document.addEventListener("pointermove", (event) => {
