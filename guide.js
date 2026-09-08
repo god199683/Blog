@@ -2,6 +2,8 @@
   const page = location.pathname.split("/").pop() || "index.html";
   const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
   const AUTO_MOVE_DELAY = 9000;
+  const CURSOR_NOTICE_DELAY = 650;
+  const CURSOR_NOTICE_DISTANCE = 132;
   const catMarkup = '<img class="site-guide-cat" data-guide-cat src="./assets/cat-guide.png" alt="" aria-hidden="true">';
 
   const guides = {
@@ -156,6 +158,9 @@
     let autoMoveTimer = 0;
     let lastInteractionAt = Date.now();
     let playfulTimer = 0;
+    let cursorNoticeTimer = 0;
+    let pointerFrame = 0;
+    let pointerPosition = null;
     try {
       const savedAutoMove = localStorage.getItem(AUTO_MOVE_KEY);
       autoMove.checked = savedAutoMove === null ? true : savedAutoMove === "true";
@@ -181,8 +186,11 @@
       }
       root.classList.remove("is-guide-auto-moving");
       if (playfulTimer) window.clearTimeout(playfulTimer);
+      if (cursorNoticeTimer) window.clearTimeout(cursorNoticeTimer);
       playfulTimer = 0;
+      cursorNoticeTimer = 0;
       root.classList.remove("is-guide-being-playful");
+      root.classList.remove("is-guide-curious");
       root.querySelectorAll("[data-guide-cat]").forEach((cat) => {
         cat.src = "./assets/cat-guide.png";
       });
@@ -214,6 +222,23 @@
         root.classList.remove("is-guide-being-playful");
         playfulTimer = 0;
       }, 1900);
+    };
+
+    const reactToNearbyCursor = () => {
+      cursorNoticeTimer = 0;
+      if (!canPlay() || !pointerPosition) return;
+      const rect = root.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const distance = Math.hypot(pointerPosition.x - centerX, pointerPosition.y - centerY);
+      if (distance > CURSOR_NOTICE_DISTANCE) {
+        root.classList.remove("is-guide-curious");
+        return;
+      }
+      root.style.setProperty("--guide-look-x", pointerPosition.x < centerX ? "-8deg" : "8deg");
+      root.classList.add("is-guide-curious");
+      window.setTimeout(() => root.classList.remove("is-guide-curious"), 1300);
+      playAffection();
     };
 
     const wanderAlongEdge = () => {
@@ -250,6 +275,31 @@
       noteInteraction();
     });
     autoMoveTimer = window.setInterval(wanderAlongEdge, 700);
+
+    document.addEventListener("pointermove", (event) => {
+      pointerPosition = { x: event.clientX, y: event.clientY };
+      if (pointerFrame) return;
+      pointerFrame = window.requestAnimationFrame(() => {
+        pointerFrame = 0;
+        if (!canPlay()) return;
+        const rect = root.getBoundingClientRect();
+        const distance = Math.hypot(
+          pointerPosition.x - (rect.left + rect.width / 2),
+          pointerPosition.y - (rect.top + rect.height / 2),
+        );
+        if (distance <= CURSOR_NOTICE_DISTANCE) {
+          root.style.setProperty("--guide-look-x", pointerPosition.x < rect.left + rect.width / 2 ? "-8deg" : "8deg");
+          root.classList.add("is-guide-curious");
+          if (!cursorNoticeTimer && !playfulTimer) {
+            cursorNoticeTimer = window.setTimeout(reactToNearbyCursor, CURSOR_NOTICE_DELAY);
+          }
+          return;
+        }
+        root.classList.remove("is-guide-curious");
+        if (cursorNoticeTimer) window.clearTimeout(cursorNoticeTimer);
+        cursorNoticeTimer = 0;
+      });
+    }, { passive: true });
 
     let dragStart = null;
     let moved = false;
@@ -323,6 +373,8 @@
     window.addEventListener("beforeunload", () => {
       window.clearInterval(autoMoveTimer);
       window.clearTimeout(playfulTimer);
+      window.clearTimeout(cursorNoticeTimer);
+      window.cancelAnimationFrame(pointerFrame);
     }, { once: true });
   }
 
