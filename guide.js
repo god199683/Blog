@@ -6,7 +6,7 @@
   const CURSOR_NOTICE_DISTANCE = 132;
   const CAT_ASSETS = {
     resting: "./assets/cat-guide.png",
-    walking: "./assets/cat-guide-walk.png",
+    walking: ["./assets/cat-guide-walk.png", "./assets/cat-guide-walk-alt.png"],
     greeting: "./assets/cat-guide-wave.png",
   };
   const catMarkup = '<img class="site-guide-cat" data-guide-cat src="./assets/cat-guide.png" alt="" aria-hidden="true">';
@@ -166,6 +166,8 @@
     let cursorNoticeTimer = 0;
     let pointerFrame = 0;
     let pointerPosition = null;
+    let walkingFrame = 0;
+    let walkingFrameTimer = 0;
     try {
       const savedAutoMove = localStorage.getItem(AUTO_MOVE_KEY);
       autoMove.checked = savedAutoMove === null ? true : savedAutoMove === "true";
@@ -182,10 +184,26 @@
     };
 
     const setCatPose = (pose) => {
-      const source = CAT_ASSETS[pose] || CAT_ASSETS.resting;
+      const asset = CAT_ASSETS[pose] || CAT_ASSETS.resting;
+      const source = Array.isArray(asset) ? asset[walkingFrame] : asset;
       root.querySelectorAll("[data-guide-cat]").forEach((cat) => {
         cat.src = source;
       });
+    };
+
+    const stopWalkingCycle = () => {
+      if (walkingFrameTimer) window.clearInterval(walkingFrameTimer);
+      walkingFrameTimer = 0;
+    };
+
+    const startWalkingCycle = () => {
+      stopWalkingCycle();
+      walkingFrame = 0;
+      setCatPose("walking");
+      walkingFrameTimer = window.setInterval(() => {
+        walkingFrame = (walkingFrame + 1) % CAT_ASSETS.walking.length;
+        setCatPose("walking");
+      }, 240);
     };
 
     const stopGuideMotion = () => {
@@ -203,6 +221,7 @@
       cursorNoticeTimer = 0;
       root.classList.remove("is-guide-being-playful");
       root.classList.remove("is-guide-curious");
+      stopWalkingCycle();
       setCatPose("resting");
     };
 
@@ -213,17 +232,19 @@
 
     const canPlay = () => {
       const active = document.activeElement;
-      if (!panel.hidden || !autoMove.checked) return false;
+      if (!panel.hidden || !autoMove.checked || root.classList.contains("is-guide-auto-moving")) return false;
       if (active?.matches?.("input, textarea, select, [contenteditable='true']")) return false;
       return !document.body.classList.contains("is-editor-writing-focus");
     };
 
     const playAffection = () => {
       if (!canPlay() || playfulTimer) return;
+      stopWalkingCycle();
       setCatPose("greeting");
       root.classList.add("is-guide-being-playful");
       playfulTimer = window.setTimeout(() => {
-        setCatPose(root.classList.contains("is-guide-auto-moving") ? "walking" : "resting");
+        if (root.classList.contains("is-guide-auto-moving")) startWalkingCycle();
+        else setCatPose("resting");
         root.classList.remove("is-guide-being-playful");
         playfulTimer = 0;
       }, 1900);
@@ -266,9 +287,10 @@
       root.style.right = "auto";
       root.style.bottom = "auto";
       root.classList.add("is-guide-auto-moving");
-      setCatPose("walking");
+      startWalkingCycle();
       window.setTimeout(() => {
         root.classList.remove("is-guide-auto-moving");
+        stopWalkingCycle();
         if (!playfulTimer) setCatPose("resting");
       }, 3400);
       lastInteractionAt = Date.now();
@@ -391,6 +413,7 @@
       window.clearTimeout(playfulTimer);
       window.clearTimeout(cursorNoticeTimer);
       window.cancelAnimationFrame(pointerFrame);
+      stopWalkingCycle();
     }, { once: true });
   }
 
