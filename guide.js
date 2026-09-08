@@ -176,6 +176,7 @@
     let walkingFrame = 0;
     let walkingFrameTimer = 0;
     let walkingPose = "walkingSide";
+    let movementFrame = 0;
     let idleBehaviorTimer = 0;
     let idleActivityTimer = 0;
     try {
@@ -226,6 +227,8 @@
 
     const stopGuideMotion = () => {
       if (root.classList.contains("is-guide-auto-moving")) {
+        if (movementFrame) window.cancelAnimationFrame(movementFrame);
+        movementFrame = 0;
         const rect = root.getBoundingClientRect();
         root.classList.add("is-guide-paused");
         root.style.left = `${Math.round(rect.left)}px`;
@@ -327,19 +330,33 @@
         root.classList.add("is-guide-walking-vertical");
         root.style.setProperty("--guide-facing", "1");
       }
-      root.style.left = `${Math.round(target.x)}px`;
-      root.style.top = `${Math.round(target.y)}px`;
-      root.style.right = "auto";
-      root.style.bottom = "auto";
-      root.classList.add("is-guide-auto-moving");
-      startWalkingCycle(pose);
-      window.setTimeout(() => {
+      const distance = Math.hypot(deltaX, deltaY);
+      const duration = Math.max(1400, Math.min(4300, Math.round(distance * 7.2)));
+      const startX = rect.left;
+      const startY = rect.top;
+      const startTime = performance.now();
+      const move = (now) => {
+        const progress = Math.min(1, (now - startTime) / duration);
+        // A smooth acceleration and braking curve keeps the walking cadence from sliding.
+        const eased = progress * progress * (3 - 2 * progress);
+        root.style.left = `${Math.round(startX + deltaX * eased)}px`;
+        root.style.top = `${Math.round(startY + deltaY * eased)}px`;
+        if (progress < 1 && root.classList.contains("is-guide-auto-moving")) {
+          movementFrame = window.requestAnimationFrame(move);
+          return;
+        }
+        movementFrame = 0;
         root.classList.remove("is-guide-auto-moving");
         root.classList.remove("is-guide-walking-side", "is-guide-walking-vertical");
         stopWalkingCycle();
         lastMovementEndedAt = Date.now();
         if (!playfulTimer) setCatPose("resting");
-      }, 3400);
+      };
+      root.style.right = "auto";
+      root.style.bottom = "auto";
+      root.classList.add("is-guide-auto-moving");
+      startWalkingCycle(pose);
+      movementFrame = window.requestAnimationFrame(move);
       lastInteractionAt = Date.now();
     };
 
@@ -468,6 +485,7 @@
       window.clearTimeout(playfulTimer);
       window.clearTimeout(cursorNoticeTimer);
       window.cancelAnimationFrame(pointerFrame);
+      window.cancelAnimationFrame(movementFrame);
       stopWalkingCycle();
       stopIdleBehavior();
     }, { once: true });
