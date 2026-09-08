@@ -2,14 +2,7 @@
   const page = location.pathname.split("/").pop() || "index.html";
   const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
   const AUTO_MOVE_DELAY = 11000;
-  const catMarkup = `
-    <span class="site-guide-cat" aria-hidden="true">
-      <span class="site-guide-cat-ear site-guide-cat-ear-left"></span>
-      <span class="site-guide-cat-ear site-guide-cat-ear-right"></span>
-      <span class="site-guide-cat-face"><i></i><i></i><b></b></span>
-      <span class="site-guide-cat-tail"></span>
-    </span>
-  `;
+  const catMarkup = '<img class="site-guide-cat" src="./assets/cat-guide.png" alt="" aria-hidden="true">';
 
   const guides = {
     "editor.html": {

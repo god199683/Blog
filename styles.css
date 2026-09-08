@@ -3111,87 +3111,13 @@ body.is-away-locked {
 }
 
 .site-guide-cat {
-  position: relative;
-  display: inline-block;
-  width: 2.45rem;
-  height: 2.45rem;
-  border-radius: 50%;
-  background: #f4b86a;
+  display: block;
+  width: 3.2rem;
+  height: 3.2rem;
+  object-fit: contain;
   flex: 0 0 auto;
   transform-origin: 50% 100%;
   animation: site-guide-cat-breathe 3.6s ease-in-out infinite;
-}
-
-.site-guide-cat-ear {
-  position: absolute;
-  top: -0.34rem;
-  width: 0.86rem;
-  height: 0.88rem;
-  border-radius: 0.18rem 0.42rem 0.15rem 0.42rem;
-  background: #e9a653;
-}
-
-.site-guide-cat-ear::after {
-  position: absolute;
-  inset: 0.21rem;
-  border-radius: inherit;
-  background: #f8d1ba;
-  content: "";
-}
-
-.site-guide-cat-ear-left {
-  left: 0.12rem;
-  transform: rotate(-20deg);
-}
-
-.site-guide-cat-ear-right {
-  right: 0.12rem;
-  transform: scaleX(-1) rotate(-20deg);
-}
-
-.site-guide-cat-face {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  gap: 0.52rem;
-  padding-top: 1.02rem;
-}
-
-.site-guide-cat-face i {
-  width: 0.16rem;
-  height: 0.22rem;
-  border-radius: 999px;
-  background: #52351f;
-  animation: site-guide-cat-blink 4.8s ease-in-out infinite;
-}
-
-.site-guide-cat-face i:nth-child(2) {
-  animation-delay: 0.05s;
-}
-
-.site-guide-cat-face b {
-  position: absolute;
-  top: 1.47rem;
-  width: 0.27rem;
-  height: 0.16rem;
-  border-radius: 50% 50% 60% 60%;
-  background: #d77f86;
-}
-
-.site-guide-cat-tail {
-  position: absolute;
-  right: -0.38rem;
-  bottom: 0.34rem;
-  width: 0.72rem;
-  height: 1.18rem;
-  border: 0.26rem solid #e9a653;
-  border-bottom: 0;
-  border-left: 0;
-  border-radius: 0 0.62rem 0 0;
-  transform: rotate(23deg);
-  transform-origin: 0 100%;
-  animation: site-guide-cat-tail 2.4s ease-in-out infinite;
 }
 
 .site-guide.is-guide-auto-moving .site-guide-cat {
@@ -3201,16 +3127,6 @@ body.is-away-locked {
 @keyframes site-guide-cat-breathe {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-0.05rem); }
-}
-
-@keyframes site-guide-cat-blink {
-  0%, 44%, 48%, 100% { transform: scaleY(1); }
-  46% { transform: scaleY(0.08); }
-}
-
-@keyframes site-guide-cat-tail {
-  0%, 100% { transform: rotate(15deg); }
-  50% { transform: rotate(37deg); }
 }
 
 @keyframes site-guide-cat-step {
@@ -3247,6 +3163,11 @@ body.is-away-locked {
 
 .site-guide-panel header > div {
   gap: 0.42rem;
+}
+
+.site-guide-panel .site-guide-cat {
+  width: 1.9rem;
+  height: 1.9rem;
 }
 
 .site-guide-panel header button {
