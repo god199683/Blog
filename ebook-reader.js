@@ -3,6 +3,7 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
 const FONT_SIZE_KEY = "blog.ebookFontSize";
+const EDITOR_DRAFT_PREFIX = "blog.editorDraft.posts.";
 const BOOKMARK_KEY_PREFIX = "blog.ebookBookmark.";
 const BOOKMARK_COOKIE_PREFIX = "blog_ebook_bookmark_";
 const SIDEBAR_COLLAPSED_KEY = "blog.ebookSidebarCollapsed";
@@ -361,7 +362,51 @@ function normalizePost(post = {}) {
     author: post.author || "",
     login_id: post.login_id || "",
     user_id: post.user_id || "",
+    is_draft: Boolean(post.is_draft),
   };
+}
+
+function getReaderDraftPosts() {
+  if (!state.id) return [];
+  const prefix = `${EDITOR_DRAFT_PREFIX}${state.id}.`;
+  const drafts = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key?.startsWith(prefix)) continue;
+    try {
+      const draft = JSON.parse(localStorage.getItem(key) || "null");
+      if (!draft || (!String(draft.title || "").trim() && !String(draft.body || "").trim())) continue;
+      const context = decodeURIComponent(key.slice(prefix.length));
+      const postId = context.startsWith("post:") ? context.slice(5) : `draft:${context}`;
+      const folderPath = getFolderPathById(draft.folder_id);
+      drafts.push(
+        normalizePost({
+          id: postId,
+          title: draft.title || "제목 없는 임시 저장",
+          body: draft.body || "",
+          category: draft.category || "전체",
+          folder_id: draft.folder_id || "",
+          folder_name: folderPath.split(" / ").at(-1) || "",
+          folder_path: folderPath,
+          published: draft.published,
+          published_at: draft.saved_at || "",
+          created_at: draft.saved_at || "",
+          author: state.id,
+          login_id: state.id,
+          is_draft: true,
+        })
+      );
+    } catch {
+      // Ignore unavailable or malformed local drafts.
+    }
+  }
+  return drafts;
+}
+
+function mergeReaderDraftPosts(posts = []) {
+  const merged = new Map(posts.map((post) => [String(post.id), post]));
+  getReaderDraftPosts().forEach((draft) => merged.set(draft.id, draft));
+  return [...merged.values()];
 }
 
 function belongsToUser(post, session, id) {
@@ -566,10 +611,11 @@ async function loadTreeAndPosts(session) {
   const trashIds = normalizeTrashPostIds(treeRow?.trash);
   state.tree = Array.isArray(treeRow?.tree) ? treeRow.tree.map(normalizeTreeNode) : [];
   syncBookmarkFromRemote(treeRow?.ebook_bookmark);
-  state.posts = (Array.isArray(postRows) ? postRows : [])
+  const storedPosts = (Array.isArray(postRows) ? postRows : [])
     .map(normalizePost)
     .filter((post) => belongsToUser(post, session, state.id))
     .filter((post) => !trashIds.has(post.id));
+  state.posts = mergeReaderDraftPosts(storedPosts);
 }
 
 function setMessage(message = "") {
@@ -889,6 +935,7 @@ function renderPostList() {
           return `
           <button class="${classes}" type="button" data-ebook-post-index="${index}">
             <span class="ebook-post-title">${escapeHtml(post.title)}</span>
+            ${post.is_draft ? `<span class="ebook-draft-marker">임시 저장</span>` : ""}
             ${bookmark ? `<span class="ebook-bookmark-marker" aria-label="북마크 ${bookmarkPage}페이지">북마크 ${bookmarkPage}p</span>` : ""}
           </button>
         `;

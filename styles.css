@@ -13263,6 +13263,18 @@ html.is-android-app-view .ebook-sidebar-actions [data-ebook-bookmark] {
   display: none;
 }
 
+.ebook-draft-marker {
+  justify-self: end;
+  padding: 0.14rem 0.42rem;
+  border: 1px solid rgba(251, 191, 36, 0.62);
+  border-radius: 5px;
+  background: #fffbeb;
+  color: #a16207;
+  font-size: 0.68rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
 .ebook-search-dialog {
   width: min(92vw, 38rem);
 }
