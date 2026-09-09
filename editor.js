@@ -3920,6 +3920,7 @@ function handleEditorEllipsisBackspace(event) {
 }
 
 function handleEditorKeydown(event) {
+  if (event.defaultPrevented) return;
   if (handleEditorFindShortcut(event)) return;
   if (handleEditorEllipsisBackspace(event)) return;
   handleEditorHistoryShortcut(event);
@@ -6017,6 +6018,13 @@ document.addEventListener("click", (event) => {
     closePasteMenu();
   }
 });
+
+document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented || !isEditorHistoryShortcut(event)) return;
+  const nativeTextField = event.target.closest?.("input, textarea, select, [contenteditable='true']");
+  if (nativeTextField && !nodeIsInEditor(nativeTextField)) return;
+  handleEditorHistoryShortcut(event, { allowOutsideEditor: true });
+}, { capture: true });
 
 document.addEventListener("keydown", (event) => {
   if (!event.defaultPrevented && isEditorHistoryShortcut(event)) {
