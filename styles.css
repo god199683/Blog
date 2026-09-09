@@ -12461,12 +12461,18 @@ body.is-editor-side-collapsed .editor-grid {
 }
 
 .ebook-page-content [data-reader-empty-block] {
+  display: block;
+  height: 0.48em;
   min-height: 0 !important;
-  margin: 0 0 0.9em !important;
+  margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+}
+
+.ebook-page-content .ebook-before-empty-line {
+  margin-bottom: 0.72em !important;
 }
 
 .ebook-page-content :where(strong, b) {

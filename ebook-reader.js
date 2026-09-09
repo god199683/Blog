@@ -241,6 +241,43 @@ function normalizeEbookReadableBlocks(fragment) {
   });
 }
 
+function limitReaderBlankLines(fragment) {
+  const parents = [fragment, ...fragment.querySelectorAll("*")];
+
+  parents.forEach((parent) => {
+    let blankBreakCount = 0;
+    [...parent.childNodes].forEach((node) => {
+      const isWhitespace = node.nodeType === Node.TEXT_NODE && !String(node.textContent || "").trim();
+      const isBreak = node instanceof HTMLBRElement;
+
+      if (isBreak) {
+        blankBreakCount += 1;
+        if (blankBreakCount > 1) node.remove();
+        return;
+      }
+
+      if (!isWhitespace) blankBreakCount = 0;
+    });
+
+    let blankBlockCount = 0;
+    [...parent.children].forEach((node) => {
+      if (!(node instanceof HTMLElement) || !node.hasAttribute("data-reader-empty-block")) {
+        blankBlockCount = 0;
+        return;
+      }
+
+      blankBlockCount += 1;
+      if (blankBlockCount > 1) {
+        node.remove();
+        return;
+      }
+
+      const previous = node.previousElementSibling;
+      if (previous instanceof HTMLElement) previous.classList.add("ebook-before-empty-line");
+    });
+  });
+}
+
 function normalizeReaderFragment(fragment) {
   fragment.querySelectorAll("*").forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
@@ -272,6 +309,7 @@ function normalizeReaderFragment(fragment) {
     }
   });
 
+  limitReaderBlankLines(fragment);
   normalizeEbookReadableBlocks(fragment);
 }
 
@@ -1017,20 +1055,6 @@ function renderProgress() {
   syncWriteButton();
   syncSearchButton();
   syncBookmarkButton();
-}
-
-function enhanceEbookContentTypography() {
-  if (!els.content) return;
-
-  els.content.querySelectorAll("p, div, li").forEach((node) => {
-    if (node.closest(".ebook-content-title")) return;
-    const text = String(node.textContent || "").trim();
-    if (!text) return;
-
-    if (/^[\u201c\u2018"'「『]/.test(text) && [...text].length >= 28) {
-      node.classList.add("ebook-dialogue-line");
-    }
-  });
 }
 
 function enhanceEbookContentTypography() {
