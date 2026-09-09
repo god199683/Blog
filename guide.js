@@ -415,7 +415,34 @@
     let dragStart = null;
     let dragPointerId = null;
     let moved = false;
+    const getUnderlyingInteractiveTarget = (x, y) => {
+      const previousPointerEvents = root.style.pointerEvents;
+      root.style.pointerEvents = "none";
+      const target = document.elementFromPoint(x, y);
+      root.style.pointerEvents = previousPointerEvents;
+      return target?.closest?.("button, a[href], input, select, textarea, [contenteditable='true'], [role='button']") || null;
+    };
+    const moveGuideOutOfWay = () => {
+      const rect = root.getBoundingClientRect();
+      const edge = 8;
+      const maxX = Math.max(edge, window.innerWidth - root.offsetWidth - edge);
+      const maxY = Math.max(edge, window.innerHeight - root.offsetHeight - edge);
+      root.style.left = `${Math.round(rect.left < window.innerWidth / 2 ? maxX : edge)}px`;
+      root.style.top = `${Math.round(rect.top < window.innerHeight / 2 ? maxY : edge)}px`;
+      root.style.right = "auto";
+      root.style.bottom = "auto";
+    };
     launcher.addEventListener("pointerdown", (event) => {
+      const underlyingTarget = getUnderlyingInteractiveTarget(event.clientX, event.clientY);
+      if (underlyingTarget) {
+        event.preventDefault();
+        event.stopPropagation();
+        moved = true;
+        noteInteraction();
+        moveGuideOutOfWay();
+        window.setTimeout(() => underlyingTarget.click(), 0);
+        return;
+      }
       noteInteraction();
       event.preventDefault();
       dragStart = { x: event.clientX, y: event.clientY, left: root.offsetLeft, top: root.offsetTop };
