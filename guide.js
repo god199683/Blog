@@ -1,6 +1,7 @@
 (() => {
   const page = location.pathname.split("/").pop() || "index.html";
   const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
+  const POSITION_KEY = "blog.catGuidePosition";
   const AUTO_MOVE_DELAY = 9000;
   const IDLE_BEHAVIOR_DELAY = 4400;
   const IDLE_SETTLE_DELAY = 4800;
@@ -152,8 +153,21 @@
     root.classList.add("is-guide-positioning");
     window.requestAnimationFrame(() => {
       const rect = root.getBoundingClientRect();
-      root.style.left = `${Math.round(rect.left)}px`;
-      root.style.top = `${Math.round(rect.top)}px`;
+      const savedPosition = (() => {
+        try {
+          return JSON.parse(localStorage.getItem(POSITION_KEY) || "null");
+        } catch {
+          return null;
+        }
+      })();
+      const maxX = Math.max(8, window.innerWidth - rect.width - 8);
+      const maxY = Math.max(8, window.innerHeight - rect.height - 8);
+      const savedX = Number(savedPosition?.x);
+      const savedY = Number(savedPosition?.y);
+      const left = Number.isFinite(savedX) ? Math.min(maxX, Math.max(8, Math.round(savedX * maxX))) : Math.round(rect.left);
+      const top = Number.isFinite(savedY) ? Math.min(maxY, Math.max(8, Math.round(savedY * maxY))) : Math.round(rect.top);
+      root.style.left = `${left}px`;
+      root.style.top = `${top}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
       window.requestAnimationFrame(() => root.classList.remove("is-guide-positioning"));
@@ -458,6 +472,7 @@
     let dragStart = null;
     let dragPointerId = null;
     let moved = false;
+    let guideClickTimer = 0;
     const getUnderlyingInteractiveTarget = (x, y) => {
       const previousPointerEvents = root.style.pointerEvents;
       root.style.pointerEvents = "none";
@@ -475,17 +490,20 @@
       root.style.right = "auto";
       root.style.bottom = "auto";
     };
-    launcher.addEventListener("pointerdown", (event) => {
-      const underlyingTarget = getUnderlyingInteractiveTarget(event.clientX, event.clientY);
-      if (underlyingTarget) {
-        event.preventDefault();
-        event.stopPropagation();
-        moved = true;
-        noteInteraction();
-        moveGuideOutOfWay();
-        window.setTimeout(() => underlyingTarget.click(), 0);
-        return;
+    const saveGuidePosition = () => {
+      const rect = root.getBoundingClientRect();
+      const maxX = Math.max(1, window.innerWidth - rect.width - 8);
+      const maxY = Math.max(1, window.innerHeight - rect.height - 8);
+      try {
+        localStorage.setItem(POSITION_KEY, JSON.stringify({
+          x: Math.min(1, Math.max(0, rect.left / maxX)),
+          y: Math.min(1, Math.max(0, rect.top / maxY)),
+        }));
+      } catch {
+        // The guide can still be dragged when local storage is unavailable.
       }
+    };
+    launcher.addEventListener("pointerdown", (event) => {
       noteInteraction();
       event.preventDefault();
       dragStart = { x: event.clientX, y: event.clientY, left: root.offsetLeft, top: root.offsetTop };
@@ -523,6 +541,9 @@
       dragStart = null;
       dragPointerId = null;
       root.classList.remove("is-guide-dragging");
+      if (moved) {
+        saveGuidePosition();
+      }
     };
     window.addEventListener("pointermove", moveGuide, { passive: true });
     window.addEventListener("pointerup", finishGuideMove, { passive: true });
@@ -533,7 +554,21 @@
         moved = false;
         return;
       }
-      setOpen(panel.hidden);
+      if (guideClickTimer) return;
+      guideClickTimer = window.setTimeout(() => {
+        guideClickTimer = 0;
+        setOpen(panel.hidden);
+      }, 220);
+    });
+    launcher.addEventListener("dblclick", (event) => {
+      if (guideClickTimer) window.clearTimeout(guideClickTimer);
+      guideClickTimer = 0;
+      const underlyingTarget = getUnderlyingInteractiveTarget(event.clientX, event.clientY);
+      if (!underlyingTarget) return;
+      event.preventDefault();
+      event.stopPropagation();
+      noteInteraction();
+      moveGuideOutOfWay();
     });
     root.querySelector("[data-guide-close]").addEventListener("click", () => setOpen(false));
     root.querySelectorAll("[data-guide-action]").forEach((button) => {
