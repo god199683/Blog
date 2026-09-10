@@ -3119,8 +3119,8 @@ body.is-away-locked {
 
 .site-guide-cat {
   display: block;
-  width: 3.2rem;
-  height: 3.2rem;
+  width: 2.65rem;
+  height: 2.65rem;
   object-fit: contain;
   flex: 0 0 auto;
   transform-origin: 50% 100%;
@@ -3128,12 +3128,12 @@ body.is-away-locked {
 }
 
 .site-guide.is-guide-sleeping .site-guide-launcher {
-  width: 5.15rem;
+  width: 4.3rem;
 }
 
 .site-guide.is-guide-sleeping > .site-guide-launcher .site-guide-cat {
-  width: 5.15rem;
-  height: 3.2rem;
+  width: 4.3rem;
+  height: 2.65rem;
   animation: site-guide-cat-sleep 4.4s ease-in-out infinite;
 }
 
@@ -3146,17 +3146,17 @@ body.is-away-locked {
 }
 
 .site-guide.is-guide-auto-moving.is-guide-walking-side .site-guide-launcher {
-  width: 5.15rem;
+  width: 4.3rem;
 }
 
 .site-guide.is-guide-auto-moving.is-guide-walking-side .site-guide-cat {
-  width: 5.15rem;
-  height: 3.2rem;
+  width: 4.3rem;
+  height: 2.65rem;
 }
 
 .site-guide.is-guide-auto-moving.is-guide-walking-vertical .site-guide-cat {
-  width: 3.2rem;
-  height: 3.2rem;
+  width: 2.65rem;
+  height: 2.65rem;
 }
 
 .site-guide.is-guide-being-playful .site-guide-cat {
