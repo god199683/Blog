@@ -1527,6 +1527,7 @@ function bindEvents() {
   window.addEventListener("scroll", scheduleScrollToolbox, { passive: true });
   document.addEventListener("keydown", (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.target.closest?.("input, textarea, select, [contenteditable='true']")) return;
     if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
       event.preventDefault();
       nextPage();
