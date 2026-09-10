@@ -473,13 +473,6 @@
     let dragPointerId = null;
     let moved = false;
     let guideClickTimer = 0;
-    const getUnderlyingInteractiveTarget = (x, y) => {
-      const previousPointerEvents = root.style.pointerEvents;
-      root.style.pointerEvents = "none";
-      const target = document.elementFromPoint(x, y);
-      root.style.pointerEvents = previousPointerEvents;
-      return target?.closest?.("button, a[href], input, select, textarea, [contenteditable='true'], [role='button']") || null;
-    };
     const moveGuideOutOfWay = () => {
       const rect = root.getBoundingClientRect();
       const edge = 8;
@@ -563,8 +556,6 @@
     launcher.addEventListener("dblclick", (event) => {
       if (guideClickTimer) window.clearTimeout(guideClickTimer);
       guideClickTimer = 0;
-      const underlyingTarget = getUnderlyingInteractiveTarget(event.clientX, event.clientY);
-      if (!underlyingTarget) return;
       event.preventDefault();
       event.stopPropagation();
       noteInteraction();
