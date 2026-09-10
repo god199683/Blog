@@ -189,6 +189,41 @@
       autoMoveLabel.textContent = autoMove.checked ? "움직임 멈추기" : "움직이게 하기";
     };
     syncAutoMoveLabel();
+
+    const getEditorSelectionCountRect = () => {
+      if (page !== "editor.html") return null;
+      const count = document.querySelector("[data-editor-char-selection]");
+      const box = count?.closest(".editor-count-box");
+      if (!box || box.offsetParent === null) return null;
+      return box.getBoundingClientRect();
+    };
+
+    const rectsOverlap = (first, second, padding = 0) => (
+      first.left < second.right + padding
+      && first.right > second.left - padding
+      && first.top < second.bottom + padding
+      && first.bottom > second.top - padding
+    );
+
+    const moveGuideAwayFromEditorSelectionCount = () => {
+      if (page !== "editor.html" || !panel.hidden || root.classList.contains("is-guide-dragging")) return;
+      const protectedRect = getEditorSelectionCountRect();
+      const guideRect = root.getBoundingClientRect();
+      if (!protectedRect || !rectsOverlap(guideRect, protectedRect, 10)) return;
+
+      const edge = 10;
+      const maxX = Math.max(edge, window.innerWidth - guideRect.width - edge);
+      const maxY = Math.max(edge, window.innerHeight - guideRect.height - edge);
+      const nextX = protectedRect.left > guideRect.width + edge ? edge : maxX;
+      const nextY = Math.min(maxY, Math.max(edge, protectedRect.top));
+      root.classList.add("is-guide-positioning");
+      root.style.left = `${Math.round(nextX)}px`;
+      root.style.top = `${Math.round(nextY)}px`;
+      root.style.right = "auto";
+      root.style.bottom = "auto";
+      window.requestAnimationFrame(() => root.classList.remove("is-guide-positioning"));
+    };
+
     const positionGuidePanel = () => {
       if (panel.hidden) return;
       root.classList.remove("is-guide-panel-below", "is-guide-panel-left");
@@ -325,7 +360,15 @@
         { x: maxX, y: edge + Math.random() * (maxY - edge) },
         { x: edge + Math.random() * (maxX - edge), y: edge },
         { x: edge + Math.random() * (maxX - edge), y: maxY },
-      ].filter((target) => Math.hypot(target.x - rect.left, target.y - rect.top) > 96);
+      ].filter((target) => {
+        if (Math.hypot(target.x - rect.left, target.y - rect.top) <= 96) return false;
+        const protectedRect = getEditorSelectionCountRect();
+        return !protectedRect || !rectsOverlap(
+          { left: target.x, top: target.y, right: target.x + rect.width, bottom: target.y + rect.height },
+          protectedRect,
+          10
+        );
+      });
       const target = targets[Math.floor(Math.random() * targets.length)];
       if (!target) return;
       const deltaX = target.x - rect.left;
@@ -453,6 +496,11 @@
     document.addEventListener("focusin", (event) => {
       if (!root.contains(event.target) && event.target.matches?.("input, textarea, select, [contenteditable='true']")) noteInteraction();
     });
+    if (page === "editor.html") {
+      document.addEventListener("selectionchange", () => {
+        window.requestAnimationFrame(moveGuideAwayFromEditorSelectionCount);
+      });
+    }
     document.addEventListener("pointerdown", (event) => {
       if (!root.contains(event.target)) noteInteraction();
     }, { passive: true });
@@ -526,7 +574,11 @@
       stopWalkingCycle();
       stopIdleBehavior();
     }, { once: true });
-    window.addEventListener("resize", positionGuidePanel, { passive: true });
+    window.addEventListener("resize", () => {
+      positionGuidePanel();
+      moveGuideAwayFromEditorSelectionCount();
+    }, { passive: true });
+    window.requestAnimationFrame(moveGuideAwayFromEditorSelectionCount);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountGuide, { once: true });
