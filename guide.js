@@ -162,11 +162,11 @@
         }
       })();
       const maxX = Math.max(8, window.innerWidth - rect.width - 8);
-      const maxY = Math.max(8, window.innerHeight - rect.height - 8);
+      const maxY = Math.max(0, window.innerHeight - rect.height);
       const savedX = Number(savedPosition?.x);
       const savedY = Number(savedPosition?.y);
       const left = Number.isFinite(savedX) ? Math.min(maxX, Math.max(8, Math.round(savedX * maxX))) : Math.round(rect.left);
-      const top = Number.isFinite(savedY) ? Math.min(maxY, Math.max(8, Math.round(savedY * maxY))) : Math.round(rect.top);
+      const top = Number.isFinite(savedY) ? Math.min(maxY, Math.max(0, Math.round(savedY * maxY))) : Math.round(rect.top);
       root.style.left = `${left}px`;
       root.style.top = `${top}px`;
       root.style.right = "auto";
@@ -370,13 +370,13 @@
       if (!canPlay() || Date.now() - lastInteractionAt < AUTO_MOVE_DELAY) return;
       stopIdleBehavior();
       const rect = root.getBoundingClientRect();
-      const edge = 10;
+      const edge = 8;
       const maxX = Math.max(edge, window.innerWidth - rect.width - edge);
-      const maxY = Math.max(edge, window.innerHeight - rect.height - edge);
+      const maxY = Math.max(0, window.innerHeight - rect.height);
+      const lowerBandTop = Math.max(0, maxY - Math.max(56, Math.min(96, window.innerHeight * 0.12)));
       const targets = [
-        { x: edge, y: edge + Math.random() * (maxY - edge) },
-        { x: maxX, y: edge + Math.random() * (maxY - edge) },
-        { x: edge + Math.random() * (maxX - edge), y: edge },
+        { x: edge, y: lowerBandTop + Math.random() * (maxY - lowerBandTop) },
+        { x: maxX, y: lowerBandTop + Math.random() * (maxY - lowerBandTop) },
         { x: edge + Math.random() * (maxX - edge), y: maxY },
       ].filter((target) => {
         if (Math.hypot(target.x - rect.left, target.y - rect.top) <= 96) return false;
@@ -481,16 +481,16 @@
       const rect = root.getBoundingClientRect();
       const edge = 8;
       const maxX = Math.max(edge, window.innerWidth - root.offsetWidth - edge);
-      const maxY = Math.max(edge, window.innerHeight - root.offsetHeight - edge);
+      const maxY = Math.max(0, window.innerHeight - root.offsetHeight);
       root.style.left = `${Math.round(rect.left < window.innerWidth / 2 ? maxX : edge)}px`;
-      root.style.top = `${Math.round(rect.top < window.innerHeight / 2 ? maxY : edge)}px`;
+      root.style.top = `${Math.round(maxY)}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
     };
     const saveGuidePosition = () => {
       const rect = root.getBoundingClientRect();
       const maxX = Math.max(1, window.innerWidth - rect.width - 8);
-      const maxY = Math.max(1, window.innerHeight - rect.height - 8);
+      const maxY = Math.max(1, window.innerHeight - rect.height);
       try {
         localStorage.setItem(POSITION_KEY, JSON.stringify({
           x: Math.min(1, Math.max(0, rect.left / maxX)),
@@ -528,7 +528,7 @@
       moved = true;
       root.classList.add("is-guide-dragging");
       root.style.left = `${Math.max(8, Math.min(window.innerWidth - root.offsetWidth - 8, dragStart.left + dx))}px`;
-      root.style.top = `${Math.max(8, Math.min(window.innerHeight - root.offsetHeight - 8, dragStart.top + dy))}px`;
+      root.style.top = `${Math.max(0, Math.min(window.innerHeight - root.offsetHeight, dragStart.top + dy))}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
     };
