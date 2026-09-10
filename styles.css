@@ -3127,6 +3127,16 @@ body.is-away-locked {
   animation: site-guide-cat-breathe 3.6s ease-in-out infinite;
 }
 
+.site-guide.is-guide-sleeping .site-guide-launcher {
+  width: 5.15rem;
+}
+
+.site-guide.is-guide-sleeping > .site-guide-launcher .site-guide-cat {
+  width: 5.15rem;
+  height: 3.2rem;
+  animation: site-guide-cat-sleep 4.4s ease-in-out infinite;
+}
+
 .site-guide.is-guide-auto-moving .site-guide-cat {
   animation: site-guide-cat-step 0.42s ease-in-out infinite;
 }
@@ -3169,6 +3179,11 @@ body.is-away-locked {
 @keyframes site-guide-cat-breathe {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-0.05rem); }
+}
+
+@keyframes site-guide-cat-sleep {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(0.04rem) scaleY(0.985); }
 }
 
 @keyframes site-guide-cat-step {

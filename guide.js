@@ -9,6 +9,7 @@
   const CURSOR_NOTICE_DISTANCE = 132;
   const CAT_ASSETS = {
     resting: "./assets/cat-guide.png",
+    sleeping: "./assets/cat-guide-sleep.png",
     walkingSide: ["./assets/cat-guide-walk.png", "./assets/cat-guide-walk-alt.png"],
     walkingFront: ["./assets/cat-guide-walk-front.png", "./assets/cat-guide-walk-front-alt.png"],
     walkingBack: ["./assets/cat-guide-walk-back.png", "./assets/cat-guide-walk-back-alt.png"],
@@ -250,16 +251,19 @@
     const setOpen = (open) => {
       panel.hidden = !open;
       launcher.setAttribute("aria-expanded", String(open));
+      setCatPose(open ? "resting" : "sleeping");
       if (open) window.requestAnimationFrame(positionGuidePanel);
     };
 
     const setCatPose = (pose) => {
       const asset = CAT_ASSETS[pose] || CAT_ASSETS.resting;
       const source = Array.isArray(asset) ? asset[walkingFrame] : asset;
+      root.classList.toggle("is-guide-sleeping", pose === "sleeping");
       root.querySelectorAll("[data-guide-cat]").forEach((cat) => {
         cat.src = source;
       });
     };
+    setCatPose("sleeping");
 
     const stopWalkingCycle = () => {
       if (walkingFrameTimer) window.clearInterval(walkingFrameTimer);
@@ -281,7 +285,7 @@
       if (idleActivityTimer) window.clearTimeout(idleActivityTimer);
       idleActivityTimer = 0;
       root.classList.remove("is-guide-being-idle", "is-guide-stretching", "is-guide-grooming");
-      if (restorePose) setCatPose("resting");
+      if (restorePose) setCatPose("sleeping");
     };
 
     const stopGuideMotion = () => {
@@ -305,7 +309,7 @@
       root.classList.remove("is-guide-curious");
       stopWalkingCycle();
       stopIdleBehavior();
-      setCatPose("resting");
+      setCatPose("sleeping");
     };
 
     const noteInteraction = () => {
@@ -328,7 +332,7 @@
       root.classList.add("is-guide-being-playful");
       playfulTimer = window.setTimeout(() => {
         if (root.classList.contains("is-guide-auto-moving")) startWalkingCycle(walkingPose);
-        else setCatPose("resting");
+        else setCatPose("sleeping");
         root.classList.remove("is-guide-being-playful");
         playfulTimer = 0;
       }, 1900);
@@ -341,7 +345,7 @@
       root.classList.add("is-guide-being-idle", pose === "stretch" ? "is-guide-stretching" : "is-guide-grooming");
       idleActivityTimer = window.setTimeout(() => {
         stopIdleBehavior();
-        setCatPose("resting");
+        setCatPose("sleeping");
       }, pose === "stretch" ? 2300 : 2700);
     };
 
@@ -417,7 +421,7 @@
         root.classList.remove("is-guide-walking-side", "is-guide-walking-vertical");
         stopWalkingCycle();
         lastMovementEndedAt = Date.now();
-        if (!playfulTimer) setCatPose("resting");
+        if (!playfulTimer) setCatPose("sleeping");
       };
       root.style.right = "auto";
       root.style.bottom = "auto";
