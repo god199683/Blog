@@ -4580,8 +4580,30 @@ function openEditorFindPopover({ mode = "find" } = {}) {
   });
 }
 
+function getActiveEditorFindRange() {
+  if (editorFindIndex < 0 || editorFindIndex >= editorFindMatches.length) return null;
+  return createEditorTextRange(editorFindMatches[editorFindIndex], getEditorTextIndex());
+}
+
+function focusEditorFindResult(range) {
+  if (!range) return false;
+
+  const caretRange = range.cloneRange();
+  caretRange.collapse(false);
+  els.content.focus({ preventScroll: true });
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(caretRange);
+  savedEditorRange = caretRange.cloneRange();
+
+  const anchor = caretRange.startContainer.nodeType === Node.ELEMENT_NODE ? caretRange.startContainer : caretRange.startContainer.parentElement;
+  anchor?.scrollIntoView?.({ block: "center", inline: "nearest" });
+  return true;
+}
+
 function closeEditorFindPopover({ restoreFocus = false } = {}) {
   if (!els.findbar) return;
+  const activeFindRange = getActiveEditorFindRange();
   els.findbar.hidden = true;
   window.clearTimeout(editorFindRefreshTimer);
   editorFindRefreshTimer = 0;
@@ -4591,8 +4613,10 @@ function closeEditorFindPopover({ restoreFocus = false } = {}) {
   clearEditorFindHighlights();
   updateEditorFindState();
   if (restoreFocus) {
-    restoreEditorSelection();
-    els.content.focus({ preventScroll: true });
+    if (!focusEditorFindResult(activeFindRange)) {
+      restoreEditorSelection();
+      els.content.focus({ preventScroll: true });
+    }
   }
 }
 
