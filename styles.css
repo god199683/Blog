@@ -3079,7 +3079,7 @@ body.is-away-locked {
   position: fixed;
   z-index: 80;
   right: clamp(0.85rem, 2.2vw, 1.6rem);
-  bottom: 0;
+  bottom: 4px;
   transition: left 3.2s cubic-bezier(0.45, 0, 0.2, 1), top 3.2s cubic-bezier(0.45, 0, 0.2, 1);
 }
 
@@ -3397,7 +3397,7 @@ body.is-away-locked {
 @media (max-width: 520px) {
   .site-guide {
     right: 0.7rem;
-    bottom: 0;
+    bottom: 4px;
   }
 }
 

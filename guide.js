@@ -2,6 +2,7 @@
   const page = location.pathname.split("/").pop() || "index.html";
   const AUTO_MOVE_KEY = "blog.catGuideAutoMove";
   const POSITION_KEY = "blog.catGuidePosition";
+  const GUIDE_FRAME_INSET = 4;
   const AUTO_MOVE_DELAY = 9000;
   const IDLE_BEHAVIOR_DELAY = 4400;
   const IDLE_SETTLE_DELAY = 4800;
@@ -161,12 +162,12 @@
           return null;
         }
       })();
-      const maxX = Math.max(8, window.innerWidth - rect.width - 8);
-      const maxY = Math.max(0, window.innerHeight - rect.height);
+      const maxX = Math.max(GUIDE_FRAME_INSET, window.innerWidth - rect.width - GUIDE_FRAME_INSET);
+      const maxY = Math.max(GUIDE_FRAME_INSET, window.innerHeight - rect.height - GUIDE_FRAME_INSET);
       const savedX = Number(savedPosition?.x);
       const savedY = Number(savedPosition?.y);
-      const left = Number.isFinite(savedX) ? Math.min(maxX, Math.max(8, Math.round(savedX * maxX))) : Math.round(rect.left);
-      const top = Number.isFinite(savedY) ? Math.min(maxY, Math.max(0, Math.round(savedY * maxY))) : Math.round(rect.top);
+      const left = Number.isFinite(savedX) ? Math.min(maxX, Math.max(GUIDE_FRAME_INSET, Math.round(savedX * maxX))) : Math.round(rect.left);
+      const top = Number.isFinite(savedY) ? Math.min(maxY, Math.max(GUIDE_FRAME_INSET, Math.round(savedY * maxY))) : Math.round(rect.top);
       root.style.left = `${left}px`;
       root.style.top = `${top}px`;
       root.style.right = "auto";
@@ -370,9 +371,9 @@
       if (!canPlay() || Date.now() - lastInteractionAt < AUTO_MOVE_DELAY) return;
       stopIdleBehavior();
       const rect = root.getBoundingClientRect();
-      const edge = 8;
+      const edge = GUIDE_FRAME_INSET;
       const maxX = Math.max(edge, window.innerWidth - rect.width - edge);
-      const maxY = Math.max(0, window.innerHeight - rect.height);
+      const maxY = Math.max(edge, window.innerHeight - rect.height - edge);
       const lowerBandTop = Math.max(0, maxY - Math.max(56, Math.min(96, window.innerHeight * 0.12)));
       const targets = [
         { x: edge, y: lowerBandTop + Math.random() * (maxY - lowerBandTop) },
@@ -479,9 +480,9 @@
     let guideClickTimer = 0;
     const moveGuideOutOfWay = () => {
       const rect = root.getBoundingClientRect();
-      const edge = 8;
+      const edge = GUIDE_FRAME_INSET;
       const maxX = Math.max(edge, window.innerWidth - root.offsetWidth - edge);
-      const maxY = Math.max(0, window.innerHeight - root.offsetHeight);
+      const maxY = Math.max(edge, window.innerHeight - root.offsetHeight - edge);
       root.style.left = `${Math.round(rect.left < window.innerWidth / 2 ? maxX : edge)}px`;
       root.style.top = `${Math.round(maxY)}px`;
       root.style.right = "auto";
@@ -489,8 +490,8 @@
     };
     const saveGuidePosition = () => {
       const rect = root.getBoundingClientRect();
-      const maxX = Math.max(1, window.innerWidth - rect.width - 8);
-      const maxY = Math.max(1, window.innerHeight - rect.height);
+      const maxX = Math.max(1, window.innerWidth - rect.width - GUIDE_FRAME_INSET);
+      const maxY = Math.max(1, window.innerHeight - rect.height - GUIDE_FRAME_INSET);
       try {
         localStorage.setItem(POSITION_KEY, JSON.stringify({
           x: Math.min(1, Math.max(0, rect.left / maxX)),
@@ -527,8 +528,8 @@
       if (Math.abs(dx) + Math.abs(dy) < 6) return;
       moved = true;
       root.classList.add("is-guide-dragging");
-      root.style.left = `${Math.max(8, Math.min(window.innerWidth - root.offsetWidth - 8, dragStart.left + dx))}px`;
-      root.style.top = `${Math.max(0, Math.min(window.innerHeight - root.offsetHeight, dragStart.top + dy))}px`;
+      root.style.left = `${Math.max(GUIDE_FRAME_INSET, Math.min(window.innerWidth - root.offsetWidth - GUIDE_FRAME_INSET, dragStart.left + dx))}px`;
+      root.style.top = `${Math.max(GUIDE_FRAME_INSET, Math.min(window.innerHeight - root.offsetHeight - GUIDE_FRAME_INSET, dragStart.top + dy))}px`;
       root.style.right = "auto";
       root.style.bottom = "auto";
     };
