@@ -34,6 +34,9 @@ const state = {
 };
 
 let swipeState = null;
+let searchRenderTimer = 0;
+let searchIndexWarmGeneration = 0;
+const ebookSearchTextCache = new WeakMap();
 
 const els = {
   brandTitle: document.querySelector("[data-brand-title]"),
@@ -1128,6 +1131,7 @@ function selectFolder(folderId, options = {}) {
   }
   state.activeFolderId = folderId;
   state.activePosts = getFolderPosts(folderId);
+  warmEbookSearchIndex(state.activePosts);
   const postIndex = options.postId ? state.activePosts.findIndex((post) => post.id === options.postId) : -1;
   state.postIndex = postIndex >= 0 ? postIndex : 0;
   if (Number.isFinite(options.pageIndex)) {
@@ -1319,9 +1323,53 @@ function resumeManagedBookmark() {
 }
 
 function getEbookSearchText(post = {}) {
+  const cached = ebookSearchTextCache.get(post);
+  if (cached) return cached;
+
   const documentFragment = document.createElement("div");
   documentFragment.innerHTML = getPostHtml(post);
-  return `${post.title || ""}\n${documentFragment.textContent || ""}`.replace(/\s+/g, " ").trim();
+  const text = `${post.title || ""}\n${documentFragment.textContent || ""}`.replace(/\s+/g, " ").trim();
+  const entry = { text, normalizedText: text.toLocaleLowerCase() };
+  ebookSearchTextCache.set(post, entry);
+  return entry;
+}
+
+function warmEbookSearchIndex(posts = state.activePosts) {
+  const generation = ++searchIndexWarmGeneration;
+  let index = 0;
+
+  const run = (deadline) => {
+    if (generation !== searchIndexWarmGeneration) return;
+    let processed = 0;
+    while (index < posts.length && (deadline ? deadline.timeRemaining() > 3 : processed < 5)) {
+      getEbookSearchText(posts[index]);
+      index += 1;
+      processed += 1;
+    }
+    if (index >= posts.length) return;
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(run, { timeout: 500 });
+    } else {
+      window.setTimeout(() => run(null), 16);
+    }
+  };
+
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(run, { timeout: 250 });
+  } else {
+    window.setTimeout(() => run(null), 16);
+  }
+}
+
+function scheduleSearchResults() {
+  window.clearTimeout(searchRenderTimer);
+  const query = String(els.searchQuery?.value || "").trim();
+  if (!query) {
+    renderSearchResults();
+    return;
+  }
+  if (els.searchState) els.searchState.textContent = "검색 중...";
+  searchRenderTimer = window.setTimeout(renderSearchResults, 90);
 }
 
 function renderSearchResults() {
@@ -1336,9 +1384,9 @@ function renderSearchResults() {
   const normalizedQuery = query.toLocaleLowerCase();
   const results = state.activePosts
     .map((post, index) => {
-      const text = getEbookSearchText(post);
-      const matchIndex = text.toLocaleLowerCase().indexOf(normalizedQuery);
-      return matchIndex < 0 ? null : { post, index, text, matchIndex };
+      const searchText = getEbookSearchText(post);
+      const matchIndex = searchText.normalizedText.indexOf(normalizedQuery);
+      return matchIndex < 0 ? null : { post, index, text: searchText.text, matchIndex };
     })
     .filter(Boolean);
 
@@ -1368,6 +1416,8 @@ function openSearchDialog() {
 
 function closeSearchDialog() {
   if (!els.searchDialog) return;
+  window.clearTimeout(searchRenderTimer);
+  searchRenderTimer = 0;
   if (typeof els.searchDialog.close === "function") {
     if (els.searchDialog.open) els.searchDialog.close();
     return;
@@ -1483,7 +1533,7 @@ function bindEvents() {
   els.searchDialog?.addEventListener("click", (event) => {
     if (event.target === els.searchDialog) closeSearchDialog();
   });
-  els.searchQuery?.addEventListener("input", renderSearchResults);
+  els.searchQuery?.addEventListener("input", scheduleSearchResults);
   els.searchQuery?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") event.preventDefault();
   });
