@@ -1733,6 +1733,21 @@ function cleanImportedHtml(html = "") {
   return template.innerHTML.trim();
 }
 
+function normalizeExportHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = cleanImportedHtml(html);
+  template.content.querySelectorAll("*").forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.removeProperty("font-size");
+      node.style.removeProperty("font-family");
+      node.removeAttribute("size");
+      node.removeAttribute("face");
+      if (!node.getAttribute("style")?.trim()) node.removeAttribute("style");
+    }
+  });
+  return template.innerHTML.trim();
+}
+
 function textToHtml(text = "") {
   const normalized = String(text).replace(/\r\n?/g, "\n").trim();
   if (!normalized) return "";
@@ -2183,7 +2198,7 @@ function exportPostsAsDocx(posts) {
         <article>
           <h1>${escapeHtml(post.title || "제목 없는 글")}</h1>
           <p>${escapeHtml(getPostLocationLabel(post))} · ${escapeHtml(formatDate(post.published_at || post.created_at))}</p>
-          ${cleanImportedHtml(post.body || "")}
+          ${normalizeExportHtml(post.body || "")}
         </article>
       `
     )
@@ -2195,6 +2210,8 @@ function exportPostsAsDocx(posts) {
         <meta charset="utf-8">
         <style>
           body { color: #22364a; font-family: "Malgun Gothic", Arial, sans-serif; font-size: 11pt; line-height: 1.65; }
+          article, article * { font-family: "Malgun Gothic", Arial, sans-serif; }
+          article { font-size: 11pt; }
           h1 { color: #0f3f61; font-size: 18pt; margin: 0 0 12pt; }
           p { margin: 0 0 10pt; }
           hr { border: 0; border-top: 1px solid #cfe1f0; margin: 20pt 0; }
