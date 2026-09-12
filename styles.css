@@ -1163,7 +1163,7 @@ body.is-away-locked {
 }
 
 .blog-board-icon-button .tree-action-icon {
-  transform: scale(0.62);
+  transform: scale(0.56);
   transform-origin: center;
 }
 
@@ -1755,11 +1755,11 @@ body.is-away-locked {
 
 .blog-board-icon-button {
   display: inline-grid;
-  width: 1.72rem;
-  height: 1.72rem;
+  width: 1.58rem;
+  height: 1.58rem;
   place-items: center;
   border: 1px solid rgba(186, 230, 253, 0.88);
-  border-radius: 7px;
+  border-radius: 6px;
   background: #fff;
   color: #6f8497;
 }
@@ -1784,8 +1784,8 @@ body.is-away-locked {
 .board-action-icon {
   position: relative;
   display: block;
-  width: 0.82rem;
-  height: 0.82rem;
+  width: 0.76rem;
+  height: 0.76rem;
 }
 
 .board-action-select::before {
@@ -3259,7 +3259,7 @@ body.is-away-locked {
   width: 1.7rem;
   height: 1.7rem;
   padding: 0;
-  border-radius: 6px;
+  border-radius: 7px;
 }
 
 .site-guide-panel p {
@@ -3302,7 +3302,7 @@ body.is-away-locked {
   max-width: 92%;
   margin: 0;
   padding: 0.4rem 0.5rem;
-  border-radius: 7px;
+  border-radius: 6px;
   font-size: 0.74rem;
   line-height: 1.45;
 }

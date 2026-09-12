@@ -95,6 +95,8 @@ const els = {
   postDeleteSelected: document.querySelector("[data-post-delete-selected]"),
   postMoveSelected: document.querySelector("[data-post-move-selected]"),
   postRenameSelected: document.querySelector("[data-post-rename-selected]"),
+  postImport: document.querySelector("[data-post-import]"),
+  postExport: document.querySelector("[data-post-export]"),
   ebookButton: document.querySelector("[data-blog-ebook-button]"),
   writeButton: document.querySelector(".blog-write-button"),
   importLocationDialog: document.querySelector("[data-import-location-dialog]"),
@@ -130,6 +132,8 @@ function syncPostBoardToolbar() {
     els.postDeleteSelected,
     els.postMoveSelected,
     els.postRenameSelected,
+    els.postImport,
+    els.postExport,
   ].forEach((button) => {
     if (button) button.hidden = !isOpen;
   });
@@ -276,6 +280,8 @@ function setOwnerControlsVisible(visible) {
       els.postDeleteSelected,
       els.postMoveSelected,
       els.postRenameSelected,
+      els.postImport,
+      els.postExport,
     ].forEach((button) => {
       if (button) button.hidden = true;
     });
@@ -2591,6 +2597,14 @@ els.postRenameSelected?.addEventListener("click", () => {
   startSelectedPostRename();
 });
 
+els.postImport?.addEventListener("click", () => {
+  els.importInput?.click();
+});
+
+els.postExport?.addEventListener("click", () => {
+  exportActivePosts();
+});
+
 sidebarToggle?.addEventListener("click", () => {
   const isCollapsed = sidePanel?.classList.contains("is-sidebar-collapsed") || false;
   setSidebarCollapsed(!isCollapsed);
@@ -2625,14 +2639,6 @@ els.tools?.addEventListener("click", async (event) => {
     return;
   }
 
-  if (action === "import-files") {
-    els.importInput?.click();
-    return;
-  }
-
-  if (action === "export-files") {
-    exportActivePosts();
-  }
 });
 
 els.importInput?.addEventListener("change", async (event) => {

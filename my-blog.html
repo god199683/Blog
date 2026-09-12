@@ -66,12 +66,6 @@
             <button class="blog-tool-action" type="button" data-tree-action="delete-selected" title="삭제" aria-label="삭제">
               <span class="tree-action-icon tree-action-trash" aria-hidden="true"></span>
             </button>
-            <button class="blog-tool-action" type="button" data-tree-action="import-files" title="불러오기" aria-label="불러오기">
-              <span class="tree-action-icon tree-action-import" aria-hidden="true"></span>
-            </button>
-            <button class="blog-tool-action" type="button" data-tree-action="export-files" title="내보내기" aria-label="내보내기">
-              <span class="tree-action-icon tree-action-export" aria-hidden="true"></span>
-            </button>
             <input
               class="sr-only"
               type="file"
@@ -115,6 +109,12 @@
               </button>
               <button class="blog-board-icon-button" type="button" data-post-rename-selected disabled title="선택 글 이름 변경" aria-label="선택 글 이름 변경" hidden>
                 <span class="board-action-icon board-action-rename" aria-hidden="true"></span>
+              </button>
+              <button class="blog-board-icon-button" type="button" data-post-import title="불러오기" aria-label="불러오기" hidden>
+                <span class="tree-action-icon tree-action-import" aria-hidden="true"></span>
+              </button>
+              <button class="blog-board-icon-button" type="button" data-post-export title="내보내기" aria-label="내보내기" hidden>
+                <span class="tree-action-icon tree-action-export" aria-hidden="true"></span>
               </button>
               <button class="blog-board-toggle" type="button" data-list-toggle aria-expanded="false">목록열기</button>
             </div>
