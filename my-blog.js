@@ -454,6 +454,14 @@ function getFirstImageFromHtml(html = "") {
   return source;
 }
 
+function getImageSourcesFromHtml(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = String(html);
+  return [...template.content.querySelectorAll("img[src]")]
+    .map((image) => image.getAttribute("src") || "")
+    .filter((source) => source && !source.trim().toLowerCase().startsWith("javascript:"));
+}
+
 function getPostExcerpt(post = {}, limit = 120) {
   const text = post.excerpt || htmlToPlainText(post.body || "");
   if (!text) return "";
@@ -2091,15 +2099,28 @@ function buildExportBaseName(posts, format) {
 
 function exportPostsAsText(posts) {
   const text = posts
-    .map((post) =>
-      [
+    .map((post) => {
+      const imageSources = getImageSourcesFromHtml(post.body || "");
+      return [
         post.title || "제목 없는 글",
         getPostLocationLabel(post),
         formatDate(post.published_at || post.created_at),
         "",
         htmlToPlainText(post.body || ""),
+        ...(
+          imageSources.length > 0
+            ? [
+                "",
+                ...imageSources.map((source) =>
+                  source.trim().toLowerCase().startsWith("data:image/")
+                    ? "[이미지] 문서 안에 포함된 이미지입니다. 실제 이미지는 DOCX로 내보내면 보존됩니다."
+                    : `[이미지 주소] ${source}`
+                ),
+              ]
+            : []
+        ),
       ].join("\n")
-    )
+    })
     .join("\n\n---\n\n");
   downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), buildExportBaseName(posts, "txt"));
 }
@@ -2147,7 +2168,7 @@ function exportActivePosts() {
     return;
   }
 
-  const format = window.prompt("내보낼 형식을 입력해주세요. txt 또는 docx", "txt")?.trim().toLowerCase();
+  const format = window.prompt("내보낼 형식을 입력해주세요. txt(이미지 주소) 또는 docx(이미지 포함)", "txt")?.trim().toLowerCase();
   if (!format) return;
   if (format === "txt") {
     exportPostsAsText(posts);
@@ -2157,7 +2178,7 @@ function exportActivePosts() {
     exportPostsAsDocx(posts);
     return;
   }
-  window.alert("txt 또는 docx 형식만 입력해주세요.");
+  window.alert("txt 또는 docx 형식만 입력해주세요. 이미지는 docx 형식에서 문서 안에 표시됩니다.");
 }
 
 function renderPostTitleCell(post, visibility) {
