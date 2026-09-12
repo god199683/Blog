@@ -2107,7 +2107,13 @@ function downloadBlob(blob, filename) {
 }
 
 function getExportPosts() {
-  return getActiveTreeMeta().posts;
+  const explicitlySelectedIds = new Set([...state.selectedPostIds].map(String));
+  if (explicitlySelectedIds.size > 0) {
+    return state.posts.filter((post) => explicitlySelectedIds.has(getPostId(post)));
+  }
+
+  const focusedPost = state.posts.find((post) => getPostId(post) === String(state.featurePostId || ""));
+  return focusedPost ? [focusedPost] : [];
 }
 
 function buildExportBaseName(posts, format) {
