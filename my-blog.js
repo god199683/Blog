@@ -2116,6 +2116,26 @@ function getExportPosts() {
   return focusedPost ? [focusedPost] : [];
 }
 
+async function hydrateExportPostBodies(posts = []) {
+  const missingBodies = posts.filter((post) => !Object.prototype.hasOwnProperty.call(post, "body"));
+  if (missingBodies.length === 0) return posts;
+
+  const details = await Promise.all(
+    missingBodies.map(async (post) => {
+      const postId = getPostId(post);
+      const rows = await requestRest(
+        `posts?select=id,body,cover_image&id=eq.${encodeURIComponent(postId)}&limit=1`,
+        state.session?.access_token || SUPABASE_ANON_KEY
+      );
+      const detail = Array.isArray(rows) ? rows[0] : null;
+      if (!detail) throw new Error("글 본문을 불러오지 못했습니다.");
+      return detail;
+    })
+  );
+  const detailsById = new Map(details.map((detail) => [getPostId(detail), detail]));
+  return posts.map((post) => ({ ...post, ...(detailsById.get(getPostId(post)) || {}) }));
+}
+
 function buildExportBaseName(posts, format) {
   const title = els.boardTitle?.textContent || "블로그";
   const suffix = posts.length === 1 ? posts[0].title || title : title;
@@ -2186,7 +2206,7 @@ function exportPostsAsDocx(posts) {
   downloadBlob(docx.asBlob(html), buildExportBaseName(posts, "docx"));
 }
 
-function exportActivePosts() {
+async function exportActivePosts() {
   const posts = getExportPosts();
   if (posts.length === 0) {
     window.alert("내보낼 글이 없습니다.");
@@ -2195,12 +2215,19 @@ function exportActivePosts() {
 
   const format = window.prompt("내보낼 형식을 입력해주세요. txt(이미지 주소) 또는 docx(이미지 포함)", "txt")?.trim().toLowerCase();
   if (!format) return;
+  let postsWithBodies;
+  try {
+    postsWithBodies = await hydrateExportPostBodies(posts);
+  } catch (error) {
+    window.alert(error.message || "글 본문을 불러오지 못했습니다.");
+    return;
+  }
   if (format === "txt") {
-    exportPostsAsText(posts);
+    exportPostsAsText(postsWithBodies);
     return;
   }
   if (format === "docx") {
-    exportPostsAsDocx(posts);
+    exportPostsAsDocx(postsWithBodies);
     return;
   }
   window.alert("txt 또는 docx 형식만 입력해주세요. 이미지는 docx 형식에서 문서 안에 표시됩니다.");
