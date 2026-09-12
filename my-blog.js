@@ -159,6 +159,25 @@ function getCurrentBlogReturnHref({ postId = "" } = {}) {
   return `./my-blog.html${query ? `?${query}` : ""}`;
 }
 
+function rememberSelectedPostInUrl(postId) {
+  const targetId = String(postId || "").trim();
+  if (!targetId || !window.history?.replaceState) return;
+
+  const url = new URL(window.location.href);
+  if (state.publicMode && state.id) {
+    url.searchParams.set("user", state.id);
+  } else {
+    url.searchParams.delete("user");
+  }
+  if (state.activeNodeId && state.activeNodeId !== ALL_NODE_ID) {
+    url.searchParams.set("node", state.activeNodeId);
+  } else {
+    url.searchParams.delete("node");
+  }
+  url.searchParams.set("post", targetId);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 function getWriteEditorHref() {
   const params = new URLSearchParams();
   params.set("mode", "new");
@@ -2399,6 +2418,7 @@ function selectFeaturePost(postId) {
   if (!exists) return;
 
   state.featurePostId = String(postId);
+  rememberSelectedPostInUrl(postId);
   syncPagesToPost(postId);
   if (renderCurrentFolderAndPostRowsIfNeeded()) return;
   renderFeatureArea(state.currentScopePosts, state.currentScopeTitle);
