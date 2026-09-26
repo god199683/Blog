@@ -1733,21 +1733,6 @@ function cleanImportedHtml(html = "") {
   return template.innerHTML.trim();
 }
 
-function normalizeExportHtml(html = "") {
-  const template = document.createElement("template");
-  template.innerHTML = cleanImportedHtml(html);
-  template.content.querySelectorAll("*").forEach((node) => {
-    if (node instanceof HTMLElement) {
-      node.style.removeProperty("font-size");
-      node.style.removeProperty("font-family");
-      node.removeAttribute("size");
-      node.removeAttribute("face");
-      if (!node.getAttribute("style")?.trim()) node.removeAttribute("style");
-    }
-  });
-  return template.innerHTML.trim();
-}
-
 function textToHtml(text = "") {
   const normalized = String(text).replace(/\r\n?/g, "\n").trim();
   if (!normalized) return "";
@@ -2151,17 +2136,14 @@ async function hydrateExportPostBodies(posts = []) {
   return posts.map((post) => ({ ...post, ...(detailsById.get(getPostId(post)) || {}) }));
 }
 
-function buildExportBaseName(posts, format) {
-  const title = els.boardTitle?.textContent || "블로그";
-  const suffix = posts.length === 1 ? posts[0].title || title : title;
-  return `${sanitizeFileName(`${state.id || "blog"}-${suffix}`)}.${format}`;
+function buildExportFileName(post) {
+  return `${sanitizeFileName(post.title || "제목 없는 글")}.txt`;
 }
 
 function exportPostsAsText(posts) {
-  const text = posts
-    .map((post) => {
-      const imageSources = getImageSourcesFromHtml(post.body || "");
-      return [
+  posts.forEach((post) => {
+    const imageSources = getImageSourcesFromHtml(post.body || "");
+    const text = [
         post.title || "제목 없는 글",
         getPostLocationLabel(post),
         formatDate(post.published_at || post.created_at),
@@ -2173,54 +2155,15 @@ function exportPostsAsText(posts) {
                 "",
                 ...imageSources.map((source) =>
                   source.trim().toLowerCase().startsWith("data:image/")
-                    ? "[이미지] 문서 안에 포함된 이미지입니다. 실제 이미지는 DOCX로 내보내면 보존됩니다."
+                    ? "[이미지] 문서 안에 포함된 이미지입니다."
                     : `[이미지 주소] ${source}`
                 ),
               ]
             : []
         ),
-      ].join("\n")
-    })
-    .join("\n\n---\n\n");
-  downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), buildExportBaseName(posts, "txt"));
-}
-
-function exportPostsAsDocx(posts) {
-  const docx = window.htmlDocx || window.htmlDocxJs;
-  if (!docx?.asBlob) {
-    window.alert("DOCX 내보내기 도구를 불러오지 못했습니다. TXT로 다시 내보내주세요.");
-    return;
-  }
-
-  const body = posts
-    .map(
-      (post) => `
-        <article>
-          <h1>${escapeHtml(post.title || "제목 없는 글")}</h1>
-          <p>${escapeHtml(getPostLocationLabel(post))} · ${escapeHtml(formatDate(post.published_at || post.created_at))}</p>
-          ${normalizeExportHtml(post.body || "")}
-        </article>
-      `
-    )
-    .join("<hr>");
-  const html = `
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { color: #22364a; font-family: "Malgun Gothic", Arial, sans-serif; font-size: 11pt; line-height: 1.65; }
-          article, article * { font-family: "Malgun Gothic", Arial, sans-serif; }
-          article { font-size: 11pt; }
-          h1 { color: #0f3f61; font-size: 18pt; margin: 0 0 12pt; }
-          p { margin: 0 0 10pt; }
-          hr { border: 0; border-top: 1px solid #cfe1f0; margin: 20pt 0; }
-        </style>
-      </head>
-      <body>${body}</body>
-    </html>
-  `;
-  downloadBlob(docx.asBlob(html), buildExportBaseName(posts, "docx"));
+      ].join("\n");
+    downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), buildExportFileName(post));
+  });
 }
 
 async function exportActivePosts() {
@@ -2230,8 +2173,6 @@ async function exportActivePosts() {
     return;
   }
 
-  const format = window.prompt("내보낼 형식을 입력해주세요. txt(이미지 주소) 또는 docx(이미지 포함)", "txt")?.trim().toLowerCase();
-  if (!format) return;
   let postsWithBodies;
   try {
     postsWithBodies = await hydrateExportPostBodies(posts);
@@ -2239,15 +2180,7 @@ async function exportActivePosts() {
     window.alert(error.message || "글 본문을 불러오지 못했습니다.");
     return;
   }
-  if (format === "txt") {
-    exportPostsAsText(postsWithBodies);
-    return;
-  }
-  if (format === "docx") {
-    exportPostsAsDocx(postsWithBodies);
-    return;
-  }
-  window.alert("txt 또는 docx 형식만 입력해주세요. 이미지는 docx 형식에서 문서 안에 표시됩니다.");
+  exportPostsAsText(postsWithBodies);
 }
 
 function renderPostTitleCell(post, visibility) {
