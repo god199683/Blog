@@ -22,7 +22,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "assets/ciel-cat.ico"
+      "icon": "assets/ciel-cat-desktop.ico"
     },
     "nsis": {
       "oneClick": false,
