@@ -1,0 +1,92 @@
+:root {
+  color-scheme: light;
+  font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+
+body { background: #eff8fc; color: #163750; }
+
+.desktop-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.55rem;
+  padding: 0.3rem 0.48rem 0;
+  border-bottom: 1px solid #b9e3fa;
+  background: #f8fcff;
+}
+
+.desktop-tab-list {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 0.2rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.desktop-tab {
+  display: flex;
+  align-items: center;
+  min-width: 9.5rem;
+  max-width: 15rem;
+  height: 2rem;
+  padding: 0 0.28rem 0 0.68rem;
+  border: 1px solid #c7e8fa;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: #edf8fe;
+  color: #55738b;
+}
+
+.desktop-tab.is-active, .desktop-tab.is-paired {
+  background: #fff;
+  color: #0a5d91;
+}
+
+.desktop-tab-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.desktop-tab-close, .desktop-tab-action {
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #c1e5f8;
+  border-radius: 5px;
+  background: #fff;
+  color: #1d6d9e;
+  font: inherit;
+  cursor: pointer;
+}
+
+.desktop-tab-close { border-color: transparent; background: transparent; color: #7190a5; }
+.desktop-tab-close:hover, .desktop-tab-action:hover { background: #e4f6ff; color: #075f94; }
+.desktop-tab-actions { display: flex; gap: 0.25rem; }
+
+.desktop-tab-panels { display: flex; width: 100%; height: calc(100% - 2.55rem); }
+.desktop-panel { display: none; min-width: 0; min-height: 0; flex: 1; border: 0; background: #fff; }
+.desktop-panel.is-visible { display: block; }
+.desktop-tab-panels.is-split .desktop-panel.is-visible + .desktop-panel.is-visible { border-left: 1px solid #b9e3fa; }
+
+@media (max-width: 650px) {
+  .desktop-tab { min-width: 7.2rem; }
+  .desktop-tab-actions { gap: 0.12rem; }
+}

@@ -11,7 +11,7 @@ const viewerUser = params.get("user") || "";
 const viewerNode = params.get("node") || "";
 const viewerReturn = params.get("return") || "";
 let bookMode = params.get("book") === "1";
-let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize") || "18", 10);
+let readerFontSize = Number.parseInt(localStorage.getItem("blog.readerFontSize") || "12", 10);
 let readerTheme = localStorage.getItem("blog.readerTheme") || "sky";
 let readerWidth = localStorage.getItem("blog.readerWidth") || "standard";
 let readerLineHeight = localStorage.getItem("blog.readerLineHeight") || "normal";
@@ -503,7 +503,7 @@ function getViewerListReturnHref(targetPostId = postId) {
 }
 
 function clampReaderFontSize(size) {
-  return Math.min(28, Math.max(14, Number.parseInt(size, 10) || 18));
+  return Math.min(28, Math.max(12, Number.parseInt(size, 10) || 12));
 }
 
 function pickReaderOption(value, options, fallback) {

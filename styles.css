@@ -13611,6 +13611,22 @@ body.editor-page.is-editor-writing-focus .editor-surface {
   margin-top: 0.28rem;
 }
 
+.auto-login-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  width: fit-content;
+  color: #4a6880;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.auto-login-option input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: #0781c8;
+}
+
 /* Keep the reader commands compact and aligned before the back button. */
 .ebook-page .ebook-sidebar-head,
 .ebook-page .is-ebook-sidebar-collapsed .ebook-sidebar-head {

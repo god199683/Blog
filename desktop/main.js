@@ -4,6 +4,7 @@ const http = require("http");
 const path = require("path");
 
 let server;
+const DESKTOP_PORT = 43878;
 
 const MIME_TYPES = {
   ".apk": "application/vnd.android.package-archive",
@@ -56,7 +57,7 @@ function startLocalServer() {
     });
 
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(DESKTOP_PORT, "127.0.0.1", () => {
       const address = server.address();
       resolve(`http://127.0.0.1:${address.port}/`);
     });
@@ -70,17 +71,33 @@ function createWindow(startUrl) {
     minWidth: 760,
     minHeight: 560,
     autoHideMenuBar: true,
+    icon: path.join(app.getAppPath(), "assets", "ciel-cat.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  window.loadURL(startUrl);
+  window.loadURL(`${startUrl}desktop/shell.html`);
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("http://127.0.0.1:")) return { action: "allow" };
+    if (url.startsWith(startUrl)) {
+      window.webContents.executeJavaScript(`window.desktopTabs?.openTab(${JSON.stringify(url)})`);
+      return { action: "deny" };
+    }
     shell.openExternal(url);
     return { action: "deny" };
+  });
+
+  window.webContents.on("before-input-event", (event, input) => {
+    if (!input.control || input.type !== "keyDown") return;
+    if (input.key.toLowerCase() === "t") {
+      event.preventDefault();
+      window.webContents.executeJavaScript("window.desktopTabs?.openTab()");
+    }
+    if (input.key.toLowerCase() === "\\") {
+      event.preventDefault();
+      window.webContents.executeJavaScript("window.desktopTabs?.toggleSplit()");
+    }
   });
 }
 

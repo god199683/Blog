@@ -16,12 +16,13 @@
     "productName": "ciel's Blog",
     "files": [
       "**/*",
-      "!dist{,/**}",
+      "!dist*/**",
       "!node_modules{,/**}",
       "!.git{,/**}"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "assets/ciel-cat.ico"
     },
     "nsis": {
       "oneClick": false,

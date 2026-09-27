@@ -2,6 +2,7 @@ const SUPABASE_URL = "https://ipylqxcmajrwtvvmrvfy.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 const SESSION_KEY = "blog.auth.session";
+const AUTO_LOGIN_KEY = "blog.auth.autoLogin";
 const ID_PATTERN = /^[\p{L}\p{N}._-]{2,30}$/u;
 const ID_EMAIL_DOMAIN = "blog.local";
 
@@ -63,20 +64,26 @@ function getSession(payload) {
   return payload?.session || payload;
 }
 
-function saveSession(payload, id) {
+function saveSession(payload, id, autoLogin = true) {
   const session = getSession(payload);
   if (!session?.access_token) return false;
 
-  localStorage.setItem(
-    SESSION_KEY,
-    JSON.stringify({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      expires_at: session.expires_at,
-      user: payload.user || session.user,
-      id,
-    })
-  );
+  const serialized = JSON.stringify({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_at: session.expires_at,
+    user: payload.user || session.user,
+    id,
+  });
+  if (autoLogin) {
+    localStorage.setItem(AUTO_LOGIN_KEY, "true");
+    localStorage.setItem(SESSION_KEY, serialized);
+    sessionStorage.removeItem(SESSION_KEY);
+  } else {
+    localStorage.removeItem(AUTO_LOGIN_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.setItem(SESSION_KEY, serialized);
+  }
 
   return true;
 }
@@ -197,6 +204,7 @@ async function handleSubmit(event) {
   const mode = form.dataset.mode;
   const id = normalizeId(form.querySelector("#user-id").value);
   const password = form.querySelector("#password").value;
+  const autoLogin = form.querySelector("[data-auto-login]")?.checked ?? true;
   const passwordHint = normalizeHint(form.querySelector("#password-hint")?.value || "");
 
   try {
@@ -213,7 +221,7 @@ async function handleSubmit(event) {
           })
         : await requestAuth("token?grant_type=password", { email, password });
 
-    const hasSession = saveSession(payload, id);
+    const hasSession = saveSession(payload, id, autoLogin);
     if (hasSession) {
       await saveBlogProfile(payload, id);
       if (mode === "signup") await savePasswordHint(payload, id, passwordHint);

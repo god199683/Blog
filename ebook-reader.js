@@ -23,7 +23,7 @@ const state = {
   pageIndex: 0,
   pageCount: 1,
   pageStep: 0,
-  fontSize: clampFontSize(Number.parseInt(localStorage.getItem(FONT_SIZE_KEY) || "18", 10)),
+  fontSize: clampFontSize(Number.parseInt(localStorage.getItem(FONT_SIZE_KEY) || "12", 10)),
   pendingLastPage: false,
   pendingPageIndex: null,
   bookmark: null,
@@ -91,7 +91,7 @@ const els = {
 };
 
 function clampFontSize(value) {
-  return Math.min(28, Math.max(12, Number(value) || 18));
+  return Math.min(28, Math.max(12, Number(value) || 12));
 }
 
 function applyReaderOpacity(value = state.opacity) {

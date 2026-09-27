@@ -1,5 +1,6 @@
 (() => {
   const SESSION_KEY = "blog.auth.session";
+  const AUTO_LOGIN_KEY = "blog.auth.autoLogin";
   const SUPABASE_URL = "https://ipylqxcmajrwtvvmrvfy.supabase.co";
   const SUPABASE_ANON_KEY =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
@@ -9,7 +10,7 @@
 
   function readSession() {
     try {
-      return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+      return JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || "null");
     } catch {
       return null;
     }
@@ -18,6 +19,8 @@
   function clearSession() {
     try {
       localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(AUTO_LOGIN_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
     } catch {
       // Storage can be blocked in some WebViews.
     }
@@ -50,7 +53,11 @@
       expires_at: getJwtExpiresAt(session.access_token) || session.expires_at,
     };
     try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(normalized));
+      const storage =
+        localStorage.getItem(AUTO_LOGIN_KEY) === "true" || localStorage.getItem(SESSION_KEY)
+          ? localStorage
+          : sessionStorage;
+      storage.setItem(SESSION_KEY, JSON.stringify(normalized));
     } catch {
       // Storage can be blocked in some WebViews.
     }
