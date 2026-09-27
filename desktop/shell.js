@@ -9,10 +9,10 @@
 
   function sameOriginUrl(value) {
     try {
-      const url = new URL(value || "./ebook-reader.html", window.location.href);
-      return url.origin === window.location.origin ? url.href : new URL("./ebook-reader.html", window.location.href).href;
+      const url = new URL(value || "/ebook-reader.html", window.location.origin);
+      return url.origin === window.location.origin ? url.href : new URL("/ebook-reader.html", window.location.origin).href;
     } catch {
-      return new URL("./ebook-reader.html", window.location.href).href;
+      return new URL("/ebook-reader.html", window.location.origin).href;
     }
   }
 
@@ -65,7 +65,7 @@
     render();
   }
 
-  function openTab(url = "./ebook-reader.html") {
+  function openTab(url = "/ebook-reader.html") {
     const source = sameOriginUrl(url);
     const id = `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const button = document.createElement("div");
@@ -104,7 +104,7 @@
   }
 
   function toggleSplit() {
-    if (!split && tabs.length < 2) openTab("./ebook-reader.html");
+    if (!split && tabs.length < 2) openTab("/ebook-reader.html");
     split = !split;
     render();
   }
@@ -112,5 +112,5 @@
   newTabButton.addEventListener("click", () => openTab());
   splitButton.addEventListener("click", toggleSplit);
   window.desktopTabs = { openTab, toggleSplit };
-  openTab("./");
+  openTab("/");
 })();
