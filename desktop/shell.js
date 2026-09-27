@@ -6,6 +6,7 @@
   const tabs = [];
   let activeId = null;
   let split = false;
+  let dragId = null;
 
   function sameOriginUrl(value) {
     try {
@@ -65,11 +66,24 @@
     render();
   }
 
+  function moveTab(draggedId, targetId, placeAfter) {
+    const draggedIndex = tabs.findIndex((tab) => tab.id === draggedId);
+    const targetIndex = tabs.findIndex((tab) => tab.id === targetId);
+    if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) return;
+
+    const [dragged] = tabs.splice(draggedIndex, 1);
+    const adjustedTargetIndex = tabs.findIndex((tab) => tab.id === targetId);
+    const insertionIndex = adjustedTargetIndex + (placeAfter ? 1 : 0);
+    tabs.splice(insertionIndex, 0, dragged);
+    tabList.insertBefore(dragged.button, tabs[insertionIndex + 1]?.button || null);
+  }
+
   function openTab(url = "/ebook-reader.html") {
     const source = sameOriginUrl(url);
     const id = `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const button = document.createElement("div");
     button.className = "desktop-tab";
+    button.draggable = true;
     const label = document.createElement("button");
     label.className = "desktop-tab-label";
     label.type = "button";
@@ -96,6 +110,36 @@
     const tab = { id, button, panel };
     label.addEventListener("click", () => activate(id));
     close.addEventListener("click", () => closeTab(id));
+    close.addEventListener("dragstart", (event) => event.preventDefault());
+    button.addEventListener("dragstart", (event) => {
+      if (event.target === close) {
+        event.preventDefault();
+        return;
+      }
+      dragId = id;
+      button.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", id);
+    });
+    button.addEventListener("dragend", () => {
+      dragId = null;
+      button.classList.remove("is-dragging");
+      tabList.querySelectorAll(".is-drop-target").forEach((tabButton) => tabButton.classList.remove("is-drop-target"));
+    });
+    button.addEventListener("dragover", (event) => {
+      if (!dragId || dragId === id) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      button.classList.add("is-drop-target");
+    });
+    button.addEventListener("dragleave", () => button.classList.remove("is-drop-target"));
+    button.addEventListener("drop", (event) => {
+      if (!dragId || dragId === id) return;
+      event.preventDefault();
+      const bounds = button.getBoundingClientRect();
+      moveTab(dragId, id, event.clientX > bounds.left + bounds.width / 2);
+      button.classList.remove("is-drop-target");
+    });
     tabList.append(button);
     panelHost.append(panel);
     tabs.push(tab);

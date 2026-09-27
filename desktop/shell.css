@@ -47,6 +47,9 @@ body { background: #eff8fc; color: #163750; }
   color: #0a5d91;
 }
 
+.desktop-tab.is-dragging { opacity: 0.45; }
+.desktop-tab.is-drop-target { box-shadow: inset 3px 0 0 #0b95d6; }
+
 .desktop-tab-label {
   min-width: 0;
   flex: 1;
