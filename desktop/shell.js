@@ -43,6 +43,7 @@
       tab.panel.classList.toggle("is-visible", visible);
       tab.button.classList.toggle("is-active", tab.id === activeId);
       tab.button.classList.toggle("is-paired", tab.id === pair?.id);
+      tab.panel.contentWindow?.postMessage({ type: "desktop-tab-visibility", visible }, window.location.origin);
     });
   }
 
@@ -59,7 +60,7 @@
     tab.button.remove();
     tab.panel.remove();
     if (!tabs.length) {
-      openTab("./");
+      openTab("/");
       return;
     }
     if (activeId === id) activeId = tabs[Math.max(0, index - 1)].id;
@@ -105,6 +106,7 @@
         const pageTitle = panel.contentDocument?.title?.replace(/\s*\|.*$/u, "").trim();
         if (pageTitle) label.textContent = pageTitle;
       } catch {}
+      render();
     });
 
     const tab = { id, button, panel };

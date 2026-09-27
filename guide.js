@@ -195,6 +195,7 @@
     let movementFrame = 0;
     let idleBehaviorTimer = 0;
     let idleActivityTimer = 0;
+    let desktopTabVisible = true;
     try {
       const savedAutoMove = localStorage.getItem(AUTO_MOVE_KEY);
       autoMove.checked = savedAutoMove === null ? true : savedAutoMove === "true";
@@ -320,7 +321,7 @@
 
     const canPlay = () => {
       const active = document.activeElement;
-      if (!panel.hidden || !autoMove.checked || root.classList.contains("is-guide-auto-moving")) return false;
+      if (!desktopTabVisible || !panel.hidden || !autoMove.checked || root.classList.contains("is-guide-auto-moving")) return false;
       if (active?.matches?.("input, textarea, select, [contenteditable='true']")) return false;
       return !document.body.classList.contains("is-editor-writing-focus");
     };
@@ -432,6 +433,24 @@
       lastInteractionAt = Date.now();
     };
 
+    const stopAmbientTimers = () => {
+      if (autoMoveTimer) window.clearInterval(autoMoveTimer);
+      if (idleBehaviorTimer) window.clearInterval(idleBehaviorTimer);
+      autoMoveTimer = 0;
+      idleBehaviorTimer = 0;
+    };
+
+    const startAmbientTimers = () => {
+      if (!desktopTabVisible || autoMoveTimer || idleBehaviorTimer) return;
+      autoMoveTimer = window.setInterval(wanderAlongEdge, 1200);
+      idleBehaviorTimer = window.setInterval(() => {
+        if (
+          Date.now() - lastInteractionAt >= IDLE_BEHAVIOR_DELAY
+          && Date.now() - lastMovementEndedAt >= IDLE_SETTLE_DELAY
+        ) playIdleBehavior();
+      }, 1400);
+    };
+
     autoMove.addEventListener("change", () => {
       try {
         localStorage.setItem(AUTO_MOVE_KEY, String(autoMove.checked));
@@ -440,14 +459,22 @@
       }
       syncAutoMoveLabel();
       noteInteraction();
+      if (autoMove.checked) startAmbientTimers();
+      else stopAmbientTimers();
     });
-    autoMoveTimer = window.setInterval(wanderAlongEdge, 700);
-    idleBehaviorTimer = window.setInterval(() => {
-      if (
-        Date.now() - lastInteractionAt >= IDLE_BEHAVIOR_DELAY
-        && Date.now() - lastMovementEndedAt >= IDLE_SETTLE_DELAY
-      ) playIdleBehavior();
-    }, 900);
+    startAmbientTimers();
+
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin || event.data?.type !== "desktop-tab-visibility") return;
+      desktopTabVisible = Boolean(event.data.visible);
+      if (!desktopTabVisible) {
+        stopAmbientTimers();
+        stopGuideMotion();
+        return;
+      }
+      lastInteractionAt = Date.now();
+      startAmbientTimers();
+    });
 
     document.addEventListener("pointermove", (event) => {
       pointerPosition = { x: event.clientX, y: event.clientY };
@@ -596,8 +623,7 @@
       chatLog.scrollTop = chatLog.scrollHeight;
     });
     window.addEventListener("beforeunload", () => {
-      window.clearInterval(autoMoveTimer);
-      window.clearInterval(idleBehaviorTimer);
+      stopAmbientTimers();
       window.clearTimeout(playfulTimer);
       window.clearTimeout(cursorNoticeTimer);
       window.cancelAnimationFrame(pointerFrame);
@@ -612,6 +638,12 @@
     window.requestAnimationFrame(moveGuideAwayFromEditorSelectionCount);
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountGuide, { once: true });
-  else mountGuide();
+  const scheduleGuideMount = () => {
+    const start = () => window.setTimeout(mountGuide, 120);
+    if ("requestIdleCallback" in window) window.requestIdleCallback(start, { timeout: 1600 });
+    else window.setTimeout(start, 450);
+  };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", scheduleGuideMount, { once: true });
+  else scheduleGuideMount();
 })();
