@@ -10,6 +10,7 @@
   let split = false;
   let pairedId = null;
   let activePane = "left";
+  let tabCycleIndex = 0;
   let dragId = null;
 
   function sameOriginUrl(value) {
@@ -124,9 +125,9 @@
 
   function cycleTab(direction = 1) {
     if (tabs.length < 2) return;
-    const currentIndex = Math.max(0, tabs.findIndex((tab) => tab.id === activeId));
-    const nextIndex = (currentIndex + direction + tabs.length) % tabs.length;
-    activate(tabs[nextIndex].id, { focusPanel: true });
+    tabCycleIndex = Math.min(Math.max(tabCycleIndex, 0), tabs.length - 1);
+    tabCycleIndex = (tabCycleIndex + direction + tabs.length) % tabs.length;
+    activate(tabs[tabCycleIndex].id, { focusPanel: true });
   }
 
   function closeTab(id) {
@@ -141,6 +142,7 @@
     }
     if (activeId === id) activeId = tabs[Math.max(0, index - 1)].id;
     if (pairedId === id) pairedId = null;
+    tabCycleIndex = Math.min(tabCycleIndex, tabs.length - 1);
     render();
     saveTabState();
   }
