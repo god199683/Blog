@@ -8,6 +8,8 @@
   const tabs = [];
   let activeId = null;
   let split = false;
+  let pairedId = null;
+  let activePane = "left";
   let dragId = null;
 
   function sameOriginUrl(value) {
@@ -68,19 +70,35 @@
   }
 
   function pairedTab() {
-    return tabs.find((tab) => tab.id !== activeId) || null;
+    return getTab(pairedId);
   }
 
   function render() {
-    const pair = split ? pairedTab() : null;
-    if (split && !pair) split = false;
+    let pair = split ? pairedTab() : null;
+    if (split && (!pair || pair.id === activeId)) {
+      pair = tabs.find((tab) => tab.id !== activeId) || null;
+      pairedId = pair?.id || null;
+    }
+    if (split && !pair) {
+      split = false;
+      pairedId = null;
+    }
     panelHost.classList.toggle("is-split", split);
     splitButton.classList.toggle("is-active", split);
     splitButton.setAttribute("aria-pressed", String(split));
 
     tabs.forEach((tab) => {
       const visible = tab.id === activeId || tab.id === pair?.id;
+      const pane = !split
+        ? ""
+        : tab.id === activeId
+          ? activePane
+          : tab.id === pair?.id
+            ? activePane === "left" ? "right" : "left"
+            : "";
       tab.panel.classList.toggle("is-visible", visible);
+      tab.panel.dataset.splitPane = pane;
+      tab.panel.style.order = pane === "left" ? "0" : pane === "right" ? "1" : "";
       tab.button.classList.toggle("is-active", tab.id === activeId);
       tab.button.classList.toggle("is-paired", tab.id === pair?.id);
       tab.panel.contentWindow?.postMessage({ type: "desktop-tab-visibility", visible }, window.location.origin);
@@ -90,6 +108,12 @@
   function activate(id, { focusPanel = false } = {}) {
     const tab = getTab(id);
     if (!tab) return;
+    if (split && id !== activeId) {
+      const previousActiveId = activeId;
+      if (id === pairedId) {
+        pairedId = previousActiveId;
+      }
+    }
     activeId = id;
     render();
     saveTabState();
@@ -116,6 +140,7 @@
       return;
     }
     if (activeId === id) activeId = tabs[Math.max(0, index - 1)].id;
+    if (pairedId === id) pairedId = null;
     render();
     saveTabState();
   }
@@ -164,6 +189,8 @@
         panel.contentDocument?.addEventListener(
           "pointerdown",
           () => {
+            const pane = panel.dataset.splitPane;
+            if (pane) activePane = pane;
             if (activeId !== id) activate(id);
           },
           true
@@ -216,8 +243,15 @@
   }
 
   function toggleSplit() {
-    if (!split && tabs.length < 2) openTab("/");
-    split = !split;
+    if (!split) {
+      if (tabs.length < 2) openTab("/");
+      pairedId = tabs.find((tab) => tab.id !== activeId)?.id || null;
+      activePane = "left";
+      split = Boolean(pairedId);
+    } else {
+      split = false;
+      pairedId = null;
+    }
     render();
     saveTabState();
   }
