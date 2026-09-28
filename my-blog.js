@@ -2068,6 +2068,22 @@ function getTextEpisodeHeading(line = "") {
   return "";
 }
 
+function normalizeTextEpisodeTitle(title = "", digitCount = 1) {
+  const heading = String(title || "").trim();
+  const match = heading.match(
+    /^(?:제\s*)?(\d{1,5})\s*(?:화|편|회)?(?:\s*[-.:：]\s*(.*))?$/u
+  );
+  if (!match) return heading;
+
+  const number = String(Number(match[1]));
+  return number.padStart(digitCount, "0");
+}
+
+function getTextEpisodeNumber(title = "") {
+  const match = String(title || "").trim().match(/^(?:제\s*)?(\d{1,5})\s*(?:화|편|회)?/u);
+  return match ? Number(match[1]) : null;
+}
+
 function splitTextIntoEpisodes(text = "", fallbackTitle = "제목 없는 글") {
   const normalized = String(text || "").replace(/\r\n?/g, "\n");
   const lines = normalized.split("\n");
@@ -2087,7 +2103,22 @@ function splitTextIntoEpisodes(text = "", fallbackTitle = "제목 없는 글") {
     if (bodyText) episodes.push({ title: heading.title, text: bodyText });
   });
 
-  return episodes.length > 0 ? episodes : [{ title: fallbackTitle, text: normalized }];
+  if (episodes.length === 0) return [{ title: fallbackTitle, text: normalized }];
+
+  const digitCount = episodes.length >= 100 ? 3 : episodes.length >= 10 ? 2 : 1;
+  const lastEpisodeNumber = Math.max(
+    0,
+    ...episodes.map((episode) => getTextEpisodeNumber(episode.title) || 0)
+  );
+  return episodes.map((episode) => ({
+    ...episode,
+    title:
+      episode.title === "프롤로그"
+        ? String(0).padStart(digitCount, "0")
+        : episode.title === "에필로그"
+          ? String(lastEpisodeNumber + 1).padStart(digitCount, "0")
+          : normalizeTextEpisodeTitle(episode.title, digitCount),
+  }));
 }
 
 async function createImportedPostsFromFile(file, location) {

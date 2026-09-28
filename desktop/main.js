@@ -89,7 +89,13 @@ function createWindow(startUrl) {
   });
 
   window.webContents.on("before-input-event", (event, input) => {
-    if (!input.control || input.type !== "keyDown") return;
+    if (input.type !== "keyDown") return;
+    if (input.key === "F5" || (input.control && input.key.toLowerCase() === "r")) {
+      event.preventDefault();
+      window.webContents.executeJavaScript("window.desktopTabs?.refreshActiveTab()");
+      return;
+    }
+    if (!input.control) return;
     if (input.key.toLowerCase() === "t") {
       event.preventDefault();
       window.webContents.executeJavaScript("window.desktopTabs?.openTab()");

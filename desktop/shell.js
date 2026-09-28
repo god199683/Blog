@@ -1,6 +1,7 @@
 (() => {
   const tabList = document.querySelector("[data-tab-list]");
   const panelHost = document.querySelector("[data-tab-panels]");
+  const refreshButton = document.querySelector("[data-refresh-tab]");
   const newTabButton = document.querySelector("[data-new-tab]");
   const splitButton = document.querySelector("[data-split-tab]");
   const TAB_STATE_KEY = "blog.desktopTabs.v1";
@@ -201,9 +202,20 @@
     saveTabState();
   }
 
+  function refreshActiveTab() {
+    const activeTab = getTab(activeId);
+    if (!activeTab) return;
+    try {
+      activeTab.panel.contentWindow.location.reload();
+    } catch {
+      activeTab.panel.src = getTabUrl(activeTab);
+    }
+  }
+
+  refreshButton.addEventListener("click", refreshActiveTab);
   newTabButton.addEventListener("click", () => openTab());
   splitButton.addEventListener("click", toggleSplit);
-  window.desktopTabs = { openTab, toggleSplit };
+  window.desktopTabs = { openTab, toggleSplit, refreshActiveTab };
   window.addEventListener("beforeunload", saveTabState);
 
   const savedTabState = readTabState();
