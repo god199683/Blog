@@ -3,6 +3,7 @@
   const panelHost = document.querySelector("[data-tab-panels]");
   const newTabButton = document.querySelector("[data-new-tab]");
   const splitButton = document.querySelector("[data-split-tab]");
+  const TAB_STATE_KEY = "blog.desktopTabs.v1";
   const tabs = [];
   let activeId = null;
   let split = false;
@@ -26,6 +27,44 @@
   }
 
   function getTab(id) { return tabs.find((tab) => tab.id === id); }
+
+  function getTabUrl(tab) {
+    try {
+      return sameOriginUrl(tab.panel.contentWindow?.location?.href || tab.panel.src);
+    } catch {
+      return sameOriginUrl(tab.panel.src);
+    }
+  }
+
+  function saveTabState() {
+    if (tabs.length === 0) return;
+    try {
+      localStorage.setItem(
+        TAB_STATE_KEY,
+        JSON.stringify({
+          activeIndex: Math.max(0, tabs.findIndex((tab) => tab.id === activeId)),
+          split,
+          tabs: tabs.map((tab) => ({ url: getTabUrl(tab) })),
+        })
+      );
+    } catch {
+      // The program can continue even when local storage is unavailable.
+    }
+  }
+
+  function readTabState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(TAB_STATE_KEY) || "null");
+      if (!Array.isArray(saved?.tabs) || saved.tabs.length === 0) return null;
+      return {
+        tabs: saved.tabs.slice(0, 8).map((tab) => sameOriginUrl(tab?.url)),
+        activeIndex: Math.max(0, Number.parseInt(saved.activeIndex, 10) || 0),
+        split: Boolean(saved.split),
+      };
+    } catch {
+      return null;
+    }
+  }
 
   function pairedTab() {
     return tabs.find((tab) => tab.id !== activeId) || null;
@@ -51,6 +90,7 @@
     if (!getTab(id)) return;
     activeId = id;
     render();
+    saveTabState();
   }
 
   function closeTab(id) {
@@ -65,6 +105,7 @@
     }
     if (activeId === id) activeId = tabs[Math.max(0, index - 1)].id;
     render();
+    saveTabState();
   }
 
   function moveTab(draggedId, targetId, placeAfter) {
@@ -77,9 +118,10 @@
     const insertionIndex = adjustedTargetIndex + (placeAfter ? 1 : 0);
     tabs.splice(insertionIndex, 0, dragged);
     tabList.insertBefore(dragged.button, tabs[insertionIndex + 1]?.button || null);
+    saveTabState();
   }
 
-  function openTab(url = "/ebook-reader.html") {
+  function openTab(url = "/", { activateTab = true, persist = true } = {}) {
     const source = sameOriginUrl(url);
     const id = `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const button = document.createElement("div");
@@ -107,6 +149,7 @@
         if (pageTitle) label.textContent = pageTitle;
       } catch {}
       render();
+      saveTabState();
     });
 
     const tab = { id, button, panel };
@@ -145,18 +188,31 @@
     tabList.append(button);
     panelHost.append(panel);
     tabs.push(tab);
-    activate(id);
+    if (activateTab) activate(id);
+    else render();
+    if (persist) saveTabState();
     return tab;
   }
 
   function toggleSplit() {
-    if (!split && tabs.length < 2) openTab("/ebook-reader.html");
+    if (!split && tabs.length < 2) openTab("/");
     split = !split;
     render();
+    saveTabState();
   }
 
   newTabButton.addEventListener("click", () => openTab());
   splitButton.addEventListener("click", toggleSplit);
   window.desktopTabs = { openTab, toggleSplit };
-  openTab("/");
+  window.addEventListener("beforeunload", saveTabState);
+
+  const savedTabState = readTabState();
+  if (savedTabState) {
+    savedTabState.tabs.forEach((url) => openTab(url, { activateTab: false, persist: false }));
+    activeId = tabs[Math.min(savedTabState.activeIndex, tabs.length - 1)]?.id || tabs[0]?.id || null;
+    split = savedTabState.split && tabs.length > 1;
+    render();
+  } else {
+    openTab("/");
+  }
 })();
