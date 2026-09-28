@@ -5706,6 +5706,14 @@ window.addEventListener("pagehide", () => {
   if (editorDraftDirty) saveEditorDraft({ automatic: true });
 });
 
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin || event.data?.type !== "desktop-tab-activated") return;
+  window.requestAnimationFrame(() => {
+    restoreEditorSelection();
+    saveCurrentSelection({ deferToolbar: true });
+  });
+});
+
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden" && editorDraftDirty) {
     saveEditorDraft({ automatic: true });

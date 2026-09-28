@@ -42,10 +42,22 @@ body { background: #eff8fc; color: #163750; }
   color: #55738b;
 }
 
-.desktop-tab.is-active, .desktop-tab.is-paired {
+.desktop-tab.is-paired {
   background: #fff;
   color: #0a5d91;
 }
+
+.desktop-tab.is-active {
+  position: relative;
+  z-index: 1;
+  border-color: #087bb7;
+  background: #087bb7;
+  color: #fff;
+  box-shadow: 0 -2px 0 #07577f;
+}
+
+.desktop-tab.is-active .desktop-tab-close { color: #dff4ff; }
+.desktop-tab.is-active .desktop-tab-close:hover { background: #e4f6ff; color: #075f94; }
 
 .desktop-tab.is-dragging { opacity: 0.45; }
 .desktop-tab.is-drop-target { box-shadow: inset 3px 0 0 #0b95d6; }
@@ -87,6 +99,7 @@ body { background: #eff8fc; color: #163750; }
 .desktop-tab-panels { display: flex; width: 100%; height: calc(100% - 2.55rem); }
 .desktop-panel { display: none; min-width: 0; min-height: 0; flex: 1; border: 0; background: #fff; }
 .desktop-panel.is-visible { display: block; }
+.desktop-panel.is-visible.is-cycle-target { box-shadow: inset 0 0 0 3px #1298d5; }
 .desktop-tab-panels.is-split .desktop-panel.is-visible + .desktop-panel.is-visible { border-left: 1px solid #b9e3fa; }
 
 @media (max-width: 650px) {

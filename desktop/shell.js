@@ -73,6 +73,17 @@
     return getTab(fixedLeftId);
   }
 
+  function focusTabPanel(tab) {
+    if (!tab) return;
+    window.requestAnimationFrame(() => {
+      tab.panel.focus();
+      tab.panel.contentWindow?.postMessage(
+        { type: "desktop-tab-activated" },
+        window.location.origin
+      );
+    });
+  }
+
   function render() {
     let fixedLeft = split ? fixedLeftTab() : null;
     if (split && (!fixedLeft || fixedLeft.id === activeId)) {
@@ -89,6 +100,7 @@
 
     tabs.forEach((tab) => {
       const visible = tab.id === activeId || tab.id === fixedLeft?.id;
+      const isCycleTarget = tab.id === tabs[tabCycleIndex]?.id;
       const pane = !split
         ? ""
         : tab.id === fixedLeft?.id
@@ -97,10 +109,12 @@
             ? "right"
             : "";
       tab.panel.classList.toggle("is-visible", visible);
+      tab.panel.classList.toggle("is-cycle-target", isCycleTarget);
       tab.panel.dataset.splitPane = pane;
       tab.panel.style.order = pane === "left" ? "0" : pane === "right" ? "1" : "";
-      tab.button.classList.toggle("is-active", tab.id === tabs[tabCycleIndex]?.id);
+      tab.button.classList.toggle("is-active", isCycleTarget);
       tab.button.classList.toggle("is-paired", tab.id === fixedLeft?.id);
+      tab.button.setAttribute("aria-current", isCycleTarget ? "page" : "false");
       tab.panel.contentWindow?.postMessage({ type: "desktop-tab-visibility", visible }, window.location.origin);
     });
   }
@@ -115,7 +129,7 @@
     render();
     saveTabState();
     if (focusPanel) {
-      window.requestAnimationFrame(() => tab.panel.focus());
+      focusTabPanel(tab);
     }
   }
 
@@ -129,7 +143,7 @@
     }
     render();
     saveTabState();
-    window.requestAnimationFrame(() => selectedTab.panel.focus());
+    focusTabPanel(selectedTab);
   }
 
   function closeTab(id) {
