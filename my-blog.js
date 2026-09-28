@@ -3,9 +3,8 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
 
 const ALL_NODE_ID = "all";
-const BLOG_PAGE_SIZE_OPTIONS = Object.freeze([5, 10, 20, 30, 40, 50, 100]);
-const BLOG_DEFAULT_PAGE_SIZE = 100;
-const BLOG_MINI_PAGE_SIZE = 5;
+const BLOG_PAGE_SIZE_OPTIONS = Object.freeze([5, 10, 20, 30, 40, 50]);
+const BLOG_DEFAULT_PAGE_SIZE = 5;
 const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
 const BLOG_PARAMS = new URLSearchParams(window.location.search);
 const PUBLIC_BLOG_ID = String(BLOG_PARAMS.get("user") || "").trim();
@@ -53,7 +52,7 @@ const state = {
   listPage: 1,
   miniPage: 1,
   listPageSize: BLOG_DEFAULT_PAGE_SIZE,
-  miniPageSize: BLOG_MINI_PAGE_SIZE,
+  miniPageSize: BLOG_DEFAULT_PAGE_SIZE,
   postSelectionMode: false,
   selectedPostIds: new Set(),
   postRenameQueue: [],
