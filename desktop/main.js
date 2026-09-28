@@ -96,6 +96,11 @@ function createWindow(startUrl) {
       return;
     }
     if (!input.control) return;
+    if (input.key === "Tab") {
+      event.preventDefault();
+      window.webContents.executeJavaScript(`window.desktopTabs?.cycleTab(${input.shift ? -1 : 1})`);
+      return;
+    }
     if (input.key.toLowerCase() === "t") {
       event.preventDefault();
       window.webContents.executeJavaScript("window.desktopTabs?.openTab()");

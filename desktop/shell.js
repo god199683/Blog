@@ -94,6 +94,13 @@
     saveTabState();
   }
 
+  function cycleTab(direction = 1) {
+    if (tabs.length < 2) return;
+    const currentIndex = Math.max(0, tabs.findIndex((tab) => tab.id === activeId));
+    const nextIndex = (currentIndex + direction + tabs.length) % tabs.length;
+    activate(tabs[nextIndex].id);
+  }
+
   function closeTab(id) {
     const index = tabs.findIndex((tab) => tab.id === id);
     if (index < 0) return;
@@ -215,7 +222,7 @@
   refreshButton.addEventListener("click", refreshActiveTab);
   newTabButton.addEventListener("click", () => openTab());
   splitButton.addEventListener("click", toggleSplit);
-  window.desktopTabs = { openTab, toggleSplit, refreshActiveTab };
+  window.desktopTabs = { openTab, toggleSplit, refreshActiveTab, cycleTab };
   window.addEventListener("beforeunload", saveTabState);
 
   const savedTabState = readTabState();
