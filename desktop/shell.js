@@ -87,18 +87,22 @@
     });
   }
 
-  function activate(id) {
-    if (!getTab(id)) return;
+  function activate(id, { focusPanel = false } = {}) {
+    const tab = getTab(id);
+    if (!tab) return;
     activeId = id;
     render();
     saveTabState();
+    if (focusPanel) {
+      window.requestAnimationFrame(() => tab.panel.focus());
+    }
   }
 
   function cycleTab(direction = 1) {
     if (tabs.length < 2) return;
     const currentIndex = Math.max(0, tabs.findIndex((tab) => tab.id === activeId));
     const nextIndex = (currentIndex + direction + tabs.length) % tabs.length;
-    activate(tabs[nextIndex].id);
+    activate(tabs[nextIndex].id, { focusPanel: true });
   }
 
   function closeTab(id) {
@@ -155,6 +159,15 @@
       try {
         const pageTitle = panel.contentDocument?.title?.replace(/\s*\|.*$/u, "").trim();
         if (pageTitle) label.textContent = pageTitle;
+      } catch {}
+      try {
+        panel.contentDocument?.addEventListener(
+          "pointerdown",
+          () => {
+            if (activeId !== id) activate(id);
+          },
+          true
+        );
       } catch {}
       render();
       saveTabState();
