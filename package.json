@@ -22,7 +22,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "assets/ciel-cat-desktop.ico"
+      "icon": "assets/conan-desktop.ico"
     },
     "nsis": {
       "oneClick": false,

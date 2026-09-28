@@ -71,7 +71,7 @@ function createWindow(startUrl) {
     minWidth: 760,
     minHeight: 560,
     autoHideMenuBar: true,
-    icon: path.join(app.getAppPath(), "assets", "ciel-cat.png"),
+    icon: path.join(app.getAppPath(), "assets", "conan-icon.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
