@@ -2036,15 +2036,9 @@ async function insertImportedPost(payload) {
   return Array.isArray(rows) ? rows[0] : rows;
 }
 
-async function createImportedPostFromFile(file, location) {
-  const body = await readFileAsHtml(file);
-  const plainText = htmlToPlainText(body);
-  if (!plainText) {
-    throw new Error("내용이 비어 있습니다.");
-  }
-
+function createImportedPostPayload({ title, body, plainText, location }) {
   return {
-    title: getFileStem(file.name).slice(0, 120),
+    title: String(title || "제목 없는 글").slice(0, 120),
     body,
     category: location.category,
     author: state.id,
@@ -2058,6 +2052,70 @@ async function createImportedPostFromFile(file, location) {
     folder_name: location.folder?.label || null,
     folder_path: location.folder?.path || null,
   };
+}
+
+function getTextEpisodeHeading(line = "") {
+  const heading = String(line || "").trim();
+  if (!heading || heading.length > 120) return "";
+  if (/^(?:프롤로그|에필로그)$/u.test(heading)) return heading;
+  if (/^(?:제\s*)?\d{1,5}\s*(?:화|편|회)(?:\s*[-.:：].*)?$/u.test(heading)) return heading;
+  if (/^\d{3,5}(?:\s*[-.:：].*)?$/u.test(heading)) return heading;
+  return "";
+}
+
+function splitTextIntoEpisodes(text = "", fallbackTitle = "제목 없는 글") {
+  const normalized = String(text || "").replace(/\r\n?/g, "\n");
+  const lines = normalized.split("\n");
+  const headings = lines
+    .map((line, index) => ({ index, title: getTextEpisodeHeading(line) }))
+    .filter((entry) => entry.title);
+
+  if (headings.length < 2) return [{ title: fallbackTitle, text: normalized }];
+
+  const episodes = [];
+  headings.forEach((heading, index) => {
+    const nextIndex = headings[index + 1]?.index ?? lines.length;
+    const leadingText = index === 0 ? lines.slice(0, heading.index).join("\n").trim() : "";
+    const bodyText = [leadingText, lines.slice(heading.index + 1, nextIndex).join("\n").trim()]
+      .filter(Boolean)
+      .join("\n\n");
+    if (bodyText) episodes.push({ title: heading.title, text: bodyText });
+  });
+
+  return episodes.length > 0 ? episodes : [{ title: fallbackTitle, text: normalized }];
+}
+
+async function createImportedPostsFromFile(file, location) {
+  if (getFileExtension(file.name) === "txt") {
+    const fallbackTitle = getFileStem(file.name).slice(0, 120);
+    return splitTextIntoEpisodes(await file.text(), fallbackTitle)
+      .map((episode) => {
+        const plainText = String(episode.text || "").trim();
+        if (!plainText) return null;
+        return createImportedPostPayload({
+          title: episode.title,
+          body: textToHtml(episode.text),
+          plainText,
+          location,
+        });
+      })
+      .filter(Boolean);
+  }
+
+  const body = await readFileAsHtml(file);
+  const plainText = htmlToPlainText(body);
+  if (!plainText) {
+    throw new Error("내용이 비어 있습니다.");
+  }
+
+  return [
+    createImportedPostPayload({
+      title: getFileStem(file.name).slice(0, 120),
+      body,
+      plainText,
+      location,
+    }),
+  ];
 }
 
 async function importFiles(files = []) {
@@ -2075,9 +2133,14 @@ async function importFiles(files = []) {
 
   for (const file of fileList) {
     try {
-      const payload = await createImportedPostFromFile(file, location);
-      await insertImportedPost(payload);
-      importedCount += 1;
+      const payloads = await createImportedPostsFromFile(file, location);
+      if (payloads.length === 0) throw new Error("내용이 비어 있습니다.");
+      for (const payload of payloads) {
+        await insertImportedPost(payload);
+        importedCount += 1;
+        // Leave a frame between large batches so the import dialog stays responsive.
+        if (importedCount % 3 === 0) await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      }
     } catch (error) {
       errors.push(`${file.name}: ${error.message || "불러오지 못했습니다."}`);
     }

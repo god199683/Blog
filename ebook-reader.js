@@ -36,6 +36,7 @@ const state = {
 let swipeState = null;
 let searchRenderTimer = 0;
 let searchIndexWarmGeneration = 0;
+let paginationFrame = 0;
 const ebookSearchTextCache = new WeakMap();
 
 const els = {
@@ -1037,7 +1038,13 @@ function updatePagination() {
 
 function schedulePagination(resetPage = false) {
   if (resetPage) clearPagination();
-  requestAnimationFrame(() => requestAnimationFrame(updatePagination));
+  if (paginationFrame) window.cancelAnimationFrame(paginationFrame);
+  paginationFrame = window.requestAnimationFrame(() => {
+    paginationFrame = window.requestAnimationFrame(() => {
+      paginationFrame = 0;
+      updatePagination();
+    });
+  });
 }
 
 function renderProgress() {
@@ -1063,16 +1070,20 @@ function renderProgress() {
 function enhanceEbookContentTypography() {
   if (!els.content) return;
 
-  els.content.querySelectorAll("p, div, li").forEach((node) => {
-    if (node.closest(".ebook-content-title")) return;
+  const textBlocks = els.content.querySelectorAll("p, div, li");
+  // Very large pasted documents can contain thousands of nested nodes. The first
+  // blocks cover the visible reading area without freezing when a folder opens.
+  for (let index = 0; index < Math.min(textBlocks.length, 700); index += 1) {
+    const node = textBlocks[index];
+    if (node.closest(".ebook-content-title")) continue;
     node.classList.remove("ebook-dialogue-line");
     const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
-    if (!text) return;
+    if (!text) continue;
 
     if (/^[\s"'`\u201c\u201d\u2018\u2019\u300c\u300d\u300e\u300f\u300a\u300b\u3008\u3009\[]/.test(text) && [...text].length >= 28) {
       node.classList.add("ebook-dialogue-line");
     }
-  });
+  }
 }
 
 function renderCurrentPost({ lastPage = false } = {}) {
@@ -1335,30 +1346,9 @@ function getEbookSearchText(post = {}) {
 }
 
 function warmEbookSearchIndex(posts = state.activePosts) {
-  const generation = ++searchIndexWarmGeneration;
-  let index = 0;
-
-  const run = (deadline) => {
-    if (generation !== searchIndexWarmGeneration) return;
-    let processed = 0;
-    while (index < posts.length && (deadline ? deadline.timeRemaining() > 3 : processed < 5)) {
-      getEbookSearchText(posts[index]);
-      index += 1;
-      processed += 1;
-    }
-    if (index >= posts.length) return;
-    if (typeof window.requestIdleCallback === "function") {
-      window.requestIdleCallback(run, { timeout: 500 });
-    } else {
-      window.setTimeout(() => run(null), 16);
-    }
-  };
-
-  if (typeof window.requestIdleCallback === "function") {
-    window.requestIdleCallback(run, { timeout: 250 });
-  } else {
-    window.setTimeout(() => run(null), 16);
-  }
+  // Parsing every post body at folder-open time is expensive, especially for
+  // imported novels. Keep the cache lazy; it is filled only when search runs.
+  searchIndexWarmGeneration += 1;
 }
 
 function scheduleSearchResults() {
