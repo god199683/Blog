@@ -8,8 +8,7 @@
   const tabs = [];
   let activeId = null;
   let split = false;
-  let pairedId = null;
-  let activePane = "left";
+  let fixedLeftId = null;
   let tabCycleIndex = 0;
   let dragId = null;
 
@@ -46,7 +45,7 @@
       localStorage.setItem(
         TAB_STATE_KEY,
         JSON.stringify({
-          activeIndex: Math.max(0, tabs.findIndex((tab) => tab.id === activeId)),
+          activeIndex: tabCycleIndex,
           split,
           tabs: tabs.map((tab) => ({ url: getTabUrl(tab) })),
         })
@@ -70,38 +69,38 @@
     }
   }
 
-  function pairedTab() {
-    return getTab(pairedId);
+  function fixedLeftTab() {
+    return getTab(fixedLeftId);
   }
 
   function render() {
-    let pair = split ? pairedTab() : null;
-    if (split && (!pair || pair.id === activeId)) {
-      pair = tabs.find((tab) => tab.id !== activeId) || null;
-      pairedId = pair?.id || null;
+    let fixedLeft = split ? fixedLeftTab() : null;
+    if (split && (!fixedLeft || fixedLeft.id === activeId)) {
+      fixedLeft = tabs.find((tab) => tab.id !== activeId) || null;
+      fixedLeftId = fixedLeft?.id || null;
     }
-    if (split && !pair) {
+    if (split && !fixedLeft) {
       split = false;
-      pairedId = null;
+      fixedLeftId = null;
     }
     panelHost.classList.toggle("is-split", split);
     splitButton.classList.toggle("is-active", split);
     splitButton.setAttribute("aria-pressed", String(split));
 
     tabs.forEach((tab) => {
-      const visible = tab.id === activeId || tab.id === pair?.id;
+      const visible = tab.id === activeId || tab.id === fixedLeft?.id;
       const pane = !split
         ? ""
-        : tab.id === activeId
-          ? activePane
-          : tab.id === pair?.id
-            ? activePane === "left" ? "right" : "left"
+        : tab.id === fixedLeft?.id
+          ? "left"
+          : tab.id === activeId
+            ? "right"
             : "";
       tab.panel.classList.toggle("is-visible", visible);
       tab.panel.dataset.splitPane = pane;
       tab.panel.style.order = pane === "left" ? "0" : pane === "right" ? "1" : "";
-      tab.button.classList.toggle("is-active", tab.id === activeId);
-      tab.button.classList.toggle("is-paired", tab.id === pair?.id);
+      tab.button.classList.toggle("is-active", tab.id === tabs[tabCycleIndex]?.id);
+      tab.button.classList.toggle("is-paired", tab.id === fixedLeft?.id);
       tab.panel.contentWindow?.postMessage({ type: "desktop-tab-visibility", visible }, window.location.origin);
     });
   }
@@ -109,13 +108,10 @@
   function activate(id, { focusPanel = false } = {}) {
     const tab = getTab(id);
     if (!tab) return;
-    if (split && id !== activeId) {
-      const previousActiveId = activeId;
-      if (id === pairedId) {
-        pairedId = previousActiveId;
-      }
-    }
-    activeId = id;
+    const index = tabs.findIndex((item) => item.id === id);
+    if (index < 0) return;
+    tabCycleIndex = index;
+    if (!split || id !== fixedLeftId) activeId = id;
     render();
     saveTabState();
     if (focusPanel) {
@@ -127,7 +123,13 @@
     if (tabs.length < 2) return;
     tabCycleIndex = Math.min(Math.max(tabCycleIndex, 0), tabs.length - 1);
     tabCycleIndex = (tabCycleIndex + direction + tabs.length) % tabs.length;
-    activate(tabs[tabCycleIndex].id, { focusPanel: true });
+    const selectedTab = tabs[tabCycleIndex];
+    if (!split || selectedTab.id !== fixedLeftId) {
+      activeId = selectedTab.id;
+    }
+    render();
+    saveTabState();
+    window.requestAnimationFrame(() => selectedTab.panel.focus());
   }
 
   function closeTab(id) {
@@ -140,8 +142,10 @@
       openTab("/");
       return;
     }
-    if (activeId === id) activeId = tabs[Math.max(0, index - 1)].id;
-    if (pairedId === id) pairedId = null;
+    if (activeId === id) {
+      activeId = tabs.find((item) => item.id !== fixedLeftId)?.id || tabs[Math.max(0, index - 1)].id;
+    }
+    if (fixedLeftId === id) fixedLeftId = null;
     tabCycleIndex = Math.min(tabCycleIndex, tabs.length - 1);
     render();
     saveTabState();
@@ -191,9 +195,7 @@
         panel.contentDocument?.addEventListener(
           "pointerdown",
           () => {
-            const pane = panel.dataset.splitPane;
-            if (pane) activePane = pane;
-            if (activeId !== id) activate(id);
+            if (!split && activeId !== id) activate(id);
           },
           true
         );
@@ -246,20 +248,21 @@
 
   function toggleSplit() {
     if (!split) {
-      if (tabs.length < 2) openTab("/");
-      pairedId = tabs.find((tab) => tab.id !== activeId)?.id || null;
-      activePane = "left";
-      split = Boolean(pairedId);
+      fixedLeftId = tabs[0]?.id || null;
+      if (tabs.length < 2) openTab("/", { activateTab: false });
+      activeId = tabs.find((tab) => tab.id !== fixedLeftId)?.id || fixedLeftId;
+      tabCycleIndex = 0;
+      split = Boolean(fixedLeftId && activeId && fixedLeftId !== activeId);
     } else {
       split = false;
-      pairedId = null;
+      fixedLeftId = null;
     }
     render();
     saveTabState();
   }
 
   function refreshActiveTab() {
-    const activeTab = getTab(activeId);
+    const activeTab = tabs[tabCycleIndex] || getTab(activeId);
     if (!activeTab) return;
     try {
       activeTab.panel.contentWindow.location.reload();
@@ -277,8 +280,15 @@
   const savedTabState = readTabState();
   if (savedTabState) {
     savedTabState.tabs.forEach((url) => openTab(url, { activateTab: false, persist: false }));
-    activeId = tabs[Math.min(savedTabState.activeIndex, tabs.length - 1)]?.id || tabs[0]?.id || null;
+    tabCycleIndex = Math.min(savedTabState.activeIndex, tabs.length - 1);
+    activeId = tabs[tabCycleIndex]?.id || tabs[0]?.id || null;
     split = savedTabState.split && tabs.length > 1;
+    if (split) {
+      fixedLeftId = tabs[0]?.id || null;
+      if (fixedLeftId === activeId) {
+        activeId = tabs.find((tab) => tab.id !== fixedLeftId)?.id || fixedLeftId;
+      }
+    }
     render();
   } else {
     openTab("/");
