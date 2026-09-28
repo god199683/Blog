@@ -16,6 +16,9 @@ const state = {
   id: "",
   tree: [],
   posts: [],
+  folderDirectPosts: new Map(),
+  folderSubtreePosts: new Map(),
+  folderInfo: new Map(),
   folders: [],
   activeFolderId: "",
   activePosts: [],
@@ -498,8 +501,39 @@ function sortPostsForReading(posts = []) {
     });
 }
 
+function buildFolderPostCaches() {
+  const directPosts = new Map();
+  state.posts.forEach((post) => {
+    const folderId = String(post.folder_id || "");
+    if (!folderId) return;
+    if (!directPosts.has(folderId)) directPosts.set(folderId, []);
+    directPosts.get(folderId).push(post);
+  });
+  directPosts.forEach((posts, folderId) => directPosts.set(folderId, sortPostsForReading(posts)));
+
+  const folderInfo = new Map();
+  const subtreePosts = new Map();
+  const collectNodePosts = (node, path = [], folderDepth = 0) => {
+    const nodeId = String(node.id || "");
+    const nextPath = [...path, node];
+    const nextFolderDepth = node.type === "folder" ? folderDepth + 1 : folderDepth;
+    const posts = node.type === "folder" ? [...(directPosts.get(nodeId) || [])] : [];
+    (node.children || []).forEach((child) => posts.push(...collectNodePosts(child, nextPath, nextFolderDepth)));
+    if (node.type === "folder") {
+      folderInfo.set(nodeId, { path: nextPath, depth: nextFolderDepth });
+      subtreePosts.set(nodeId, posts);
+    }
+    return posts;
+  };
+
+  state.tree.forEach((node) => collectNodePosts(node));
+  state.folderDirectPosts = directPosts;
+  state.folderSubtreePosts = subtreePosts;
+  state.folderInfo = folderInfo;
+}
+
 function getDirectFolderPosts(folderId) {
-  return sortPostsForReading(state.posts.filter((post) => post.folder_id === folderId));
+  return state.folderDirectPosts.get(String(folderId || "")) || [];
 }
 
 function collectFolderPostsInReadingOrder(node = {}, posts = []) {
@@ -511,28 +545,25 @@ function collectFolderPostsInReadingOrder(node = {}, posts = []) {
 }
 
 function getFolderSubtreePosts(folderId) {
-  const found = findNode(state.tree, folderId);
-  if (!found) return [];
-  return collectFolderPostsInReadingOrder(found.node);
+  return state.folderSubtreePosts.get(String(folderId || "")) || [];
 }
 
 function getFolderDepth(folderId) {
-  const found = findNode(state.tree, folderId);
-  if (!found) return 0;
-  return found.path.filter((node) => node.type === "folder").length;
+  return state.folderInfo.get(String(folderId || ""))?.depth || 0;
 }
 
 function getFolderPosts(folderId) {
-  const found = findNode(state.tree, folderId);
-  if (!found || found.node.type !== "folder") return [];
-  return getFolderDepth(folderId) === 1
-    ? collectFolderPostsInReadingOrder(found.node)
-    : getDirectFolderPosts(folderId);
+  const normalizedFolderId = String(folderId || "");
+  const folder = state.folderInfo.get(normalizedFolderId);
+  if (!folder) return [];
+  return getFolderDepth(normalizedFolderId) === 1
+    ? getFolderSubtreePosts(normalizedFolderId)
+    : getDirectFolderPosts(normalizedFolderId);
 }
 
 function getFolderPathById(folderId) {
-  const found = findNode(state.tree, folderId);
-  return found ? getPathLabel(found.path) : "";
+  const folder = state.folderInfo.get(String(folderId || ""));
+  return folder ? getPathLabel(folder.path) : "";
 }
 
 function getPostFolderPath(post = {}) {
@@ -658,6 +689,7 @@ async function loadTreeAndPosts(session) {
     .filter((post) => belongsToUser(post, session, state.id))
     .filter((post) => !trashIds.has(post.id));
   state.posts = mergeReaderDraftPosts(storedPosts);
+  buildFolderPostCaches();
 }
 
 function setMessage(message = "") {
