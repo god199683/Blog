@@ -32,11 +32,18 @@
   function getTab(id) { return tabs.find((tab) => tab.id === id); }
 
   function getTabUrl(tab) {
+    if (!tab.loaded) return tab.source;
     try {
       return sameOriginUrl(tab.panel.contentWindow?.location?.href || tab.panel.src);
     } catch {
-      return sameOriginUrl(tab.panel.src);
+      return tab.source;
     }
+  }
+
+  function loadTab(tab) {
+    if (!tab || tab.loaded) return;
+    tab.loaded = true;
+    tab.panel.src = tab.source;
   }
 
   function saveTabState() {
@@ -108,6 +115,7 @@
           : tab.id === activeId
             ? "right"
             : "";
+      if (visible) loadTab(tab);
       tab.panel.classList.toggle("is-visible", visible);
       tab.panel.classList.toggle("is-cycle-target", isCycleTarget);
       tab.panel.dataset.splitPane = pane;
@@ -198,7 +206,6 @@
 
     const panel = document.createElement("iframe");
     panel.className = "desktop-panel";
-    panel.src = source;
     panel.title = label.textContent;
     panel.addEventListener("load", () => {
       try {
@@ -218,7 +225,7 @@
       saveTabState();
     });
 
-    const tab = { id, button, panel };
+    const tab = { id, button, panel, source, loaded: false };
     label.addEventListener("click", () => activate(id));
     close.addEventListener("click", () => closeTab(id));
     close.addEventListener("dragstart", (event) => event.preventDefault());
@@ -278,6 +285,7 @@
   function refreshActiveTab() {
     const activeTab = tabs[tabCycleIndex] || getTab(activeId);
     if (!activeTab) return;
+    loadTab(activeTab);
     try {
       activeTab.panel.contentWindow.location.reload();
     } catch {
