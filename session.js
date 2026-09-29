@@ -6,6 +6,7 @@
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweWxxeGNtYWpyd3R2dm1ydmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTM2ODMsImV4cCI6MjA5MzU2OTY4M30.v0s8RWMeMwqHGdL_1qey--PQGq67x0ltTojSxfV7T3M";
   const REFRESH_WINDOW_MS = 60 * 1000;
   const APK_DOWNLOAD_PATH = "./Blog.apk?v=1.0.4";
+  const EXE_DOWNLOAD_PATH = "https://github.com/god199683/Blog/releases/latest/download/ciels-blog-setup.exe";
   let refreshInFlight = null;
 
   function readSession() {
@@ -81,6 +82,10 @@
   function isAndroidAppWebView() {
     const ua = navigator.userAgent || "";
     return /BlogAndroidApp/i.test(ua) || /; wv\)/i.test(ua) || /\bwv\b/i.test(ua);
+  }
+
+  function isDesktopApp() {
+    return /Electron\//i.test(navigator.userAgent || "");
   }
 
   function markAppEnvironment() {
@@ -159,22 +164,22 @@
     const actions = document.querySelector("[data-auth-actions]");
     if (!header || !actions) return;
 
-    const existingButton = header.querySelector("[data-apk-download]");
-    if (isAndroidAppWebView()) {
-      existingButton?.remove();
+    const existingGroup = header.querySelector("[data-app-download-group]");
+    if (isAndroidAppWebView() || isDesktopApp()) {
+      existingGroup?.remove();
       return;
     }
-    if (existingButton) return;
+    if (existingGroup) return;
 
-    const link = document.createElement("a");
-    link.className = "auth-button app-download-button";
-    link.href = APK_DOWNLOAD_PATH;
-    link.download = "Blog.apk";
-    link.dataset.apkDownload = "true";
-    link.textContent = "APK";
-    link.title = "앱 파일 다운로드";
-    link.setAttribute("aria-label", "APK 앱 파일 다운로드");
-    header.insertBefore(link, actions);
+    const group = document.createElement("div");
+    group.className = "app-download-group";
+    group.dataset.appDownloadGroup = "true";
+    group.setAttribute("aria-label", "앱 다운로드");
+    group.innerHTML = `
+      <a class="app-download-button" href="${APK_DOWNLOAD_PATH}" download="Blog.apk" aria-label="APK 앱 파일 다운로드" title="Android APK 다운로드">APK</a>
+      <a class="app-download-button" href="${EXE_DOWNLOAD_PATH}" aria-label="EXE 프로그램 다운로드" title="Windows EXE 다운로드">EXE</a>
+    `;
+    header.insertBefore(group, actions);
   }
 
   function renderHeader(session) {

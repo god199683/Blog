@@ -137,9 +137,35 @@ button {
   color: #fff;
 }
 
+.app-download-group {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
 .app-download-button {
-  min-width: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.65rem;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.54rem;
+  color: var(--sky-dark);
+  font-size: 0.78rem;
+  font-weight: 760;
   letter-spacing: 0;
+}
+
+.app-download-button + .app-download-button {
+  border-left: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.app-download-button:hover,
+.app-download-button:focus-visible {
+  background: var(--surface-soft);
 }
 
 .account-name {

@@ -1045,6 +1045,12 @@ function resetPaginationMeasureStyles() {
 function updatePagination() {
   if (!els.content) return;
   const surface = els.content.closest(".ebook-page-surface");
+  const previousPageIndex = state.pageIndex;
+  const previousPageCount = state.pageCount;
+  const shouldPreserveReadingPosition =
+    !Number.isFinite(state.pendingPageIndex)
+    && !state.pendingLastPage
+    && previousPageCount > 1;
   resetPaginationMeasureStyles();
   const width = Math.max(1, Math.floor(els.content.clientWidth || surface?.clientWidth || 1));
   const gap = Math.min(48, Math.max(28, Math.round(width * 0.06)));
@@ -1061,6 +1067,9 @@ function updatePagination() {
   } else if (state.pendingLastPage) {
     state.pageIndex = state.pageCount - 1;
     state.pendingLastPage = false;
+  } else if (shouldPreserveReadingPosition) {
+    const progress = previousPageIndex / Math.max(1, previousPageCount - 1);
+    state.pageIndex = Math.round(progress * Math.max(0, state.pageCount - 1));
   }
   state.pageIndex = Math.min(Math.max(state.pageIndex, 0), state.pageCount - 1);
   els.content.style.transform = `translate3d(${-state.pageIndex * state.pageStep}px, 0, 0)`;
