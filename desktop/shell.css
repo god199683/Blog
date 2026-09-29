@@ -106,3 +106,28 @@ body { background: #eff8fc; color: #163750; }
   .desktop-tab { min-width: 7.2rem; }
   .desktop-tab-actions { gap: 0.12rem; }
 }
+
+@media (max-width: 900px) {
+  .desktop-tabs {
+    gap: 0.28rem;
+    min-height: 2.28rem;
+    padding: 0.24rem 0.34rem 0;
+  }
+
+  .desktop-tab {
+    min-width: 7.1rem;
+    max-width: 11.5rem;
+    height: 1.8rem;
+    padding-left: 0.5rem;
+  }
+
+  .desktop-tab-label { font-size: 0.76rem; }
+
+  .desktop-tab-close,
+  .desktop-tab-action {
+    width: 1.48rem;
+    height: 1.48rem;
+  }
+
+  .desktop-tab-panels { height: calc(100% - 2.28rem); }
+}

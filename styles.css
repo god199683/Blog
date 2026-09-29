@@ -13671,3 +13671,92 @@ body.editor-page.is-editor-writing-focus .editor-surface {
 .ebook-page .ebook-sidebar-head .ebook-opacity-control {
   flex: 0 0 auto;
 }
+
+/* Shared adaptive density: preserve readable text while reflowing controls. */
+@media (max-width: 1040px) {
+  .site-header {
+    min-height: 3.2rem;
+    gap: 0.6rem;
+    padding-inline: 0.75rem;
+  }
+
+  .top-nav a,
+  .auth-button,
+  .account-menu-button {
+    min-height: 1.78rem;
+    padding-inline: 0.58rem;
+    font-size: 0.78rem;
+  }
+
+  :where(.blog-board-actions, .blog-feature-actions, .editor-topbar-actions, .viewer-topbar-actions, .trash-page-actions) {
+    gap: 0.3rem;
+  }
+
+  :where(.blog-board-head h2, .editor-topbar h1, .viewer-book-titleblock h1, .trash-page-topbar h1) {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header {
+    min-height: 3rem;
+    gap: 0.32rem;
+    padding-block: 0.38rem;
+  }
+
+  .brand {
+    gap: 0.38rem;
+    font-size: 0.86rem;
+  }
+
+  .brand-mark {
+    width: 1.7rem;
+    height: 1.7rem;
+  }
+
+  .top-nav,
+  .auth-actions {
+    min-width: 0;
+    gap: 0.2rem;
+  }
+
+  .top-nav a,
+  .auth-button,
+  .account-menu-button {
+    min-height: 1.72rem;
+    padding-inline: 0.48rem;
+    font-size: 0.76rem;
+  }
+
+  :where(.blog-board-actions, .blog-feature-actions, .editor-topbar-actions, .viewer-topbar-actions, .trash-page-actions) {
+    flex-wrap: wrap;
+  }
+
+  .editor-toolbar-row,
+  .viewer-reader-controls,
+  .ebook-toolbar-right {
+    max-width: 100%;
+  }
+
+  .blog-side-panel.is-sidebar-collapsed {
+    width: fit-content;
+    max-height: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .site-header {
+    padding-inline: 0.5rem;
+  }
+
+  .brand > span:last-child {
+    max-width: 8.5rem;
+  }
+
+  .top-nav a,
+  .auth-button,
+  .account-menu-button {
+    padding-inline: 0.4rem;
+    font-size: 0.74rem;
+  }
+}
