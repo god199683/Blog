@@ -316,7 +316,17 @@
 
     const noteInteraction = () => {
       lastInteractionAt = Date.now();
-      stopGuideMotion();
+      if (
+        movementFrame
+        || walkingFrameTimer
+        || playfulTimer
+        || cursorNoticeTimer
+        || idleActivityTimer
+        || root.classList.contains("is-guide-auto-moving")
+        || root.classList.contains("is-guide-being-idle")
+      ) {
+        stopGuideMotion();
+      }
     };
 
     const canPlay = () => {
@@ -477,6 +487,13 @@
     });
 
     document.addEventListener("pointermove", (event) => {
+      if (
+        !desktopTabVisible
+        || !autoMove.checked
+        || !panel.hidden
+        || root.classList.contains("is-guide-dragging")
+        || document.activeElement?.matches?.("input, textarea, select, [contenteditable='true']")
+      ) return;
       pointerPosition = { x: event.clientX, y: event.clientY };
       if (pointerFrame) return;
       pointerFrame = window.requestAnimationFrame(() => {
