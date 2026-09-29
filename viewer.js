@@ -23,6 +23,7 @@ let bookPageCount = 1;
 let bookPageStep = 0;
 let pendingBookPage = params.get("page") || "";
 let paginationFrame = 0;
+let paginationResizeTimer = 0;
 let wheelTurnLockedUntil = 0;
 let touchStartX = 0;
 let touchStartY = 0;
@@ -1093,7 +1094,13 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-window.addEventListener("resize", () => scheduleBookPagination());
+window.addEventListener("resize", () => {
+  window.clearTimeout(paginationResizeTimer);
+  paginationResizeTimer = window.setTimeout(() => {
+    paginationResizeTimer = 0;
+    scheduleBookPagination();
+  }, 140);
+});
 document.fonts?.ready?.then(() => scheduleBookPagination());
 
 updateBookModeUi();

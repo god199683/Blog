@@ -40,6 +40,7 @@ let swipeState = null;
 let searchRenderTimer = 0;
 let searchIndexWarmGeneration = 0;
 let paginationFrame = 0;
+let paginationResizeTimer = 0;
 const ebookSearchTextCache = new WeakMap();
 
 const els = {
@@ -1042,6 +1043,15 @@ function resetPaginationMeasureStyles() {
   els.content.style.columnGap = "";
 }
 
+function applyCurrentPage() {
+  state.pageIndex = Math.min(Math.max(state.pageIndex, 0), state.pageCount - 1);
+  if (els.content) {
+    els.content.style.transform = `translate3d(${-state.pageIndex * state.pageStep}px, 0, 0)`;
+  }
+  renderProgress();
+  syncReaderLocationUrl();
+}
+
 function updatePagination() {
   if (!els.content) return;
   const surface = els.content.closest(".ebook-page-surface");
@@ -1071,10 +1081,7 @@ function updatePagination() {
     const progress = previousPageIndex / Math.max(1, previousPageCount - 1);
     state.pageIndex = Math.round(progress * Math.max(0, state.pageCount - 1));
   }
-  state.pageIndex = Math.min(Math.max(state.pageIndex, 0), state.pageCount - 1);
-  els.content.style.transform = `translate3d(${-state.pageIndex * state.pageStep}px, 0, 0)`;
-  renderProgress();
-  syncReaderLocationUrl();
+  applyCurrentPage();
 }
 
 function schedulePagination(resetPage = false) {
@@ -1231,7 +1238,7 @@ function restoreReaderLocationFromUrl() {
 function nextPage() {
   if (state.pageIndex < state.pageCount - 1) {
     state.pageIndex += 1;
-    updatePagination();
+    applyCurrentPage();
     return;
   }
   selectPost(state.postIndex + 1);
@@ -1240,7 +1247,7 @@ function nextPage() {
 function prevPage() {
   if (state.pageIndex > 0) {
     state.pageIndex -= 1;
-    updatePagination();
+    applyCurrentPage();
     return;
   }
   selectPost(state.postIndex - 1, { lastPage: true });
@@ -1598,13 +1605,19 @@ function bindEvents() {
   els.bookmark?.addEventListener("click", toggleBookmark);
   els.progress?.addEventListener("input", (event) => {
     state.pageIndex = Math.min(Math.max(Number(event.target.value) - 1, 0), state.pageCount - 1);
-    updatePagination();
+    applyCurrentPage();
   });
   els.stage?.addEventListener("touchstart", startSwipe, { passive: true });
   els.stage?.addEventListener("touchmove", moveSwipe, { passive: false });
   els.stage?.addEventListener("touchend", endSwipe, { passive: true });
   els.stage?.addEventListener("touchcancel", cancelSwipe, { passive: true });
-  window.addEventListener("resize", () => schedulePagination(false));
+  window.addEventListener("resize", () => {
+    window.clearTimeout(paginationResizeTimer);
+    paginationResizeTimer = window.setTimeout(() => {
+      paginationResizeTimer = 0;
+      schedulePagination(false);
+    }, 140);
+  });
   window.addEventListener("scroll", scheduleScrollToolbox, { passive: true });
   document.addEventListener("keydown", (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
