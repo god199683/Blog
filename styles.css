@@ -1051,6 +1051,8 @@ body.is-away-locked {
 .blog-side-panel.is-sidebar-collapsed {
   align-items: center;
   gap: 0;
+  min-height: 0;
+  height: fit-content;
   padding: 0.62rem 0.5rem;
 }
 
