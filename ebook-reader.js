@@ -1510,34 +1510,23 @@ async function toggleBookmark() {
   }
 }
 
-async function openWriteEditor() {
-  const session = await getFreshSession();
-  const id = getSessionId(session);
-  if (!id) {
-    state.id = "";
+function openWriteEditor() {
+  const href = getWriteEditorHref();
+  if (!state.id || !href) {
     syncWriteButton();
-    window.location.href = "./login.html";
+    if (!state.id) window.location.href = "./login.html";
     return;
   }
-  state.session = session;
-  state.id = id;
-  syncWriteButton();
-  window.location.href = getWriteEditorHref();
+  window.location.href = href;
 }
 
-async function openEditEditor() {
-  const session = await getFreshSession();
-  const id = getSessionId(session);
+function openEditEditor() {
   const href = getEditEditorHref();
-  if (!id || !href) {
+  if (!state.id || !href) {
     syncEditButton();
-    if (!id) window.location.href = "./login.html";
+    if (!state.id) window.location.href = "./login.html";
     return;
   }
-
-  state.session = session;
-  state.id = id;
-  syncEditButton();
   window.location.href = href;
 }
 
