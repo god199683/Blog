@@ -113,7 +113,7 @@ function createWindow() {
   });
   // Showing only after the splash document is painted prevents a black compositor frame at launch.
   window.webContents.once("did-finish-load", () => setTimeout(reveal, 40));
-  revealTimer = setTimeout(reveal, 1500);
+  revealTimer = setTimeout(reveal, 300);
   window.loadFile(path.join(__dirname, "splash.html"));
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (desktopStartUrl && url.startsWith(desktopStartUrl)) {
@@ -168,8 +168,9 @@ ipcMain.handle("desktop:auto-launch:set", (_event, enabled) => {
 app.whenReady().then(async () => {
   const created = createWindow();
   mainWindow = created.window;
-  await created.ready;
-  desktopStartUrl = await startLocalServer();
+  const serverReady = startLocalServer();
+  const [startUrl] = await Promise.all([serverReady, created.ready]);
+  desktopStartUrl = startUrl;
   loadDesktopShell(mainWindow);
 
   app.on("activate", () => {
