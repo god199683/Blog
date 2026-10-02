@@ -2,6 +2,7 @@
   const CACHE_KEY = "blog.guard.postList.snapshot";
   let pendingTick = false;
   let lastSnapshotText = "";
+  let tabVisible = true;
 
   function readSnapshot() {
     try {
@@ -128,6 +129,7 @@
   }
 
   function scheduleTick() {
+    if (!tabVisible || document.hidden) return;
     if (pendingTick) return;
     pendingTick = true;
     window.requestAnimationFrame(() => {
@@ -142,6 +144,11 @@
     setTimeout(scheduleTick, 900);
   }
 
+  function setTabVisibility(visible) {
+    tabVisible = Boolean(visible);
+    if (tabVisible && !document.hidden) runSoon();
+  }
+
   function initGuard() {
     const root = document.querySelector("[data-blog-board]") || document.body;
     const observer = new MutationObserver(() => scheduleTick());
@@ -150,7 +157,7 @@
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ["hidden", "class", "data-intentional-empty-scope"],
+      attributeFilter: ["hidden", "data-intentional-empty-scope"],
     });
 
     runSoon();
@@ -160,7 +167,10 @@
       if (!document.hidden) runSoon();
     });
     window.addEventListener("online", runSoon);
-    setInterval(scheduleTick, 10000);
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin || event.data?.type !== "desktop-tab-visibility") return;
+      setTabVisibility(event.data.visible);
+    });
   }
 
   if (document.readyState === "loading") {
