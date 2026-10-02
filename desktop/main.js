@@ -62,11 +62,26 @@ function startLocalServer() {
       });
     });
 
-    server.once("error", reject);
-    server.listen(DESKTOP_PORT, "127.0.0.1", () => {
-      const address = server.address();
-      resolve(`http://127.0.0.1:${address.port}/`);
-    });
+    const listen = (port) => {
+      const onError = (error) => {
+        server.off("error", onError);
+        // An older app process can still own the default port. Use a temporary
+        // local port instead of showing a blank window and immediately quitting.
+        if (error?.code === "EADDRINUSE" && port === DESKTOP_PORT) {
+          listen(0);
+          return;
+        }
+        reject(error);
+      };
+      server.once("error", onError);
+      server.listen(port, "127.0.0.1", () => {
+        server.off("error", onError);
+        const address = server.address();
+        resolve(`http://127.0.0.1:${address.port}/`);
+      });
+    };
+
+    listen(DESKTOP_PORT);
   });
 }
 
@@ -95,9 +110,9 @@ function createWindow() {
       resolve(window);
     };
   });
-  window.once("ready-to-show", reveal);
-  window.webContents.once("did-finish-load", reveal);
-  revealTimer = setTimeout(reveal, 500);
+  // Showing only after the splash document is painted prevents a black compositor frame at launch.
+  window.webContents.once("did-finish-load", () => setTimeout(reveal, 40));
+  revealTimer = setTimeout(reveal, 1500);
   window.loadFile(path.join(__dirname, "splash.html"));
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (desktopStartUrl && url.startsWith(desktopStartUrl)) {
@@ -139,11 +154,7 @@ function loadDesktopShell(window) {
   window.loadURL(`${desktopStartUrl}desktop/shell.html`);
 }
 
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
-
-if (!gotSingleInstanceLock) {
-  app.quit();
-} else app.whenReady().then(async () => {
+app.whenReady().then(async () => {
   const created = createWindow();
   mainWindow = created.window;
   await created.ready;
@@ -160,13 +171,6 @@ if (!gotSingleInstanceLock) {
 }).catch((error) => {
   console.error("Failed to start ciel's Blog:", error);
   app.quit();
-});
-
-app.on("second-instance", () => {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
 });
 
 app.on("window-all-closed", () => {
