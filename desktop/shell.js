@@ -4,6 +4,7 @@
   const refreshButton = document.querySelector("[data-refresh-tab]");
   const newTabButton = document.querySelector("[data-new-tab]");
   const splitButton = document.querySelector("[data-split-tab]");
+  const autoLaunchButton = document.querySelector("[data-auto-launch]");
   const TAB_STATE_KEY = "blog.desktopTabs.v1";
   const tabs = [];
   let activeId = null;
@@ -293,9 +294,37 @@
     }
   }
 
+  function syncAutoLaunchButton(enabled) {
+    if (!autoLaunchButton) return;
+    autoLaunchButton.hidden = false;
+    autoLaunchButton.classList.toggle("is-active", Boolean(enabled));
+    autoLaunchButton.setAttribute("aria-pressed", String(Boolean(enabled)));
+    autoLaunchButton.setAttribute("aria-label", enabled ? "자동 실행 끄기" : "자동 실행 켜기");
+    autoLaunchButton.title = enabled ? "Windows 시작 시 자동 실행: 켜짐" : "Windows 시작 시 자동 실행: 꺼짐";
+  }
+
+  async function initAutoLaunch() {
+    if (!window.desktopApp?.getAutoLaunch || !autoLaunchButton) return;
+    try {
+      syncAutoLaunchButton(await window.desktopApp.getAutoLaunch());
+    } catch {
+      autoLaunchButton.hidden = true;
+    }
+  }
+
   refreshButton.addEventListener("click", refreshActiveTab);
   newTabButton.addEventListener("click", () => openTab());
   splitButton.addEventListener("click", toggleSplit);
+  autoLaunchButton?.addEventListener("click", async () => {
+    if (!window.desktopApp?.setAutoLaunch) return;
+    autoLaunchButton.disabled = true;
+    try {
+      syncAutoLaunchButton(await window.desktopApp.setAutoLaunch(autoLaunchButton.getAttribute("aria-pressed") !== "true"));
+    } finally {
+      autoLaunchButton.disabled = false;
+    }
+  });
+  initAutoLaunch();
   window.desktopTabs = { openTab, toggleSplit, refreshActiveTab, cycleTab };
   window.addEventListener("beforeunload", saveTabState);
 

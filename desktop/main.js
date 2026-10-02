@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const fs = require("fs");
 const http = require("http");
 const path = require("path");
@@ -98,6 +98,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
@@ -153,6 +154,16 @@ function loadDesktopShell(window) {
   if (!window || window.isDestroyed() || !desktopStartUrl) return;
   window.loadURL(`${desktopStartUrl}desktop/shell.html`);
 }
+
+ipcMain.handle("desktop:auto-launch:get", () => app.getLoginItemSettings().openAtLogin === true);
+ipcMain.handle("desktop:auto-launch:set", (_event, enabled) => {
+  app.setLoginItemSettings({
+    openAtLogin: Boolean(enabled),
+    path: process.execPath,
+    args: [],
+  });
+  return app.getLoginItemSettings().openAtLogin === true;
+});
 
 app.whenReady().then(async () => {
   const created = createWindow();
