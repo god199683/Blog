@@ -5,6 +5,7 @@ const path = require("path");
 
 let server;
 let desktopStartUrl = "";
+let mainWindow = null;
 const DESKTOP_PORT = 43878;
 
 const MIME_TYPES = {
@@ -51,7 +52,11 @@ function startLocalServer() {
         const extension = path.extname(assetPath).toLowerCase();
         response.writeHead(200, {
           "Content-Type": MIME_TYPES[extension] || "application/octet-stream",
-          "Cache-Control": "no-cache",
+          // Packaged assets do not change while this app version is running.
+          // Caching them avoids re-reading the same large editor bundles on every tab visit.
+          "Cache-Control": extension === ".html"
+            ? "no-cache"
+            : "public, max-age=31536000, immutable",
         });
         fs.createReadStream(assetPath).pipe(response);
       });
@@ -81,7 +86,18 @@ function createWindow() {
     },
   });
 
-  window.once("ready-to-show", () => window.show());
+  let revealTimer = null;
+  let reveal;
+  const ready = new Promise((resolve) => {
+    reveal = () => {
+      if (revealTimer) clearTimeout(revealTimer);
+      if (!window.isDestroyed() && !window.isVisible()) window.show();
+      resolve(window);
+    };
+  });
+  window.once("ready-to-show", reveal);
+  window.webContents.once("did-finish-load", reveal);
+  revealTimer = setTimeout(reveal, 500);
   window.loadFile(path.join(__dirname, "splash.html"));
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (desktopStartUrl && url.startsWith(desktopStartUrl)) {
@@ -115,7 +131,7 @@ function createWindow() {
     }
   });
 
-  return window;
+  return { window, ready };
 }
 
 function loadDesktopShell(window) {
@@ -123,17 +139,34 @@ function loadDesktopShell(window) {
   window.loadURL(`${desktopStartUrl}desktop/shell.html`);
 }
 
-app.whenReady().then(async () => {
-  const window = createWindow();
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else app.whenReady().then(async () => {
+  const created = createWindow();
+  mainWindow = created.window;
+  await created.ready;
   desktopStartUrl = await startLocalServer();
-  loadDesktopShell(window);
+  loadDesktopShell(mainWindow);
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) loadDesktopShell(createWindow());
+    if (BrowserWindow.getAllWindows().length === 0) {
+      const nextWindow = createWindow();
+      mainWindow = nextWindow.window;
+      nextWindow.ready.then(() => loadDesktopShell(mainWindow));
+    }
   });
 }).catch((error) => {
   console.error("Failed to start ciel's Blog:", error);
   app.quit();
+});
+
+app.on("second-instance", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
 });
 
 app.on("window-all-closed", () => {
