@@ -1,6 +1,6 @@
 {
   "name": "ciels-blog-desktop",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "ciel's Blog desktop app",
   "main": "desktop/main.js",
   "scripts": {

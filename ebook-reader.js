@@ -32,6 +32,8 @@ const state = {
   bookmark: null,
   remoteBookmarkSupported: true,
   readerLoaded: false,
+  loadedPostBodies: new Set(),
+  folderLoadGeneration: 0,
   sidebarCollapsed: localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true",
   opacity: Math.min(100, Math.max(0, Number(localStorage.getItem(OPACITY_KEY) ?? 100))),
 };
@@ -677,7 +679,7 @@ async function loadTreeAndPosts(session) {
   const [treeRows, postRows] = await Promise.all([
     treeRequest,
     requestRest(
-      "posts?select=id,title,body,category,folder,folder_id,folder_name,folder_path,author,login_id,user_id,published,published_at,created_at&order=title.asc&limit=1000",
+      "posts?select=id,title,category,folder,folder_id,folder_name,folder_path,author,login_id,user_id,published,published_at,created_at&order=title.asc&limit=1000",
       session.access_token
     ),
   ]);
@@ -690,7 +692,31 @@ async function loadTreeAndPosts(session) {
     .filter((post) => belongsToUser(post, session, state.id))
     .filter((post) => !trashIds.has(post.id));
   state.posts = mergeReaderDraftPosts(storedPosts);
+  state.loadedPostBodies = new Set(state.posts.filter((post) => post.is_draft).map((post) => post.id));
   buildFolderPostCaches();
+}
+
+async function loadPostBodies(posts = []) {
+  const ids = [...new Set(posts
+    .filter((post) => post?.id && !post.is_draft && !state.loadedPostBodies.has(post.id))
+    .map((post) => String(post.id)))];
+  if (ids.length === 0) return;
+
+  const rows = await Promise.all(
+    Array.from({ length: Math.ceil(ids.length / 80) }, (_, index) => {
+      const batch = ids.slice(index * 80, index * 80 + 80);
+      return requestRest(
+        `posts?select=id,body&id=in.(${batch.join(",")})`,
+        state.session?.access_token
+      );
+    })
+  );
+  const bodies = new Map(rows.flat().map((post) => [String(post.id), post.body || ""]));
+  state.posts.forEach((post) => {
+    if (!bodies.has(post.id)) return;
+    post.body = bodies.get(post.id);
+    state.loadedPostBodies.add(post.id);
+  });
 }
 
 function setMessage(message = "") {
@@ -1150,7 +1176,9 @@ function renderCurrentPost({ lastPage = false } = {}) {
       <header class="ebook-content-title">
         <h2>${escapeHtml(post.title)}</h2>
       </header>
-      ${getPostHtml(post)}
+      ${post.is_draft || state.loadedPostBodies.has(post.id)
+        ? getPostHtml(post)
+        : `<p class="ebook-loading-copy">본문을 불러오는 중입니다.</p>`}
     `;
     enhanceEbookContentTypography();
     els.content.querySelectorAll("img").forEach((image) => {
@@ -1183,14 +1211,14 @@ function clearFolderSelection({ updateUrl = true } = {}) {
   }
 }
 
-function selectFolder(folderId, options = {}) {
+async function selectFolder(folderId, options = {}) {
   if (!folderId) {
     clearFolderSelection();
     return;
   }
+  const loadGeneration = ++state.folderLoadGeneration;
   state.activeFolderId = folderId;
   state.activePosts = getFolderPosts(folderId);
-  warmEbookSearchIndex(state.activePosts);
   const postIndex = options.postId ? state.activePosts.findIndex((post) => post.id === options.postId) : -1;
   state.postIndex = postIndex >= 0 ? postIndex : 0;
   if (Number.isFinite(options.pageIndex)) {
@@ -1203,6 +1231,25 @@ function selectFolder(folderId, options = {}) {
   url.searchParams.set("node", folderId);
   history.replaceState(null, "", url);
   if (options.closeDialog !== false) closeFolderDialog();
+
+  const missingBodies = state.activePosts.some((post) => !post.is_draft && !state.loadedPostBodies.has(post.id));
+  if (!missingBodies) {
+    warmEbookSearchIndex(state.activePosts);
+    return;
+  }
+
+  setMessage("선택한 폴더의 본문을 불러오는 중입니다.");
+  try {
+    await loadPostBodies(state.activePosts);
+    if (loadGeneration !== state.folderLoadGeneration || state.activeFolderId !== folderId) return;
+    warmEbookSearchIndex(state.activePosts);
+    renderCurrentPost();
+    setMessage("");
+  } catch (error) {
+    if (loadGeneration === state.folderLoadGeneration) {
+      setMessage(error.message || "본문을 불러오지 못했습니다.");
+    }
+  }
 }
 
 function selectPost(index, options = {}) {
