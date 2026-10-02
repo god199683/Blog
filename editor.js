@@ -9,7 +9,8 @@ const EDITOR_DRAFT_PREFIX = "blog.editorDraft.";
 const EDITOR_FONT_PREFIX = "blog.editorFonts.";
 const BLOG_PENDING_FOCUS_KEY = "blog.pendingPostFocus";
 const EDITOR_SIDE_COLLAPSED_KEY = "blog.editorSidePanelCollapsed";
-const EDITOR_HISTORY_LIMIT = 120;
+const EDITOR_HISTORY_LIMIT = 60;
+const EDITOR_HISTORY_MAX_CHARS = 2_400_000;
 const EDITOR_AUTO_DRAFT_DELAY = 500;
 const EDITOR_PARAMS = new URLSearchParams(window.location.search);
 const EDITOR_TARGET = EDITOR_PARAMS.get("target") === "materials" ? "materials" : "posts";
@@ -3770,6 +3771,14 @@ function resetEditorHistory() {
   editorHistoryIndex = 0;
 }
 
+function trimEditorHistory() {
+  let size = editorHistoryStack.reduce((total, snapshot) => total + snapshot.html.length, 0);
+  while (editorHistoryStack.length > 1 && (editorHistoryStack.length > EDITOR_HISTORY_LIMIT || size > EDITOR_HISTORY_MAX_CHARS)) {
+    size -= editorHistoryStack.shift().html.length;
+  }
+  editorHistoryIndex = Math.min(editorHistoryIndex, editorHistoryStack.length - 1);
+}
+
 function pushEditorHistorySnapshot() {
   if (editorHistoryRestoring || !els.content) return;
   const snapshot = createEditorHistorySnapshot();
@@ -3780,10 +3789,8 @@ function pushEditorHistorySnapshot() {
 
   editorHistoryStack = editorHistoryStack.slice(0, editorHistoryIndex + 1);
   editorHistoryStack.push(snapshot);
-  if (editorHistoryStack.length > EDITOR_HISTORY_LIMIT) {
-    editorHistoryStack.shift();
-  }
   editorHistoryIndex = editorHistoryStack.length - 1;
+  trimEditorHistory();
 }
 
 function scheduleEditorHistorySnapshot() {
