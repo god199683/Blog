@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ciel's Blog</title>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, sans-serif; }
+      html, body { width: 100%; height: 100%; margin: 0; }
+      body { display: grid; place-items: center; background: #eff8fc; color: #126e9d; }
+      .loading { display: flex; align-items: center; gap: 0.7rem; font-weight: 700; }
+      .mark { display: grid; width: 2.25rem; height: 2.25rem; place-items: center; border: 1px solid #9fd8f4; border-radius: 0.55rem; background: #fff; font-size: 1.15rem; }
+      .dot { width: 0.48rem; height: 0.48rem; border-radius: 50%; background: #169bd8; animation: pulse 0.9s ease-in-out infinite alternate; }
+      @keyframes pulse { to { opacity: 0.28; transform: scale(0.72); } }
+    </style>
+  </head>
+  <body>
+    <div class="loading" aria-label="ciel's Blog 시작 중">
+      <span class="mark" aria-hidden="true">C</span>
+      <span>ciel's Blog</span>
+      <span class="dot" aria-hidden="true"></span>
+    </div>
+  </body>
+</html>

@@ -4,6 +4,7 @@ const http = require("http");
 const path = require("path");
 
 let server;
+let desktopStartUrl = "";
 const DESKTOP_PORT = 43878;
 
 const MIME_TYPES = {
@@ -64,12 +65,14 @@ function startLocalServer() {
   });
 }
 
-function createWindow(startUrl) {
+function createWindow() {
   const window = new BrowserWindow({
     width: 1280,
     height: 860,
     minWidth: 760,
     minHeight: 560,
+    show: false,
+    backgroundColor: "#eff8fc",
     autoHideMenuBar: true,
     icon: path.join(app.getAppPath(), "assets", "conan-icon.png"),
     webPreferences: {
@@ -78,9 +81,10 @@ function createWindow(startUrl) {
     },
   });
 
-  window.loadURL(`${startUrl}desktop/shell.html`);
+  window.once("ready-to-show", () => window.show());
+  window.loadFile(path.join(__dirname, "splash.html"));
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(startUrl)) {
+    if (desktopStartUrl && url.startsWith(desktopStartUrl)) {
       window.webContents.executeJavaScript(`window.desktopTabs?.openTab(${JSON.stringify(url)})`);
       return { action: "deny" };
     }
@@ -110,14 +114,22 @@ function createWindow(startUrl) {
       window.webContents.executeJavaScript("window.desktopTabs?.toggleSplit()");
     }
   });
+
+  return window;
+}
+
+function loadDesktopShell(window) {
+  if (!window || window.isDestroyed() || !desktopStartUrl) return;
+  window.loadURL(`${desktopStartUrl}desktop/shell.html`);
 }
 
 app.whenReady().then(async () => {
-  const startUrl = await startLocalServer();
-  createWindow(startUrl);
+  const window = createWindow();
+  desktopStartUrl = await startLocalServer();
+  loadDesktopShell(window);
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(startUrl);
+    if (BrowserWindow.getAllWindows().length === 0) loadDesktopShell(createWindow());
   });
 }).catch((error) => {
   console.error("Failed to start ciel's Blog:", error);
