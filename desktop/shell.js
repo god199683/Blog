@@ -298,9 +298,10 @@
     if (!autoLaunchButton) return;
     autoLaunchButton.hidden = false;
     autoLaunchButton.classList.toggle("is-active", Boolean(enabled));
+    autoLaunchButton.dataset.state = enabled ? "on" : "off";
     autoLaunchButton.setAttribute("aria-pressed", String(Boolean(enabled)));
     autoLaunchButton.setAttribute("aria-label", enabled ? "자동 실행 끄기" : "자동 실행 켜기");
-    autoLaunchButton.title = enabled ? "Windows 시작 시 자동 실행: 켜짐" : "Windows 시작 시 자동 실행: 꺼짐";
+    autoLaunchButton.title = enabled ? "자동 실행: 켜짐" : "자동 실행: 꺼짐";
   }
 
   async function initAutoLaunch() {

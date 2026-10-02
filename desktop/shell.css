@@ -107,6 +107,32 @@ body { background: #eff8fc; color: #163750; }
   .desktop-tab-actions { gap: 0.12rem; }
 }
 
+.desktop-tab-action[data-auto-launch] {
+  position: relative;
+  font-size: 1rem;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.desktop-tab-action[data-auto-launch]::after {
+  position: absolute;
+  right: 0.14rem;
+  bottom: 0.14rem;
+  width: 0.34rem;
+  height: 0.34rem;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: #93a9b8;
+  content: "";
+}
+
+.desktop-tab-action[data-auto-launch].is-active {
+  border-color: #087bb7;
+  background: #087bb7;
+  color: #fff;
+}
+
+.desktop-tab-action[data-auto-launch].is-active::after { background: #8ff0b8; }
+
 @media (max-width: 900px) {
   .desktop-tabs {
     gap: 0.28rem;
