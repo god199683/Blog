@@ -33,6 +33,7 @@ const state = {
   hiddenCategoryIds: new Set(),
   storedTreeData: null,
   editorSaving: false,
+  visibilityChanged: false,
   locationOptions: [],
   pendingLocationKey: "",
 };
@@ -5329,13 +5330,17 @@ async function publishEditorPost(session, values) {
     user_id: session.user?.id,
     reading_time: values.reading_time,
     cover_image: values.cover_image || null,
-    published: values.published,
     published_at: state.editingPost?.published_at || new Date().toISOString(),
     folder: values.folder?.label || null,
     folder_id: values.folder?.id || null,
     folder_name: values.folder?.label || null,
     folder_path: values.folder?.path || null,
   };
+
+  // An ordinary edit must not accidentally change an existing post's visibility.
+  if (!state.editPostId || state.visibilityChanged) {
+    payload.published = values.published;
+  }
 
   Object.keys(payload).forEach((key) => {
     if (payload[key] === undefined || payload[key] === "") {
@@ -5437,6 +5442,10 @@ function getSavedEditorItemId(savedItem = null) {
 
 function buildSavedPostSnapshot(savedItem = null) {
   if (isMaterialEditor() || !savedItem) return null;
+  const published =
+    typeof savedItem.published === "boolean"
+      ? savedItem.published
+      : state.editingPost?.published ?? true;
   return {
     id: savedItem.id || state.editPostId || "",
     title: savedItem.title || els.title?.value || "",
@@ -5451,7 +5460,7 @@ function buildSavedPostSnapshot(savedItem = null) {
     author: savedItem.author || state.id,
     login_id: savedItem.login_id || state.id,
     user_id: savedItem.user_id || getSession()?.user?.id || "",
-    published: savedItem.published !== false,
+    published,
     published_at: savedItem.published_at || savedItem.created_at || new Date().toISOString(),
     created_at: savedItem.created_at || savedItem.published_at || new Date().toISOString(),
   };
@@ -5632,6 +5641,7 @@ async function initEditor() {
   syncActiveLineHeightFromContent();
   resetEditorHistory();
   els.published.checked = source?.published ?? true;
+  state.visibilityChanged = false;
   els.submit.textContent = isMaterialEditor() ? (state.editingMaterial ? "수정" : "저장") : state.editingPost ? "수정" : "게시";
   setEditorSaveState(draft ? "임시 저장 불러옴" : state.editingPost || state.editingMaterial ? "수정 준비" : "임시 저장 준비");
   renderEditorFontOptions();
@@ -5759,6 +5769,7 @@ els.folder.addEventListener("blur", () => {
 els.visibilityButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setPublishedValue(button.dataset.editorVisibility === "public");
+    state.visibilityChanged = true;
     markEditorDirty();
   });
 });
