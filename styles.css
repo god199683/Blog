@@ -3603,6 +3603,8 @@ body.editor-page .editor-color-menu {
   font-family: "a시네마L", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   font-size: 12px;
   line-height: 1.68;
+  /* Server-loaded posts can store line breaks as text nodes instead of <br>. */
+  white-space: pre-wrap;
   outline: none;
 }
 
