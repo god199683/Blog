@@ -2244,6 +2244,39 @@ function cleanEditorHtml(html = "") {
   return template.innerHTML.replace(/\u200b/g, "").trim();
 }
 
+function preserveEditorRootParagraphs(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const output = document.createDocumentFragment();
+  const pending = [];
+  const isBlock = (node) =>
+    node instanceof HTMLElement &&
+    /^(P|DIV|LI|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|UL|OL|TABLE|PRE|HR|FIGURE)$/i.test(node.tagName);
+
+  const flush = () => {
+    if (pending.length === 0) return;
+    const paragraph = document.createElement("p");
+    pending.splice(0).forEach((node) => paragraph.append(node));
+    if (paragraph.textContent.replace(/\u200b/g, "").trim() || paragraph.querySelector("img, video, audio, br")) {
+      output.append(paragraph);
+    }
+  };
+
+  [...template.content.childNodes].forEach((node) => {
+    if (isBlock(node)) {
+      flush();
+      output.append(node);
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE && !node.textContent.trim() && pending.length === 0) return;
+    pending.push(node);
+  });
+  flush();
+
+  template.replaceChildren(output);
+  return template.innerHTML.trim();
+}
+
 function applyDefaultEditorFontHtml(html = "") {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -3258,7 +3291,9 @@ function getReadingTimeLabel(text = "") {
 }
 
 function collectEditorValues() {
-  const body = cleanEditorHtml(applyDefaultEditorFontHtml(cleanEditorHtml(els.content.innerHTML)));
+  const body = preserveEditorRootParagraphs(
+    cleanEditorHtml(applyDefaultEditorFontHtml(cleanEditorHtml(els.content.innerHTML)))
+  );
   const plainText = getPlainTextFromHtml(body);
   const characterCounts = getCharacterCounts(body);
   const folder = getSelectedEditorFolderMeta();
