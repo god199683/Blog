@@ -87,8 +87,10 @@ let locationDialogResolver = null;
 let fontSizeStepPointerActive = false;
 let editorHistoryStack = [];
 let editorHistoryIndex = -1;
+let editorHistoryChars = 0;
 let editorHistoryRestoring = false;
 let editorHistoryTimer = 0;
+let editorSelectionFrame = 0;
 let editorStatsTimer = 0;
 let editorSelectionStatsTimer = 0;
 let editorToolbarTimer = 0;
@@ -429,8 +431,8 @@ async function fetchPostById(postId) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
-async function insertPost(payload) {
-  const session = await getFreshSession();
+async function insertPost(payload, providedSession = null) {
+  const session = providedSession || await getFreshSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
 
@@ -455,8 +457,8 @@ async function insertPost(payload) {
   return Array.isArray(data) ? data[0] : data;
 }
 
-async function updatePost(postId, payload) {
-  const session = await getFreshSession();
+async function updatePost(postId, payload, providedSession = null) {
+  const session = providedSession || await getFreshSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/posts`);
   endpoint.searchParams.set("id", `eq.${postId}`);
@@ -467,7 +469,7 @@ async function updatePost(postId, payload) {
       apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
+      Prefer: "return=minimal",
     },
     body: JSON.stringify(payload),
   });
@@ -479,11 +481,11 @@ async function updatePost(postId, payload) {
     throw new Error(message);
   }
 
-  return Array.isArray(data) ? data[0] : data;
+  return { id: postId, ...payload };
 }
 
-async function insertMaterial(payload) {
-  const session = await getFreshSession();
+async function insertMaterial(payload, providedSession = null) {
+  const session = providedSession || await getFreshSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
 
@@ -508,8 +510,8 @@ async function insertMaterial(payload) {
   return Array.isArray(data) ? data[0] : data;
 }
 
-async function updateMaterial(materialId, payload) {
-  const session = await getFreshSession();
+async function updateMaterial(materialId, payload, providedSession = null) {
+  const session = providedSession || await getFreshSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
   const endpoint = new URL(`${SUPABASE_URL}/rest/v1/blog_materials`);
   endpoint.searchParams.set("id", `eq.${materialId}`);
@@ -523,7 +525,7 @@ async function updateMaterial(materialId, payload) {
       apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
+      Prefer: "return=minimal",
     },
     body: JSON.stringify(payload),
   });
@@ -535,7 +537,7 @@ async function updateMaterial(materialId, payload) {
     throw new Error(message);
   }
 
-  return Array.isArray(data) ? data[0] : data;
+  return { id: materialId, ...payload };
 }
 
 async function fetchMaterialById(materialId) {
@@ -3769,12 +3771,12 @@ function restoreEditorHistorySelection(selectionState) {
 function resetEditorHistory() {
   editorHistoryStack = [createEditorHistorySnapshot()];
   editorHistoryIndex = 0;
+  editorHistoryChars = editorHistoryStack[0].html.length;
 }
 
 function trimEditorHistory() {
-  let size = editorHistoryStack.reduce((total, snapshot) => total + snapshot.html.length, 0);
-  while (editorHistoryStack.length > 1 && (editorHistoryStack.length > EDITOR_HISTORY_LIMIT || size > EDITOR_HISTORY_MAX_CHARS)) {
-    size -= editorHistoryStack.shift().html.length;
+  while (editorHistoryStack.length > 1 && (editorHistoryStack.length > EDITOR_HISTORY_LIMIT || editorHistoryChars > EDITOR_HISTORY_MAX_CHARS)) {
+    editorHistoryChars -= editorHistoryStack.shift().html.length;
   }
   editorHistoryIndex = Math.min(editorHistoryIndex, editorHistoryStack.length - 1);
 }
@@ -3788,7 +3790,9 @@ function pushEditorHistorySnapshot() {
   }
 
   editorHistoryStack = editorHistoryStack.slice(0, editorHistoryIndex + 1);
+  editorHistoryChars = editorHistoryStack.reduce((total, item) => total + item.html.length, 0);
   editorHistoryStack.push(snapshot);
+  editorHistoryChars += snapshot.html.length;
   editorHistoryIndex = editorHistoryStack.length - 1;
   trimEditorHistory();
 }
@@ -4403,6 +4407,15 @@ function handleEditorContentInput(event) {
   scheduleEditorToolbarStateSync();
   markEditorDirty();
   saveCurrentSelection({ deferToolbar: true });
+}
+
+function scheduleEditorSelectionSync() {
+  if (editorSelectionFrame) return;
+  editorSelectionFrame = window.requestAnimationFrame(() => {
+    editorSelectionFrame = 0;
+    saveCurrentSelection({ deferToolbar: true });
+    scheduleEditorSelectionStatsSync();
+  });
 }
 
 function executeEditorCommand(command, value = null) {
@@ -5304,19 +5317,7 @@ function renderColorMenus() {
   syncRememberedColorButtonPreviews();
 }
 
-async function publishEditorPost() {
-  const session = await getFreshSession();
-  const values = collectEditorValues();
-
-  if (!session?.access_token) {
-    throw new Error("로그인이 필요합니다.");
-  }
-  if (!values.title) {
-    throw new Error("제목을 입력해주세요.");
-  }
-  if (!values.plainText) {
-    throw new Error("본문을 입력해주세요.");
-  }
+async function publishEditorPost(session, values) {
 
   const payload = {
     title: values.title,
@@ -5343,7 +5344,9 @@ async function publishEditorPost() {
   });
 
   try {
-    return state.editPostId ? await updatePost(state.editPostId, payload) : await insertPost(payload);
+    return state.editPostId
+      ? await updatePost(state.editPostId, payload, session)
+      : await insertPost(payload, session);
   } catch (error) {
     if (!/column|schema cache|Could not find/i.test(error.message)) {
       throw error;
@@ -5365,23 +5368,13 @@ async function publishEditorPost() {
         delete fallbackPayload[key];
       }
     });
-    return state.editPostId ? updatePost(state.editPostId, fallbackPayload) : insertPost(fallbackPayload);
+    return state.editPostId
+      ? updatePost(state.editPostId, fallbackPayload, session)
+      : insertPost(fallbackPayload, session);
   }
 }
 
-async function publishEditorMaterial() {
-  const session = await getFreshSession();
-  const values = collectEditorValues();
-
-  if (!session?.access_token) {
-    throw new Error("로그인이 필요합니다.");
-  }
-  if (!values.title) {
-    throw new Error("제목을 입력해주세요.");
-  }
-  if (!values.plainText) {
-    throw new Error("본문을 입력해주세요.");
-  }
+async function publishEditorMaterial(session, values) {
 
   const payload = {
     title: values.title,
@@ -5403,7 +5396,9 @@ async function publishEditorMaterial() {
   });
 
   try {
-    return state.editMaterialId ? await updateMaterial(state.editMaterialId, payload) : await insertMaterial(payload);
+    return state.editMaterialId
+      ? await updateMaterial(state.editMaterialId, payload, session)
+      : await insertMaterial(payload, session);
   } catch (error) {
     if (!/column|schema cache|Could not find/i.test(error.message)) {
       throw error;
@@ -5422,7 +5417,9 @@ async function publishEditorMaterial() {
         delete fallbackPayload[key];
       }
     });
-    return state.editMaterialId ? updateMaterial(state.editMaterialId, fallbackPayload) : insertMaterial(fallbackPayload);
+    return state.editMaterialId
+      ? updateMaterial(state.editMaterialId, fallbackPayload, session)
+      : insertMaterial(fallbackPayload, session);
   }
 }
 
@@ -5534,27 +5531,28 @@ async function handleEditorSubmit(event) {
   event.preventDefault();
 
   try {
-    const previewValues = collectEditorValues();
-    if (!(await getFreshSession())?.access_token) {
-      throw new Error("로그인이 필요합니다.");
-    }
-    if (!previewValues.title) {
+    const values = collectEditorValues();
+    if (!values.title) {
       throw new Error("제목을 입력해주세요.");
     }
-    if (!previewValues.plainText) {
+    if (!values.plainText) {
       throw new Error("본문을 입력해주세요.");
     }
 
     setEditorBusy(true);
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료를 수정 중입니다..." : "자료를 저장 중입니다...") : state.editPostId ? "수정 중입니다..." : "게시 중입니다...");
-    const savedItem = isMaterialEditor() ? await publishEditorMaterial() : await publishEditorPost();
+    const session = await getFreshSession();
+    if (!session?.access_token) {
+      throw new Error("로그인이 필요합니다.");
+    }
+    const savedItem = isMaterialEditor()
+      ? await publishEditorMaterial(session, values)
+      : await publishEditorPost(session, values);
     rememberEditedPostFocus(savedItem);
     const returnHref = getEditorReturnHref(savedItem);
     clearEditorDraft();
     setEditorMessage(isMaterialEditor() ? (state.editMaterialId ? "자료 수정이 완료되었습니다." : "자료가 저장되었습니다.") : state.editPostId ? "수정이 완료되었습니다." : "게시가 완료되었습니다.", "success");
-    window.setTimeout(() => {
-      window.location.href = returnHref;
-    }, 70);
+    window.location.href = returnHref;
   } catch (error) {
     setEditorMessage(error.message, "error");
   } finally {
@@ -5665,8 +5663,9 @@ els.form.addEventListener("input", (event) => {
 });
 
 els.content.addEventListener("beforeinput", () => {
-  saveCurrentSelection();
-  pushEditorHistorySnapshot();
+  // The delayed snapshot after input captures the same undo unit without
+  // cloning a long document before every keystroke or drag operation.
+  saveCurrentSelection({ deferToolbar: true });
 });
 els.content.addEventListener("input", handleEditorContentInput);
 els.content.addEventListener("keydown", handleEditorKeydown);
@@ -5674,8 +5673,7 @@ els.content.addEventListener("paste", handleEditorPaste);
 els.content.addEventListener("mouseup", saveCurrentSelection);
 els.content.addEventListener("keyup", () => saveCurrentSelection({ deferToolbar: true }));
 document.addEventListener("selectionchange", () => {
-  saveCurrentSelection({ deferToolbar: true });
-  scheduleEditorSelectionStatsSync();
+  scheduleEditorSelectionSync();
 });
 els.content.addEventListener("mouseup", syncEditorFindPopoverPosition);
 els.content.addEventListener("keyup", syncEditorFindPopoverPosition);
