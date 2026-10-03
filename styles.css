@@ -12151,7 +12151,8 @@ body.is-editor-side-collapsed .editor-grid {
   margin-bottom: 1.32em;
   orphans: 2;
   widows: 2;
-  white-space: normal !important;
+  /* Saved editor paragraphs can contain literal line breaks as well as <br>. */
+  white-space: pre-wrap !important;
 }
 
 .ebook-page-content :where(p, div) {
