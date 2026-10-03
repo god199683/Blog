@@ -2256,6 +2256,7 @@ function preserveEditorRootParagraphs(html = "") {
   const flush = () => {
     if (pending.length === 0) return;
     const paragraph = document.createElement("p");
+    paragraph.style.setProperty("white-space", "pre-wrap");
     pending.splice(0).forEach((node) => paragraph.append(node));
     if (paragraph.textContent.replace(/\u200b/g, "").trim() || paragraph.querySelector("img, video, audio, br")) {
       output.append(paragraph);
@@ -2272,6 +2273,12 @@ function preserveEditorRootParagraphs(html = "") {
     pending.push(node);
   });
   flush();
+
+  output.querySelectorAll?.("p, div, li, blockquote, h1, h2, h3, h4, h5, h6").forEach((node) => {
+    if (node.textContent.replace(/\u200b/g, "").trim() || node.querySelector("br, img, video, audio")) {
+      node.style.setProperty("white-space", "pre-wrap");
+    }
+  });
 
   template.replaceChildren(output);
   return template.innerHTML.trim();
