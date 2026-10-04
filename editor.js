@@ -3300,13 +3300,15 @@ function getReadingTimeLabel(text = "") {
 function collectEditorValues() {
   const rawHtml = els.content.innerHTML;
   const rawPlainText = getPreservedPlainTextFromHtml(rawHtml).trim();
-  let body = preserveEditorRootParagraphs(
-    cleanEditorHtml(applyDefaultEditorFontHtml(cleanEditorHtml(rawHtml)))
-  );
+  // The editor content is already sanitized when it enters the surface.  Running
+  // it through paragraph reconstruction again here changes authored structure
+  // (and can flatten class based colours on a later edit).  Only sanitize once
+  // while retaining the original block and inline markup exactly as authored.
+  let body = cleanEditorHtml(rawHtml);
   let plainText = getPlainTextFromHtml(body);
 
-  // Some older imported posts contain markup that the sanitizer cannot retain.
-  // When visible text exists, preserve it instead of rejecting a valid edit.
+  // Do not reject a visibly populated editor just because legacy markup cannot
+  // be retained. This fallback is deliberately limited to that broken case.
   if (!plainText && rawPlainText) {
     body = textToEditorHtml(rawPlainText);
     plainText = rawPlainText.replace(/\s+/g, " ").trim();
