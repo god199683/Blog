@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, session, shell } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const fs = require("fs");
 const http = require("http");
@@ -9,6 +9,7 @@ let desktopStartUrl = "";
 let mainWindow = null;
 const DESKTOP_PORT = 43878;
 let updateCheckStarted = false;
+const ASSET_CACHE_VERSION_FILE = "desktop-asset-cache-version";
 
 const MIME_TYPES = {
   ".apk": "application/vnd.android.package-archive",
@@ -56,8 +57,10 @@ function startLocalServer() {
           "Content-Type": MIME_TYPES[extension] || "application/octet-stream",
           // Packaged assets do not change while this app version is running.
           // Caching them avoids re-reading the same large editor bundles on every tab visit.
-          "Cache-Control": extension === ".html"
-            ? "no-cache"
+          // HTML, scripts and styles must be revalidated after a desktop update.
+          // Keeping these immutable made a newly installed app run stale UI code.
+          "Cache-Control": [".html", ".css", ".js"].includes(extension)
+            ? "no-cache, no-store, must-revalidate"
             : "public, max-age=31536000, immutable",
         });
         fs.createReadStream(assetPath).pipe(response);
@@ -157,6 +160,26 @@ function loadDesktopShell(window) {
   window.loadURL(`${desktopStartUrl}desktop/shell.html`);
 }
 
+async function clearStaleDesktopAssetCache() {
+  const markerPath = path.join(app.getPath("userData"), ASSET_CACHE_VERSION_FILE);
+  const currentVersion = app.getVersion();
+  let cachedVersion = "";
+  try {
+    cachedVersion = fs.readFileSync(markerPath, "utf8").trim();
+  } catch {
+    // The first launch of a version should clear assets cached by older releases.
+  }
+  if (cachedVersion === currentVersion) return;
+
+  try {
+    await session.defaultSession.clearCache();
+    fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+    fs.writeFileSync(markerPath, currentVersion, "utf8");
+  } catch (error) {
+    console.warn("Could not refresh desktop asset cache:", error?.message || error);
+  }
+}
+
 function startAutomaticUpdates() {
   if (updateCheckStarted || !app.isPackaged) return;
   updateCheckStarted = true;
@@ -192,6 +215,7 @@ ipcMain.handle("desktop:auto-launch:set", (_event, enabled) => {
 });
 
 app.whenReady().then(async () => {
+  await clearStaleDesktopAssetCache();
   const created = createWindow();
   mainWindow = created.window;
   const serverReady = startLocalServer();
