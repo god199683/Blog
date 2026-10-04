@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const fs = require("fs");
 const http = require("http");
 const path = require("path");
@@ -7,6 +8,7 @@ let server;
 let desktopStartUrl = "";
 let mainWindow = null;
 const DESKTOP_PORT = 43878;
+let updateCheckStarted = false;
 
 const MIME_TYPES = {
   ".apk": "application/vnd.android.package-archive",
@@ -155,6 +157,28 @@ function loadDesktopShell(window) {
   window.loadURL(`${desktopStartUrl}desktop/shell.html`);
 }
 
+function startAutomaticUpdates() {
+  if (updateCheckStarted || !app.isPackaged) return;
+  updateCheckStarted = true;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoRunAppAfterInstall = true;
+  autoUpdater.on("error", (error) => {
+    // Update checks must never delay or prevent ordinary app startup.
+    console.warn("Automatic update check failed:", error?.message || error);
+  });
+  autoUpdater.on("update-downloaded", () => {
+    console.info("A ciel's Blog update is ready and will install when the app closes.");
+  });
+
+  // Defer network work until the shell and current tabs are already usable.
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((error) => {
+      console.warn("Automatic update check failed:", error?.message || error);
+    });
+  }, 12_000);
+}
+
 ipcMain.handle("desktop:auto-launch:get", () => app.getLoginItemSettings().openAtLogin === true);
 ipcMain.handle("desktop:auto-launch:set", (_event, enabled) => {
   app.setLoginItemSettings({
@@ -172,6 +196,7 @@ app.whenReady().then(async () => {
   const [startUrl] = await Promise.all([serverReady, created.ready]);
   desktopStartUrl = startUrl;
   loadDesktopShell(mainWindow);
+  startAutomaticUpdates();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
