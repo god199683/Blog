@@ -1,6 +1,6 @@
 {
   "name": "ciels-blog-desktop",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "ciel's Blog desktop app",
   "main": "desktop/main.js",
   "scripts": {
@@ -32,8 +32,8 @@
       "releaseType": "release"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "oneClick": true,
+      "perMachine": false
     }
   },
   "dependencies": {

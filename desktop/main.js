@@ -161,7 +161,9 @@ function startAutomaticUpdates() {
   if (updateCheckStarted || !app.isPackaged) return;
   updateCheckStarted = true;
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // A per-user NSIS install can be replaced silently on the next launch.
+  // This keeps update installers out of the user's way while they are working.
+  autoUpdater.autoInstallEvent = "onNextLaunch";
   autoUpdater.autoRunAppAfterInstall = true;
   autoUpdater.on("error", (error) => {
     // Update checks must never delay or prevent ordinary app startup.
