@@ -3298,10 +3298,20 @@ function getReadingTimeLabel(text = "") {
 }
 
 function collectEditorValues() {
-  const body = preserveEditorRootParagraphs(
-    cleanEditorHtml(applyDefaultEditorFontHtml(cleanEditorHtml(els.content.innerHTML)))
+  const rawHtml = els.content.innerHTML;
+  const rawPlainText = getPreservedPlainTextFromHtml(rawHtml).trim();
+  let body = preserveEditorRootParagraphs(
+    cleanEditorHtml(applyDefaultEditorFontHtml(cleanEditorHtml(rawHtml)))
   );
-  const plainText = getPlainTextFromHtml(body);
+  let plainText = getPlainTextFromHtml(body);
+
+  // Some older imported posts contain markup that the sanitizer cannot retain.
+  // When visible text exists, preserve it instead of rejecting a valid edit.
+  if (!plainText && rawPlainText) {
+    body = textToEditorHtml(rawPlainText);
+    plainText = rawPlainText.replace(/\s+/g, " ").trim();
+  }
+
   const characterCounts = getCharacterCounts(body);
   const folder = getSelectedEditorFolderMeta();
   const category = folder?.category || els.category.value || DEFAULT_CATEGORY;
