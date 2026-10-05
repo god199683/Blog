@@ -217,7 +217,10 @@
         panel.contentDocument?.addEventListener(
           "pointerdown",
           () => {
-            if (!split && activeId !== id) activate(id);
+            // A visible pane can be clicked without changing the right-hand
+            // pane in split view.  Still make the clicked page the selected
+            // tab so the tab bar always reflects where the cursor is working.
+            if (tabs[tabCycleIndex]?.id !== id) activate(id);
           },
           true
         );
