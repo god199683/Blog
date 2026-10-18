@@ -5037,6 +5037,39 @@ function closeAllToolbarMenus() {
   closeEditorMiniMenus();
 }
 
+function openForegroundColorMenuFromShortcut() {
+  const toggle = els.toolbar?.querySelector('[data-color-menu-toggle="foreground"]');
+  const menu = els.toolbar?.querySelector('[data-color-menu="foreground"]');
+  if (!toggle || !menu) return;
+
+  prepareEditorSelectionForToolbar({ holdSelection: true });
+  closeEditorMiniMenus();
+  closeColorMenus("foreground");
+  menu.hidden = false;
+  positionEditorColorMenu(menu, toggle);
+}
+
+function handleEditorColorShortcut(event) {
+  if (!nodeIsInEditor(event.target) || event.repeat || event.metaKey) return false;
+  if (event.code !== "KeyC") return false;
+
+  // Ctrl+Alt+C opens the palette. Alt+Shift+C applies the remembered colour.
+  if (event.ctrlKey && event.altKey && !event.shiftKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    openForegroundColorMenuFromShortcut();
+    return true;
+  }
+  if (event.altKey && event.shiftKey && !event.ctrlKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    prepareEditorSelectionForToolbar({ holdSelection: true });
+    applyRememberedEditorColor("foreground");
+    return true;
+  }
+  return false;
+}
+
 function positionEditorColorMenu(menu, anchor) {
   if (!menu || !anchor || menu.hidden) return;
   const gap = 6;
@@ -5744,6 +5777,8 @@ els.content.addEventListener("keyup", syncEditorFindPopoverPosition);
 els.content.addEventListener("scroll", syncEditorFindPopoverPosition);
 document.addEventListener("selectionchange", syncEditorFindPopoverPosition);
 document.addEventListener("keydown", (event) => {
+  if (handleEditorColorShortcut(event)) return;
+
   const key = String(event.key || "").toLowerCase();
   const isPrimarySave = key === "s" && (event.ctrlKey || event.metaKey) && !event.altKey;
   const isDraftSave = key === "s" && event.altKey && !event.ctrlKey && !event.metaKey;
