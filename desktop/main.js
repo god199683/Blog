@@ -11,6 +11,32 @@ const DESKTOP_PORT = 43878;
 let updateCheckStarted = false;
 const ASSET_CACHE_VERSION_FILE = "desktop-asset-cache-version";
 
+function isTransientTempFileError(error) {
+  if (error?.code !== "ENOENT" || !error?.path) return false;
+  const temporaryRoot = path.resolve(app.getPath("temp"));
+  const missingPath = path.resolve(String(error.path));
+  return missingPath.startsWith(`${temporaryRoot}${path.sep}`);
+}
+
+// The Windows updater can remove its hand-off file before Electron receives a
+// final completion callback. That must not turn a successful app launch into a
+// fatal main-process error dialog.
+process.on("uncaughtException", (error) => {
+  if (isTransientTempFileError(error)) {
+    console.warn("Ignored missing temporary update file:", error.path);
+    return;
+  }
+  console.error("Unhandled main-process error:", error);
+});
+
+process.on("unhandledRejection", (reason) => {
+  if (isTransientTempFileError(reason)) {
+    console.warn("Ignored missing temporary update file:", reason.path);
+    return;
+  }
+  console.error("Unhandled main-process rejection:", reason);
+});
+
 const MIME_TYPES = {
   ".apk": "application/vnd.android.package-archive",
   ".css": "text/css; charset=utf-8",
