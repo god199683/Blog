@@ -12299,17 +12299,20 @@ body.is-editor-side-collapsed .editor-grid {
 }
 
 .ebook-post-nav {
-  width: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.24rem;
+  min-width: 4.35rem;
   height: 1.75rem;
   min-height: 1.75rem;
-  padding: 0;
-  font-size: 0.86rem;
+  padding: 0 0.46rem;
+  font-size: 0.72rem;
   line-height: 1;
 }
 
 .ebook-post-nav span {
-  display: grid;
-  place-items: center;
+  white-space: nowrap;
 }
 
 .ebook-message {

@@ -1123,6 +1123,8 @@ function schedulePagination(resetPage = false) {
 
 function renderProgress() {
   const post = state.activePosts[state.postIndex] || null;
+  const previousPost = state.activePosts[state.postIndex - 1] || null;
+  const nextPost = state.activePosts[state.postIndex + 1] || null;
   const folder = getActiveFolder();
   if (els.folderPath) els.folderPath.textContent = post ? getPostFolderPath(post) : folder ? folder.path : "폴더를 선택해주세요.";
   if (els.title) els.title.textContent = post?.title || "책 뷰어";
@@ -1134,8 +1136,18 @@ function renderProgress() {
   }
   if (els.prevPage) els.prevPage.disabled = state.pageIndex <= 0 && state.postIndex <= 0;
   if (els.nextPage) els.nextPage.disabled = state.pageIndex >= state.pageCount - 1 && state.postIndex >= state.activePosts.length - 1;
-  if (els.prevPost) els.prevPost.disabled = state.postIndex <= 0;
-  if (els.nextPost) els.nextPost.disabled = state.postIndex >= state.activePosts.length - 1;
+  if (els.prevPost) {
+    els.prevPost.disabled = !previousPost;
+    const label = previousPost ? `이전 편: ${previousPost.title}` : "이전 편 없음";
+    els.prevPost.title = label;
+    els.prevPost.setAttribute("aria-label", label);
+  }
+  if (els.nextPost) {
+    els.nextPost.disabled = !nextPost;
+    const label = nextPost ? `다음 편: ${nextPost.title}` : "다음 편 없음";
+    els.nextPost.title = label;
+    els.nextPost.setAttribute("aria-label", label);
+  }
   syncWriteButton();
   syncSearchButton();
   syncBookmarkButton();
